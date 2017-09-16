@@ -31,7 +31,7 @@ func EmptyResource() *Resource {
 	return &Resource{
 		MilliCPU: 0,
 		Memory: 0,
-		NvidiaGPU: 0
+		NvidiaGPU: 0,
 	}
 }
 
@@ -43,6 +43,6 @@ func NewResource(rl v1.ResourceList) {
 	return &Resource{
 		MilliCPU: float64(cpu.MilliValue()),
 		Memory: float64(mem.Value()),
-		NvidiaGPU: int64(gpu)
+		NvidiaGPU: int64(gpu),
 	}
 }
