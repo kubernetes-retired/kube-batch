@@ -18,7 +18,6 @@ package schedulercache
 
 import (
 	"k8s.io/api/core/v1"
-
 )
 
 type Resource struct {
@@ -43,6 +42,6 @@ func NewResource(rl v1.ResourceList) {
 	return &Resource{
 		MilliCPU: float64(cpu.MilliValue()),
 		Memory: float64(mem.Value()),
-		NvidiaGPU: int64(gpu),
+		NvidiaGPU: int64(gpu.Value()),
 	}
 }
