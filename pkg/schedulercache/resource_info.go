@@ -16,5 +16,33 @@ limitations under the License.
 
 package schedulercache
 
+import (
+	"k8s.io/api/core/v1"
+
+)
+
 type Resource struct {
+	MilliCPU float64
+	Memory float64
+	NvidiaGPU int64
+}
+
+func EmptyResource() *Resource {
+	return &Resource{
+		MilliCPU: 0,
+		Memory: 0,
+		NvidiaGPU: 0
+	}
+}
+
+func NewResource(rl v1.ResourceList) {
+	cpu := rl[v1.ResourceCPU]
+	mem := rl[v1.ResourceMemory]
+	gpu := rl[v1.ResourceNvidiaGPU]
+
+	return &Resource{
+		MilliCPU: float64(cpu.MilliValue()),
+		Memory: float64(mem.Value()),
+		NvidiaGPU: int64(gpu)
+	}
 }
