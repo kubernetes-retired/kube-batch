@@ -19,26 +19,26 @@ package schedulercache
 import (
 	"fmt"
 	"math"
-	
+
 	"k8s.io/api/core/v1"
 )
 
 type Resource struct {
 	MilliCPU float64
-	Memory float64
+	Memory   float64
 }
 
 func EmptyResource() *Resource {
 	return &Resource{
 		MilliCPU: 0,
-		Memory: 0,
+		Memory:   0,
 	}
 }
 
 func CopyResource(r *Resource) *Resource {
 	return &Resource{
 		MilliCPU: r.MilliCPU,
-		Memory: r.Memory,
+		Memory:   r.Memory,
 	}
 }
 
@@ -48,10 +48,10 @@ var minMemory float64 = 10 * 1024 * 1024
 func NewResource(rl v1.ResourceList) {
 	cpu := rl[v1.ResourceCPU]
 	mem := rl[v1.ResourceMemory]
-	
+
 	return &Resource{
 		MilliCPU: float64(cpu.MilliValue()),
-		Memory: float64(mem.Value()),
+		Memory:   float64(mem.Value()),
 	}
 }
 
@@ -62,7 +62,7 @@ func (r *Resource) IsEmpty() bool {
 func (r *Resource) Add(rr *Resource) *Resource {
 	r.MilliCPU += rr.MilliCPU
 	r.Memory += rr.Memory
-	return r	
+	return r
 }
 
 func (r *Resource) Sub(rr *Resource) {
@@ -76,8 +76,8 @@ func (r *Resource) Less(rr *Resource) bool {
 }
 
 func (r *Resource) LessEqual(rr *Resource) bool {
-	return (r.MilliCPU < rr.MilliCPU || math.Abs(rr.MilliCPU - r.MilliCPU) < 0.01) && 
-	(r.Memory < rr.Memory || math.Abs(rr.Memory -r.Memory) < 1) 
+	return (r.MilliCPU < rr.MilliCPU || math.Abs(rr.MilliCPU-r.MilliCPU) < 0.01) &&
+		(r.Memory < rr.Memory || math.Abs(rr.Memory-r.Memory) < 1)
 }
 
 func (r *Resource) String() string {
