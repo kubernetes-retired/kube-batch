@@ -45,7 +45,7 @@ func CopyResource(r *Resource) *Resource {
 var minMilliCPU float64 = 10
 var minMemory float64 = 10 * 1024 * 1024
 
-func NewResource(rl v1.ResourceList) {
+func NewResource(rl v1.ResourceList) *Resource {
 	cpu := rl[v1.ResourceCPU]
 	mem := rl[v1.ResourceMemory]
 
@@ -65,7 +65,7 @@ func (r *Resource) Add(rr *Resource) *Resource {
 	return r
 }
 
-func (r *Resource) Sub(rr *Resource) {
+func (r *Resource) Sub(rr *Resource) *Resource {
 	r.MilliCPU -= rr.MilliCPU
 	r.Memory -= rr.Memory
 	return r
@@ -81,5 +81,5 @@ func (r *Resource) LessEqual(rr *Resource) bool {
 }
 
 func (r *Resource) String() string {
-	return fmt.sPrintf("cpu %f, memory %f", r.MilliCPU, r.Memory)
+	return fmt.Sprintf("cpu %f, memory %f", r.MilliCPU, r.Memory)
 }
