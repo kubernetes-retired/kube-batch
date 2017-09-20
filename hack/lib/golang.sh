@@ -112,6 +112,10 @@ else
   # Which platforms we should compile test targets for. Not all client platforms need these tests
   readonly KUBE_TEST_PLATFORMS=(
     linux/amd64
+    linux/arm
+    linux/arm64
+    linux/s390x
+    linux/ppc64le
     darwin/amd64
     windows/amd64
   )
@@ -134,12 +138,10 @@ kube::golang::test_targets() {
     cmd/genkubedocs
     cmd/genman
     cmd/genyaml
-    cmd/mungedocs
     cmd/genswaggertypedocs
     cmd/linkcheck
     federation/cmd/genfeddocs
     vendor/github.com/onsi/ginkgo/ginkgo
-    test/e2e/e2e.test
   )
   echo "${targets[@]}"
 }
@@ -148,14 +150,9 @@ readonly KUBE_TEST_BINARIES=("${KUBE_TEST_TARGETS[@]##*/}")
 readonly KUBE_TEST_BINARIES_WIN=("${KUBE_TEST_BINARIES[@]/%/.exe}")
 # If you update this list, please also update build/BUILD.
 readonly KUBE_TEST_PORTABLE=(
-  test/e2e/testing-manifests
   test/kubemark
   federation/develop
-  hack/e2e.go
-  hack/e2e-internal
   hack/get-build.sh
-  hack/ginkgo-e2e.sh
-  hack/federated-ginkgo-e2e.sh
   hack/lib
 )
 
@@ -168,10 +165,6 @@ kube::golang::server_test_targets() {
     cmd/kubemark
     vendor/github.com/onsi/ginkgo/ginkgo
   )
-
-  if [[ "${OSTYPE:-}" == "linux"* ]]; then
-    targets+=( test/e2e_node/e2e_node.test )
-  fi
 
   echo "${targets[@]}"
 }
@@ -210,7 +203,6 @@ readonly KUBE_STATIC_LIBRARIES=(
 
 # Add any files with those //generate annotations in the array below.
 readonly KUBE_BINDATAS=(
-  test/e2e/generated/gobindata_util.go
 )
 
 kube::golang::is_statically_linked_library() {
@@ -384,7 +376,7 @@ kube::golang::setup_env() {
   # Unset GOBIN in case it already exists in the current session.
   unset GOBIN
 
-  # This seems to matter to some tools (godep, ugorji, ginkgo...)
+  # This seems to matter to some tools (godep, ginkgo...)
   export GO15VENDOREXPERIMENT=1
 }
 
