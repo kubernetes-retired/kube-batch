@@ -144,11 +144,17 @@ type ScheduledQueueInfo struct {
 
 Preemption is used to reclaim resource for overused queue. It is responsible for two things for each `ScheduledQueueInfo`:
 
-* Update `Deserved` `Allocated` in `ScheduledQueueInfo` into Queue. Preemption will update Queue no matter it underused or not.
-* Kill running pods in `Pods` in `ScheduledQueueInfo` if it is overused(`Used` > `Deserved`). Preemption will kill a running pod randomly and then check if total resources used by left running pods is less than `Deserved`. If not, kill a running pod randomly and check again. "Randomly" is not a efficient way to choose pod, need improve this later.
+* Update Queue
+* Kill running pods if needed
+
+Details of preemption
+
+* Update `Deserved` `Allocated` in `ScheduledQueueInfo` into Queue for those `ScheduledQueueInfo` which `Deserved` < `Allocated`
+* Kill running pods in `Pods` in `ScheduledQueueInfo` if it is overused(`Used` > `Deserved`). Preemption will kill a running pod randomly and then check if `Used` <= `Deserved`. If not, kill a running pod randomly and check again. "Randomly" is not a efficient way to choose pod, need improve this later.
+* Update Update `Deserved` `Allocated` in `ScheduledQueueInfo` into Queue for those `ScheduledQueueInfo` which `Deserved` >= `Allocated`
 
 ```
-Take following queue as a sample
+Take following queue as a sample for killing pod
 --------------------------------------------------------------------------
 | Queue-1                                                                |
 |    Weight: 2                                                           |
