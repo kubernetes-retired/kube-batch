@@ -33,7 +33,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	clientset "k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 )
@@ -133,16 +132,16 @@ func prepareResourceQuota(cs *clientset.Clientset) error {
 }
 
 // prepareCRD prepare customer resource definition "ResourceQuotaAllocator"
-// create two ResourceQuotaAllocator, "allocator01" and "allocator02"
-// "allocator01" is under namespace "ns01" and has attribute "weight=1"
-// "allocator02" is under namespace "ns02" and has attribute "weight=2"
+// create two ResourceQuotaAllocator, "queue01" and "queue02"
+// "queue01" is under namespace "ns01" and has attribute "weight=1"
+// "queue02" is under namespace "ns02" and has attribute "weight=2"
 func prepareCRD(config *restclient.Config) error {
 	extensionscs, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("fail to create crd config, %#v", err)
 	}
 
-	_, err = client.CreateResourceQuotaAllocatorCRD(extensionscs)
+	_, err = client.CreateQueueCRD(extensionscs)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("fail to create crd, %#v", err)
 	}
@@ -152,32 +151,28 @@ func prepareCRD(config *restclient.Config) error {
 		return fmt.Errorf("fail to create crd client, %#v", err)
 	}
 
-	crd01 := &apiv1.ResourceQuotaAllocator{
+	crd01 := &apiv1.Queue{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "allocator01",
+			Name:      "queue01",
 			Namespace: "ns01",
 		},
-		Spec: apiv1.ResourceQuotaAllocatorSpec{
-			Share: map[string]intstr.IntOrString{
-				"weight": intstr.FromInt(1),
-			},
+		Spec: apiv1.QueueSpec{
+			Weight: 1,
 		},
 	}
-	crd02 := &apiv1.ResourceQuotaAllocator{
+	crd02 := &apiv1.Queue{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "allocator02",
+			Name:      "queue02",
 			Namespace: "ns02",
 		},
-		Spec: apiv1.ResourceQuotaAllocatorSpec{
-			Share: map[string]intstr.IntOrString{
-				"weight": intstr.FromInt(2),
-			},
+		Spec: apiv1.QueueSpec{
+			Weight: 2,
 		},
 	}
 
-	var result apiv1.ResourceQuotaAllocator
+	var result apiv1.Queue
 	err = crdClient.Post().
-		Resource(apiv1.ResourceQuotaAllocatorPlural).
+		Resource(apiv1.QueuePlural).
 		Namespace(crd01.Namespace).
 		Body(crd01).
 		Do().Into(&result)
@@ -185,7 +180,7 @@ func prepareCRD(config *restclient.Config) error {
 		return fmt.Errorf("fail to create crd crd01, %#v", err)
 	}
 	err = crdClient.Post().
-		Resource(apiv1.ResourceQuotaAllocatorPlural).
+		Resource(apiv1.QueuePlural).
 		Namespace(crd02.Namespace).
 		Body(crd02).
 		Do().Into(&result)
@@ -227,7 +222,7 @@ func TestArbitrator(t *testing.T) {
 	defer close(neverStop)
 	cache := schedulercache.New(config)
 	go cache.Run(neverStop)
-	c := controller.NewResourceQuotaAllocatorController(config, cache, proportion.New())
+	c := controller.NewQueueController(config, cache, proportion.New())
 	go c.Run()
 
 	// sleep to wait scheduler finish

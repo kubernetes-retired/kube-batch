@@ -19,43 +19,66 @@ package controller
 import (
 	"time"
 
+	"github.com/golang/glog"
+	apiv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/policy"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/schedulercache"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
-	clientcache "k8s.io/client-go/tools/cache"
 )
 
-type ResourceQuotaAllocatorController struct {
+type QueueController struct {
+	config       *rest.Config
 	cache        schedulercache.Cache
 	allocator    policy.Interface
 	quotaManager *quotaManager
 }
 
-func NewResourceQuotaAllocatorController(config *rest.Config, cache schedulercache.Cache, allocator policy.Interface) *ResourceQuotaAllocatorController {
-	rqaController := &ResourceQuotaAllocatorController{
+func NewQueueController(config *rest.Config, cache schedulercache.Cache, allocator policy.Interface) *QueueController {
+	queueController := &QueueController{
+		config:    config,
 		cache:     cache,
 		allocator: allocator,
 		quotaManager: &quotaManager{
 			config: config,
-			queue:  clientcache.NewFIFO(quotaKeyFunc),
 		},
 	}
 
-	return rqaController
+	return queueController
 }
 
-func (r *ResourceQuotaAllocatorController) Run() {
-	go r.quotaManager.run()
-	wait.Until(r.runOnce, 2*time.Second, wait.NeverStop)
+func (q *QueueController) Run() {
+	go q.quotaManager.Run()
+	wait.Until(q.runOnce, 2*time.Second, wait.NeverStop)
 }
 
-func (r *ResourceQuotaAllocatorController) runOnce() {
-	snapshot := r.cache.Dump()
-	jobGroups := r.allocator.Group(snapshot.Allocators)
-	allocations := r.allocator.Allocate(jobGroups, snapshot.Nodes)
-	for _, alloc := range allocations {
-		r.quotaManager.updateQuota(alloc)
+func (q *QueueController) runOnce() {
+	snapshot := q.cache.Dump()
+	jobGroups := q.allocator.Group(snapshot.Queues)
+	queues := q.allocator.Allocate(jobGroups, snapshot.Nodes)
+
+	q.updateQueues(queues)
+}
+
+func (q *QueueController) updateQueues(queues map[string]*schedulercache.QueueInfo) {
+	queueClient, _, err := client.NewClient(q.config)
+	if err != nil {
+		glog.Error("fail to create queue client")
+		return
+	}
+
+	for _, queue := range queues {
+		result := apiv1.Queue{}
+		err = queueClient.Put().
+			Resource(apiv1.QueuePlural).
+			Namespace(queue.Queue().Namespace).
+			Name(queue.Queue().Name).
+			Body(queue.Queue()).
+			Do().Into(&result)
+		if err != nil {
+			glog.Errorf("fail to update queue info, name %s, %#v", queue.Queue().Name, err)
+		}
 	}
 }
