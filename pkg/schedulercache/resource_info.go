@@ -78,9 +78,7 @@ func (r *Resource) Add(rr *Resource) *Resource {
 	return r
 }
 
-//This is a function to Subtract two Resource objects.
-//Less() is used to determine if the first object has enough resources to subtract from the other.
-//Panic is raised if the Resource is insufficient.
+//A function to Subtract two Resource objects.
 func (r *Resource) Sub(rr *Resource) *Resource {
 	if r.Less(rr) == false {
 		r.MilliCPU -= rr.MilliCPU
