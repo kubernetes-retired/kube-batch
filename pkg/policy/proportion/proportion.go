@@ -18,6 +18,7 @@ package proportion
 
 import (
 	"github.com/golang/glog"
+
 	apiv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/policy"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/schedulercache"
@@ -25,25 +26,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+// PolicyName is the name of proportion policy; it'll be use for any case
+// that need a name, e.g. default policy, register proportion policy.
+var PolicyName = "proportion"
+
+func init() {
+	policy.RegisterPolicy(PolicyName, &proportionScheduler{})
+}
+
 type proportionScheduler struct {
-	name string
-}
-
-func New() policy.Interface {
-	return newProportionScheduler("proportion-scheduler")
-}
-
-func newProportionScheduler(name string) *proportionScheduler {
-	return &proportionScheduler{
-		name: name,
-	}
 }
 
 func (ps *proportionScheduler) Name() string {
-	if ps == nil {
-		return ""
-	}
-	return ps.name
+	return PolicyName
 }
 
 func (ps *proportionScheduler) Initialize() {
@@ -51,20 +46,20 @@ func (ps *proportionScheduler) Initialize() {
 }
 
 func (ps *proportionScheduler) Group(
-	jobs []*schedulercache.ResourceQuotaAllocatorInfo,
-) map[string][]*schedulercache.ResourceQuotaAllocatorInfo {
-	groups := make(map[string][]*schedulercache.ResourceQuotaAllocatorInfo)
+	jobs []*schedulercache.QueueInfo,
+) map[string][]*schedulercache.QueueInfo {
+	groups := make(map[string][]*schedulercache.QueueInfo)
 	for _, job := range jobs {
-		groups[job.Allocator().Namespace] = append(groups[job.Allocator().Namespace], job)
+		groups[job.Queue().Namespace] = append(groups[job.Queue().Namespace], job)
 	}
 
 	return groups
 }
 
 func (ps *proportionScheduler) Allocate(
-	jobGroup map[string][]*schedulercache.ResourceQuotaAllocatorInfo,
+	jobGroup map[string][]*schedulercache.QueueInfo,
 	nodes []*schedulercache.NodeInfo,
-) map[string]*schedulercache.ResourceQuotaAllocatorInfo {
+) map[string]*schedulercache.QueueInfo {
 	totalCPU := int64(0)
 	totalMEM := int64(0)
 	for _, node := range nodes {
@@ -82,9 +77,7 @@ func (ps *proportionScheduler) Allocate(
 	totalWeight := int64(0)
 	for _, jobs := range jobGroup {
 		for _, job := range jobs {
-			if weight, ok := job.Allocator().Spec.Share["weight"]; ok {
-				totalWeight += int64(weight.IntValue())
-			}
+			totalWeight += int64(job.Queue().Spec.Weight)
 		}
 	}
 	glog.V(4).Infof("proportion scheduler, total cpu %d, total memory %d, total weight %d", totalCPU, totalMEM, totalWeight)
@@ -94,17 +87,19 @@ func (ps *proportionScheduler) Allocate(
 		return nil
 	}
 
-	allocatedResult := make(map[string]*schedulercache.ResourceQuotaAllocatorInfo)
+	allocatedResult := make(map[string]*schedulercache.QueueInfo)
 	for _, jobs := range jobGroup {
 		for _, job := range jobs {
-			if weight, ok := job.Allocator().Spec.Share["weight"]; ok {
-				allocatedResult[job.Name()] = job.Clone()
-				allocatedResult[job.Name()].Allocator().Status.Share = apiv1.ResourceList{
-					Resources: map[apiv1.ResourceName]resource.Quantity{
-						"cpu":    *resource.NewQuantity(int64(weight.IntValue())*totalCPU/totalWeight, resource.DecimalSI),
-						"memory": *resource.NewQuantity(int64(weight.IntValue())*totalMEM/totalWeight, resource.BinarySI),
-					},
-				}
+			allocatedResult[job.Name()] = job.Clone()
+			allocatedResult[job.Name()].Queue().Status.Deserved = apiv1.ResourceList{
+				Resources: map[apiv1.ResourceName]resource.Quantity{
+					"cpu":    *resource.NewQuantity(int64(job.Queue().Spec.Weight)*totalCPU/totalWeight, resource.DecimalSI),
+					"memory": *resource.NewQuantity(int64(job.Queue().Spec.Weight)*totalMEM/totalWeight, resource.BinarySI),
+				},
+			}
+			// clear Used resources
+			allocatedResult[job.Name()].Queue().Status.Used = apiv1.ResourceList{
+				Resources: make(map[apiv1.ResourceName]resource.Quantity),
 			}
 		}
 	}
@@ -112,17 +107,17 @@ func (ps *proportionScheduler) Allocate(
 }
 
 func (ps *proportionScheduler) Assign(
-	jobs []*schedulercache.ResourceQuotaAllocatorInfo,
-	alloc *schedulercache.ResourceQuotaAllocatorInfo,
+	jobs []*schedulercache.QueueInfo,
+	alloc *schedulercache.QueueInfo,
 ) *schedulercache.Resource {
 	// TODO
 	return nil
 }
 
 func (ps *proportionScheduler) Polish(
-	job *schedulercache.ResourceQuotaAllocatorInfo,
+	job *schedulercache.QueueInfo,
 	res *schedulercache.Resource,
-) []*schedulercache.ResourceQuotaAllocatorInfo {
+) []*schedulercache.QueueInfo {
 	// TODO
 	return nil
 }

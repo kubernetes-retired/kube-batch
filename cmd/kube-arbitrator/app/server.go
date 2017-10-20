@@ -19,7 +19,8 @@ package app
 import (
 	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kube-arbitrator/app/options"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/policy/proportion"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/policy"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/policy/preemption"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/schedulercache"
 
 	"k8s.io/client-go/rest"
@@ -44,8 +45,10 @@ func Run(opt *options.ServerOption) error {
 	go cache.Run(neverStop)
 
 	// TODO dump cache information and do something
-	c := controller.NewResourceQuotaAllocatorController(config, cache, proportion.New())
+	c := controller.NewQueueController(config, cache, policy.New(opt.Policy), preemption.New(config))
 	c.Run()
+
+	<-neverStop
 
 	return nil
 }

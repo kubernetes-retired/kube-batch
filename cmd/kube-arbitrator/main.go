@@ -21,6 +21,7 @@ import (
 
 	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kube-arbitrator/app"
 	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kube-arbitrator/app/options"
+
 	"github.com/spf13/pflag"
 )
 
