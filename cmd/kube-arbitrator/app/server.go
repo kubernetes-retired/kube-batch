@@ -46,7 +46,10 @@ func Run(opt *options.ServerOption) error {
 
 	// TODO dump cache information and do something
 	c := controller.NewQueueController(config, cache, policy.New(opt.Policy), preemption.New(config))
-	c.Run()
+	c.Run(neverStop)
+
+	qjobc := controller.NewQueueJobController(config, cache)
+	qjobc.Run(1, neverStop)
 
 	<-neverStop
 
