@@ -17,44 +17,33 @@ limitations under the License.
 package v1
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const QueuePlural = "queues"
+const TaskSetPlural = "tasksets"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Queue struct {
+type TaskSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Spec              QueueSpec   `json:"spec"`
-	Status            QueueStatus `json:"status,omitempty"`
+	Spec              TaskSetSpec   `json:"spec"`
+	Status            TaskSetStatus `json:"status,omitempty"`
 }
 
-type QueueSpec struct {
-	Weight  int          `json:"weight"`
-	Request ResourceList `json:"request"`
+type TaskSetSpec struct {
+	Priority     int          `json:"priority"`
+	ResourceUnit ResourceList `json:"resourceunit"`
+	ResourceNo   int          `json:"resourceno"`
+	Queue        string       `json:"queue"`
 }
 
-type QueueStatus struct {
-	Deserved   ResourceList `json:"deserved"`
-	Allocated  ResourceList `json:"allocated"`
-	Used       ResourceList `json:"used"`
-	Preempting ResourceList `json:"preempting"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type QueueList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []Queue `json:"items"`
+type TaskSetStatus struct {
+	Allocated ResourceList `json:"allocated"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ResourceList struct {
+type TaskSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Resources       map[ResourceName]resource.Quantity `json:"resources"`
+	Items           []TaskSet `json:"items"`
 }
-
-type ResourceName string

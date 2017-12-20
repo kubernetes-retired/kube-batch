@@ -14,5 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package
-package v1
+package schedulercache
+
+import (
+	apiv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
+)
+
+type TaskSetInfo struct {
+	name    string
+	taskSet *apiv1.TaskSet
+}
+
+func (t *TaskSetInfo) Name() string {
+	return t.name
+}
+
+func (t *TaskSetInfo) TaskSet() *apiv1.TaskSet {
+	return t.taskSet
+}
+
+func (t *TaskSetInfo) Clone() *TaskSetInfo {
+	clone := &TaskSetInfo{
+		name:    t.name,
+		taskSet: t.taskSet.DeepCopy(),
+	}
+	return clone
+}

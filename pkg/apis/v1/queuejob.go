@@ -19,6 +19,7 @@ package v1
 import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const QueueJobPlural string = "queuejobs"
@@ -56,11 +57,11 @@ type QueueJobService struct {
 type QueueJobResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	MinReplicas       int32              `json:"minreplicas"`
-	DesiredReplicas   int32              `json:"desiredreplicas"`
-	Priorty           float64            `json:"priority"`
-	Type              ResourceType       `json:"type"`
-	Template          v1.PodTemplateSpec `json:"template"`
+	MinReplicas       int32                `json:"minreplicas"`
+	DesiredReplicas   int32                `json:"desiredreplicas"`
+	Priorty           float64              `json:"priority"`
+	Type              ResourceType         `json:"type"`
+	Template          runtime.RawExtension `json:"template"`
 }
 
 //a collection of QueueJobResource
@@ -80,8 +81,9 @@ const (
 
 // QueueJobStatus represents the current state of a QueueJob.
 type QueueJobStatus struct {
-	State   QueueJobState `json:"state,omitempty"`
-	Message string        `json:"message,omitempty"`
+	State         QueueJobState       `json:"state,omitempty"`
+	ResourceUsage ResourceUsageStatus `json:"resources,omitempty"`
+	Message       string              `json:"message,omitempty"`
 }
 
 type QueueJobState string
@@ -93,3 +95,11 @@ const (
 	QueueJobStateDeleted  QueueJobState = "Deleted"
 	QueueJobStateFailed   QueueJobState = "Failed"
 )
+
+// ResourceUsageStatus represents the current state of a QueueJob.
+type ResourceUsageStatus struct {
+	Deserved   ResourceList `json:"deserved"`
+	Allocated  ResourceList `json:"allocated"`
+	Used       ResourceList `json:"used"`
+	Preempting ResourceList `json:"preempting"`
+}
