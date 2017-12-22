@@ -21,5 +21,4 @@ type CacheSnapshot struct {
 	Nodes     []*NodeInfo
 	Queues    []*QueueInfo
 	QueueJobs []*QueueJobInfo
-	TaskSets  []*TaskSetInfo
 }

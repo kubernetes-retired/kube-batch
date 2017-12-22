@@ -20,7 +20,8 @@ import (
 	"sort"
 
 	"github.com/golang/glog"
-	apiv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
+	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/policy/util"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/schedulercache"
 
 	corev1 "k8s.io/api/core/v1"
@@ -68,7 +69,7 @@ func (ps *proportionScheduler) collectSchedulingInfo(jobGroup map[string][]*sche
 
 // sort queue by cpu from low to high
 func (ps *proportionScheduler) sortQueueByCPU(jobGroup map[string][]*schedulercache.QueueInfo) []*schedulercache.QueueInfo {
-	sortedCPUJobs := CPUJobSlice{}
+	sortedCPUJobs := util.CPUJobSlice{}
 
 	for _, jobs := range jobGroup {
 		for _, job := range jobs {
@@ -82,7 +83,7 @@ func (ps *proportionScheduler) sortQueueByCPU(jobGroup map[string][]*schedulerca
 
 // sort queue by memory from low to high
 func (ps *proportionScheduler) sortQueueByMEM(jobGroup map[string][]*schedulercache.QueueInfo) []*schedulercache.QueueInfo {
-	sortedMEMJobs := MEMJobSlice{}
+	sortedMEMJobs := util.MEMJobSlice{}
 
 	for _, jobs := range jobGroup {
 		for _, job := range jobs {
@@ -96,7 +97,7 @@ func (ps *proportionScheduler) sortQueueByMEM(jobGroup map[string][]*schedulerca
 
 // sort queue by weight from high to low
 func (ps *proportionScheduler) sortQueueByWeight(jobGroup map[string][]*schedulercache.QueueInfo) []*schedulercache.QueueInfo {
-	sortedWeightJobs := WeightJobSlice{}
+	sortedWeightJobs := util.WeightJobSlice{}
 
 	for _, jobs := range jobGroup {
 		for _, job := range jobs {
@@ -108,18 +109,18 @@ func (ps *proportionScheduler) sortQueueByWeight(jobGroup map[string][]*schedule
 	return sortedWeightJobs
 }
 
-// sort taskset under queue by priority from high to low
-func (ps *proportionScheduler) sortTaskSetByPriority(queue string, ts []*schedulercache.TaskSetInfo) []*schedulercache.TaskSetInfo {
-	sortedPriorityTaskSet := PriorityTaskSetSlice{}
+// sort queuejob under queue by priority from high to low
+func (ps *proportionScheduler) sortQueueJobByPriority(queue string, ts []*schedulercache.QueueJobInfo) []*schedulercache.QueueJobInfo {
+	sortedPriorityQueueJob := util.PriorityQueueJobSlice{}
 
 	for _, t := range ts {
-		if queue == t.TaskSet().Spec.Queue {
-			sortedPriorityTaskSet = append(sortedPriorityTaskSet, t)
+		if queue == t.QueueJob().Spec.Queue {
+			sortedPriorityQueueJob = append(sortedPriorityQueueJob, t)
 		}
 	}
-	sort.Sort(sortedPriorityTaskSet)
+	sort.Sort(sortedPriorityQueueJob)
 
-	return sortedPriorityTaskSet
+	return sortedPriorityQueueJob
 }
 
 func (ps *proportionScheduler) Name() string {
@@ -132,32 +133,32 @@ func (ps *proportionScheduler) Initialize() {
 
 func (ps *proportionScheduler) Group(
 	jobs []*schedulercache.QueueInfo,
-	tasksets []*schedulercache.TaskSetInfo,
+	queuejobs []*schedulercache.QueueJobInfo,
 	pods []*schedulercache.PodInfo,
 ) (map[string][]*schedulercache.QueueInfo, []*schedulercache.PodInfo) {
 	glog.V(4).Infof("Enter Group ...")
 	defer glog.V(4).Infof("Leaving Group ...")
 
-	// calculate total taskset resource request under queue
+	// calculate total queuejob resource request under queue
 	scheduledJobs := make([]*schedulercache.QueueInfo, 0)
 	for _, job := range jobs {
 		cloneJob := job.Clone()
 
-		totalResOfJob := map[apiv1.ResourceName]resource.Quantity{
+		totalResOfJob := map[arbv1.ResourceName]resource.Quantity{
 			"cpu":    resource.MustParse("0"),
 			"memory": resource.MustParse("0"),
 		}
-		for _, ts := range tasksets {
-			if ts.TaskSet().Spec.Queue != cloneJob.Name() {
+		for _, qj := range queuejobs {
+			if qj.QueueJob().Spec.Queue != cloneJob.Name() {
 				continue
 			}
-			glog.V(4).Infof("taskset %s belongs to queue %s\n", ts.Name(), cloneJob.Name())
-			totalResOfTaskSet := schedulercache.ResourcesMultiply(ts.TaskSet().Spec.ResourceUnit.Resources, ts.TaskSet().Spec.ResourceNo)
-			totalResOfJob = schedulercache.ResourcesAdd(totalResOfJob, totalResOfTaskSet)
+			glog.V(4).Infof("queuejob %s belongs to queue %s\n", qj.Name(), cloneJob.Name())
+			totalResOfQueueJob := schedulercache.ResourcesMultiply(qj.QueueJob().Spec.ResourceUnit.Resources, qj.QueueJob().Spec.ResourceNo)
+			totalResOfJob = schedulercache.ResourcesAdd(totalResOfJob, totalResOfQueueJob)
 		}
 
 		if !schedulercache.ResourcesIsZero(totalResOfJob) {
-			// the taskset under this job has resource request, otherwise use the original resource request of job
+			// the queuejob under this job has resource request, otherwise use the original resource request of job
 			cloneJob.Queue().Spec.Request.Resources = totalResOfJob
 		}
 		scheduledJobs = append(scheduledJobs, cloneJob)
@@ -193,11 +194,11 @@ func (ps *proportionScheduler) Allocate(
 		return nil
 	}
 
-	totalResources := map[apiv1.ResourceName]int64{
+	totalResources := map[arbv1.ResourceName]int64{
 		"cpu":    totalCPU,
 		"memory": totalMEM,
 	}
-	sortedJobs := map[apiv1.ResourceName][]*schedulercache.QueueInfo{
+	sortedJobs := map[arbv1.ResourceName][]*schedulercache.QueueInfo{
 		"cpu":    ps.sortQueueByCPU(jobGroup),
 		"memory": ps.sortQueueByMEM(jobGroup),
 	}
@@ -209,15 +210,15 @@ func (ps *proportionScheduler) Allocate(
 		for _, job := range jobs {
 			allocatedQueueResult[job.Name()] = job.Clone()
 			// clear Used resources
-			allocatedQueueResult[job.Name()].Queue().Status.Used = apiv1.ResourceList{
-				Resources: make(map[apiv1.ResourceName]resource.Quantity),
+			allocatedQueueResult[job.Name()].Queue().Status.Used = arbv1.ResourceList{
+				Resources: make(map[arbv1.ResourceName]resource.Quantity),
 			}
 		}
 	}
 
 	// assign resource cpu/memory to each queue by max-min weighted fairness
-	resourceTypes := []apiv1.ResourceName{"cpu", "memory"}
-	totalAllocatedRes := map[apiv1.ResourceName]int64{
+	resourceTypes := []arbv1.ResourceName{"cpu", "memory"}
+	totalAllocatedRes := map[arbv1.ResourceName]int64{
 		"cpu":    int64(0),
 		"memory": int64(0),
 	}
@@ -251,7 +252,7 @@ func (ps *proportionScheduler) Allocate(
 	}
 
 	// assign left resources to queue from high weight to low weight
-	totalUnallocatedRes := map[apiv1.ResourceName]int64{
+	totalUnallocatedRes := map[arbv1.ResourceName]int64{
 		"cpu":    totalResources["cpu"] - totalAllocatedRes["cpu"],
 		"memory": totalResources["memory"] - totalAllocatedRes["memory"],
 	}
@@ -289,30 +290,30 @@ func (ps *proportionScheduler) Allocate(
 
 func (ps *proportionScheduler) Assign(
 	jobs map[string]*schedulercache.QueueInfo,
-	ts []*schedulercache.TaskSetInfo,
-) map[string]*schedulercache.TaskSetInfo {
+	qj []*schedulercache.QueueJobInfo,
+) map[string]*schedulercache.QueueJobInfo {
 	glog.V(4).Infof("Enter Assign ...")
 	defer glog.V(4).Infof("Leaving Assign ...")
 
-	result := make(map[string]*schedulercache.TaskSetInfo)
-	resourceTypes := []apiv1.ResourceName{"cpu", "memory"}
+	result := make(map[string]*schedulercache.QueueJobInfo)
+	resourceTypes := []arbv1.ResourceName{"cpu", "memory"}
 	for _, job := range jobs {
 		cpuRes := job.Queue().Status.Allocated.Resources["cpu"].DeepCopy()
 		memRes := job.Queue().Status.Allocated.Resources["memory"].DeepCopy()
 		cpuInt, _ := cpuRes.AsInt64()
 		memInt, _ := memRes.AsInt64()
-		allocatedResources := map[apiv1.ResourceName]resource.Quantity{
+		allocatedResources := map[arbv1.ResourceName]resource.Quantity{
 			"cpu":    job.Queue().Status.Allocated.Resources["cpu"].DeepCopy(),
 			"memory": job.Queue().Status.Allocated.Resources["memory"].DeepCopy(),
 		}
-		glog.V(4).Infof("assign resources to taskset under queue %s, cpu %d, memory %d\n", job.Name(), cpuInt, memInt)
-		sortedTaskSet := ps.sortTaskSetByPriority(job.Name(), ts)
-		for _, t := range sortedTaskSet {
-			glog.V(4).Infof("    assign resource to taskset %s, queue %s, priority %d\n", t.Name(), t.TaskSet().Spec.Queue, t.TaskSet().Spec.Priority)
-			totalResOfTaskSet := schedulercache.ResourcesMultiply(t.TaskSet().Spec.ResourceUnit.Resources, t.TaskSet().Spec.ResourceNo)
+		glog.V(4).Infof("assign resources to queuejob under queue %s, cpu %d, memory %d\n", job.Name(), cpuInt, memInt)
+		sortedQueueJob := ps.sortQueueJobByPriority(job.Name(), qj)
+		for _, t := range sortedQueueJob {
+			glog.V(4).Infof("    assign resource to queuejob %s, queue %s, priority %d\n", t.Name(), t.QueueJob().Spec.Queue, t.QueueJob().Spec.Priority)
+			totalResOfQueueJob := schedulercache.ResourcesMultiply(t.QueueJob().Spec.ResourceUnit.Resources, t.QueueJob().Spec.ResourceNo)
 
-			// reset allocated resource of taskset
-			t.TaskSet().Status.Allocated.Resources = map[apiv1.ResourceName]resource.Quantity{
+			// reset allocated resource of queuejob
+			t.QueueJob().Status.Allocated.Resources = map[arbv1.ResourceName]resource.Quantity{
 				"cpu":    resource.MustParse("0"),
 				"memory": resource.MustParse("0"),
 			}
@@ -323,7 +324,7 @@ func (ps *proportionScheduler) Assign(
 					continue
 				}
 
-				requestRes := totalResOfTaskSet[resType].DeepCopy()
+				requestRes := totalResOfQueueJob[resType].DeepCopy()
 				assignRes := resource.MustParse("0")
 				if allocatedRes.Cmp(requestRes) <= 0 {
 					assignRes = allocatedRes
@@ -333,10 +334,10 @@ func (ps *proportionScheduler) Assign(
 					allocatedRes.Sub(requestRes)
 					allocatedResources[resType] = allocatedRes
 				}
-				t.TaskSet().Status.Allocated.Resources[resType] = assignRes
+				t.QueueJob().Status.Allocated.Resources[resType] = assignRes
 
 				resInt, _ := assignRes.AsInt64()
-				glog.V(4).Infof("        assign %s resource %d to taskset %s\n", resType, resInt, t.TaskSet().Name)
+				glog.V(4).Infof("        assign %s resource %d to queuejob %s\n", resType, resInt, t.QueueJob().Name)
 			}
 
 			result[t.Name()] = t.Clone()
