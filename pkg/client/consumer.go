@@ -21,8 +21,9 @@ import (
 	"reflect"
 	"time"
 
-	crv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
+	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
 
+	"github.com/golang/glog"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,12 +36,12 @@ import (
 
 func NewClient(cfg *rest.Config) (*rest.RESTClient, *runtime.Scheme, error) {
 	scheme := runtime.NewScheme()
-	if err := crv1.AddToScheme(scheme); err != nil {
+	if err := arbv1.AddToScheme(scheme); err != nil {
 		return nil, nil, err
 	}
 
 	config := *cfg
-	config.GroupVersion = &crv1.SchemeGroupVersion
+	config.GroupVersion = &arbv1.SchemeGroupVersion
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
@@ -53,31 +54,32 @@ func NewClient(cfg *rest.Config) (*rest.RESTClient, *runtime.Scheme, error) {
 	return client, scheme, nil
 }
 
-const queueCRDName = crv1.QueuePlural + "." + crv1.GroupName
+const consumerCRDName = arbv1.ConsumerPlural + "." + arbv1.GroupName
 
-func CreateQueueCRD(clientset apiextensionsclient.Interface) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
+func CreateConsumerCRD(clientset apiextensionsclient.Interface) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: queueCRDName,
+			Name: consumerCRDName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   crv1.GroupName,
-			Version: crv1.SchemeGroupVersion.Version,
+			Group:   arbv1.GroupName,
+			Version: arbv1.SchemeGroupVersion.Version,
 			Scope:   apiextensionsv1beta1.NamespaceScoped,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural: crv1.QueuePlural,
-				Kind:   reflect.TypeOf(crv1.Queue{}).Name(),
+				Plural: arbv1.ConsumerPlural,
+				Kind:   reflect.TypeOf(arbv1.Consumer{}).Name(),
 			},
 		},
 	}
 	_, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+
 	if err != nil {
 		return nil, err
 	}
 
 	// wait for CRD being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		crd, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(queueCRDName, metav1.GetOptions{})
+		crd, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(consumerCRDName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -96,11 +98,14 @@ func CreateQueueCRD(clientset apiextensionsclient.Interface) (*apiextensionsv1be
 		return false, err
 	})
 	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(queueCRDName, nil)
+		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(consumerCRDName, nil)
 		if deleteErr != nil {
 			return nil, errors.NewAggregate([]error{err, deleteErr})
 		}
 		return nil, err
 	}
+
+	glog.V(4).Infof("Consumer CRD was created.")
+
 	return crd, nil
 }

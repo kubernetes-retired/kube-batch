@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package schedulercache
+package cache
 
-type CacheSnapshot struct {
-	Pods      []*PodInfo
-	Nodes     []*NodeInfo
-	Queues    []*QueueInfo
-	QueueJobs []*QueueJobInfo
+import (
+	"k8s.io/api/core/v1"
+	clientcache "k8s.io/client-go/tools/cache"
+)
+
+// podKey returns the string key of a pod.
+func podKey(pod *v1.Pod) (string, error) {
+	return clientcache.MetaNamespaceKeyFunc(pod)
 }
