@@ -117,25 +117,6 @@ func (pc *PolicyController) buildConsumers(
 	return result
 }
 
-// updateNodes updates node's resource usage and running pods; re-build those info in each schedule cycle to
-// avoid race-condition, but may impact performance.
-// TODO(k82cn): update node info when pod updated.
-func (pc *PolicyController) updateNodes(nodes []*schedcache.NodeInfo, pods []*schedcache.PodInfo) {
-	for _, node := range nodes {
-		node.Idle = node.Allocatable
-		node.Used = schedcache.EmptyResource()
-		node.Pods = []*schedcache.PodInfo{}
-		for _, pod := range pods {
-			if pod.Phase == v1.PodRunning && pod.Nodename == node.Name {
-				node.Pods = append(node.Pods, pod)
-				node.Used.Add(pod.Request)
-			}
-		}
-		node.Idle.Sub(node.Used)
-		glog.V(3).Infof("node <%v>: idle <%v>, used <%v>", node.Name, node.Idle, node.Used)
-	}
-}
-
 func (pc *PolicyController) runOnce() {
 	glog.V(4).Infof("Start scheduling ...")
 	defer glog.V(4).Infof("End scheduling ...")
@@ -147,8 +128,6 @@ func (pc *PolicyController) runOnce() {
 	podSets, pods := pc.groupPods(snapshot.Pods)
 
 	consumers := pc.buildConsumers(snapshot.Consumers, podSets, pods)
-
-	pc.updateNodes(snapshot.Nodes, snapshot.Pods)
 
 	consumers = pc.allocator.Allocate(consumers, snapshot.Nodes)
 
@@ -163,11 +142,6 @@ func (pc *PolicyController) groupPods(pods []*schedcache.PodInfo) (map[string][]
 	orpPods := make([]*schedcache.PodInfo, 0)
 
 	for _, p := range pods {
-		// TODO: move to cache
-		if p.Phase != v1.PodRunning && p.Phase != v1.PodPending {
-			continue
-		}
-
 		if len(p.Owner) == 0 {
 			orpPods = append(orpPods, p)
 			continue

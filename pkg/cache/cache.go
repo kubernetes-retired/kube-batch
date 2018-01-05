@@ -80,8 +80,7 @@ func newSchedulerCache(config *rest.Config) *schedulerCache {
 			FilterFunc: func(obj interface{}) bool {
 				switch t := obj.(type) {
 				case *v1.Pod:
-					glog.V(4).Infof("Filter pod name(%s) namespace(%s) status(%s)\n", t.Name, t.Namespace, t.Status.Phase)
-					return true
+					return nonTerminatedPod(t)
 				default:
 					return false
 				}
@@ -136,6 +135,55 @@ func (sc *schedulerCache) WaitForCacheSync(stopCh <-chan struct{}) bool {
 		sc.consumerInformer.Informer().HasSynced)
 }
 
+// nonTerminatedPod selects pods that are non-terminal (scheduled and running).
+func nonTerminatedPod(pod *v1.Pod) bool {
+	if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+		return false
+	}
+	return true
+}
+
+func (sc *schedulerCache) addPodToNode(pi *PodInfo) {
+	if pi.Phase != v1.PodRunning {
+		// only add running pod to node
+		return
+	}
+	if pi.Nodename == "" {
+		// the pod is not assigned to any node, do nothing
+		return
+	}
+
+	_, exist := sc.nodes[pi.Nodename]
+	if !exist {
+		// no related node info for the pod, do nothing
+		// this pod will be added into related node when the node is inserted into cache
+		return
+	}
+
+	sc.nodes[pi.Nodename].Pods = append(sc.nodes[pi.Nodename].Pods, pi)
+	sc.nodes[pi.Nodename].Used.Add(pi.Request)
+	sc.nodes[pi.Nodename].Idle = sc.nodes[pi.Nodename].Allocatable.Clone()
+	sc.nodes[pi.Nodename].Idle.Sub(sc.nodes[pi.Nodename].Used)
+}
+
+func (sc *schedulerCache) removePodFromNode(pi *PodInfo) {
+	_, exist := sc.nodes[pi.Nodename]
+	if !exist {
+		// no related node info for the pod, do nothing
+		return
+	}
+
+	for index, p := range sc.nodes[pi.Nodename].Pods {
+		if pi.Name == p.Name {
+			sc.nodes[pi.Nodename].Pods = append(sc.nodes[pi.Nodename].Pods[:index], sc.nodes[pi.Nodename].Pods[index+1:]...)
+			sc.nodes[pi.Nodename].Used.Sub(pi.Request)
+			sc.nodes[pi.Nodename].Idle = sc.nodes[pi.Nodename].Allocatable.Clone()
+			sc.nodes[pi.Nodename].Idle.Sub(sc.nodes[pi.Nodename].Used)
+			break
+		}
+	}
+}
+
 // Assumes that lock is already acquired.
 func (sc *schedulerCache) addPod(pod *v1.Pod) error {
 	key, err := podKey(pod)
@@ -148,6 +196,7 @@ func (sc *schedulerCache) addPod(pod *v1.Pod) error {
 	}
 
 	sc.pods[key] = NewPodInfo(pod)
+	sc.addPodToNode(sc.pods[key])
 
 	return nil
 }
@@ -171,6 +220,7 @@ func (sc *schedulerCache) deletePod(pod *v1.Pod) error {
 	if _, ok := sc.pods[key]; !ok {
 		return fmt.Errorf("pod %v doesn't exist", key)
 	}
+	sc.removePodFromNode(sc.pods[key])
 	delete(sc.pods, key)
 
 	return nil
@@ -255,6 +305,11 @@ func (sc *schedulerCache) addNode(node *v1.Node) error {
 	}
 
 	sc.nodes[node.Name] = NewNodeInfo(node)
+
+	// Add existing pods to the new node
+	for _, pi := range sc.pods {
+		sc.addPodToNode(pi)
+	}
 
 	return nil
 }
