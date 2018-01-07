@@ -3,7 +3,7 @@ BIN_DIR=_output/bin
 kube-arbitrator: init
 	go build -o ${BIN_DIR}/kube-arbitrator ./cmd/kube-arbitrator/
 
-verify: generate_code
+verify: generate-code
 	hack/verify-gofmt.sh
 	hack/verify-gencode.sh
 
@@ -23,6 +23,3 @@ run-test:
 clean:
 	rm -rf _output/
 	rm -f kube-arbitrator
-
-sample:
-	go build -o ${BIN_DIR}/jobclient ./test/taskset-sample/

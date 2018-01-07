@@ -4,9 +4,10 @@ install: ./hack/install-etcd.sh
 
 before_script:
   - export PATH=`pwd`/third_party/etcd:${PATH}
+  - export TEST_LOG_LEVEL=4
 
 script:
   - make verify
   - make
-  - make test
+  - make run-test
   - make test-integration
