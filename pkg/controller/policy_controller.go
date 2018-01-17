@@ -23,6 +23,7 @@ import (
 	"github.com/golang/glog"
 
 	"k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -142,8 +143,14 @@ func (pc *PolicyController) processAllocDecision() {
 
 		for _, p := range ps.Running {
 			if len(p.NodeName) == 0 {
-				// TODO(k82cn): it's better to use /eviction instead of delete to avoid race-condition.
-				if err := pc.kubeclient.CoreV1().Pods(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{}); err != nil {
+				// use /eviction instead of delete to avoid race-condition.
+				evict := &policyv1.Eviction{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      p.Name,
+						Namespace: p.Namespace,
+					},
+				}
+				if err := pc.kubeclient.CoreV1().Pods(p.Namespace).Evict(evict); err != nil {
 					glog.Infof("Failed to preempt pod <%v/%v>: %#v", p.Namespace, p.Name, err)
 					return err
 				}
