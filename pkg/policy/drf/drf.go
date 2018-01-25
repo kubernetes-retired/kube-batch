@@ -50,9 +50,10 @@ func (drf *drfScheduler) Allocate(consumers []*cache.ConsumerInfo, nodes []*cach
 	pq := util.NewPriorityQueue()
 
 	total := cache.EmptyResource()
-
+	nodesMap := make(map[string]*cache.NodeInfo)
 	for _, n := range nodes {
 		total.Add(n.Allocatable)
+		nodesMap[n.Name] = n
 	}
 
 	for _, c := range consumers {
@@ -60,6 +61,21 @@ func (drf *drfScheduler) Allocate(consumers []*cache.ConsumerInfo, nodes []*cach
 			psi := newPodSetInfo(ps, total)
 			pq.Push(util.NewItem(psi, psi.priority))
 			dq.Push(util.NewDictionaryItem(psi, psi.podSet.Name))
+
+			// remove resources from node idle for pending pod with nodename
+			for _, p := range psi.podSet.Pending {
+				if len(p.NodeName) == 0 {
+					continue
+				}
+
+				n, exist := nodesMap[p.NodeName]
+				if !exist {
+					glog.V(4).Infof("Node %s does not exist for pending pod %s", p.NodeName, p.Name)
+					continue
+				}
+
+				n.Idle.Sub(p.Request)
+			}
 		}
 	}
 

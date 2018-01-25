@@ -30,6 +30,7 @@ type podSetInfo struct {
 	priority         float64
 	total            *cache.Resource
 	pendingIndex     int
+	assignedPending  int
 }
 
 func newPodSetInfo(ps *cache.PodSet, t *cache.Resource) *podSetInfo {
@@ -38,6 +39,7 @@ func newPodSetInfo(ps *cache.PodSet, t *cache.Resource) *podSetInfo {
 		allocated:        ps.Allocated.Clone(),
 		total:            t,
 		dominantResource: v1.ResourceCPU,
+		assignedPending:  0,
 	}
 
 	// Calculates the dominant resource.
@@ -50,6 +52,16 @@ func newPodSetInfo(ps *cache.PodSet, t *cache.Resource) *podSetInfo {
 		if p > psi.priority {
 			psi.priority = p
 			psi.dominantResource = rn
+		}
+	}
+
+	// There is a race condition between policy and cache, pod status in cache may be not consistent with last policy schedule result
+	// Go through Pending pods to calculates the assigned Pod number to reduce the frequency
+	for _, p := range psi.podSet.Pending {
+		if len(p.NodeName) > 0 {
+			psi.assignedPending++
+			psi.allocated.Add(p.Request)
+			psi.priority = psi.allocated.Get(psi.dominantResource) / psi.total.Get(psi.dominantResource)
 		}
 	}
 
@@ -67,6 +79,7 @@ func (psi *podSetInfo) assignPendingPod(nodeName string) {
 	// Update related info.
 	psi.pendingIndex++
 	psi.priority = psi.allocated.Get(psi.dominantResource) / psi.total.Get(psi.dominantResource)
+	psi.assignedPending++
 
 	glog.V(3).Infof("PodSet <%v/%v> after assignment: priority <%f>, dominant resource <%v>",
 		psi.podSet.Namespace, psi.podSet.Name, psi.priority, psi.dominantResource)
@@ -84,5 +97,6 @@ func (psi *podSetInfo) nextPendingPod() *cache.PodInfo {
 }
 
 func (psi *podSetInfo) meetMinAvailable() bool {
-	return len(psi.podSet.Running)+psi.pendingIndex >= psi.podSet.MinAvailable
+	// TODO(jinzhej): policy may need to record the latest assign result to avoid assign MinAvailable repeatedly
+	return len(psi.podSet.Running)+psi.assignedPending >= psi.podSet.MinAvailable
 }
