@@ -58,10 +58,12 @@ func (drf *drfScheduler) Allocate(queues []*cache.QueueInfo, nodes []*cache.Node
 		}
 	}
 
-	sort.Sort(dq)
 	// assign MinAvailable of each podSet first by chronologically
+	sort.Sort(dq)
+	meetAllMinAvailable := true
 	for _, q := range dq {
 		psi := q.Value.(*podSetInfo)
+		assignedPods := make(map[string]string)
 		for {
 			if psi.meetMinAvailable() {
 				glog.V(3).Infof("MinAvailable of podset %s/%s is met, assign next podset",
@@ -84,6 +86,8 @@ func (drf *drfScheduler) Allocate(queues []*cache.QueueInfo, nodes []*cache.Node
 
 					assigned = true
 
+					assignedPods[p.Name] = node.Name
+
 					glog.V(3).Infof("assign <%v/%v> to <%s>: available <%v>, request <%v>",
 						p.Namespace, p.Name, p.NodeName, node.Idle, p.Request)
 					break
@@ -95,6 +99,32 @@ func (drf *drfScheduler) Allocate(queues []*cache.QueueInfo, nodes []*cache.Node
 				break
 			}
 		}
+
+		// If policy could not assign minAvailable for a PodSet, then recycle assigned resources in
+		// this loop even if the PodSet was assigned resources before it is to handle a case that PodSet
+		// meet minAvailable in the past and then become under minAvailable due to some pods finish
+		if !psi.meetMinAvailable() {
+			for podName, nodeName := range assignedPods {
+				pi := psi.resetAndGetAssignedPod(podName)
+				if pi == nil {
+					continue
+				}
+				for _, n := range nodes {
+					if nodeName != n.Name {
+						continue
+					}
+					n.Idle.Add(pi.Request)
+				}
+			}
+			meetAllMinAvailable = false
+		}
+	}
+
+	// If minAvailable of all PodSets are meet, then assign left resources to these PodSets by DRF
+	// Otherwise, policy only allocate minAvailable for each PodSet. The left resources will not be
+	// assigned to the left PodSet.
+	if !meetAllMinAvailable {
+		return queues
 	}
 
 	// build priority queue after assign minAvailable
