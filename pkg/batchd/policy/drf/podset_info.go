@@ -88,6 +88,23 @@ func (psi *podSetInfo) pushPendingPod(p *cache.PodInfo) {
 	psi.podSet.Pending = append(psi.podSet.Pending, p)
 }
 
+func (psi *podSetInfo) resetAndGetAssignedPod(name string) *cache.PodInfo {
+	for index, p := range psi.podSet.Pending {
+		if p.Name != name {
+			continue
+		}
+
+		if psi.pendingIndex > index {
+			psi.pendingIndex = index
+		}
+
+		p.NodeName = ""
+		return p.Clone()
+	}
+
+	return nil
+}
+
 func (psi *podSetInfo) meetMinAvailable() bool {
 	return len(psi.podSet.Running)+len(psi.podSet.Assigned) >= psi.podSet.MinAvailable
 }
