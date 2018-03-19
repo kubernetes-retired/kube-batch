@@ -142,8 +142,7 @@ func (pc *PolicyController) processAllocDecision() {
 
 		for _, p := range ps.Running {
 			if len(p.NodeName) == 0 {
-				// TODO(k82cn): it's better to use /eviction instead of delete to avoid race-condition.
-				if err := pc.kubeclient.CoreV1().Pods(p.Namespace).Delete(p.Name, &metav1.DeleteOptions{}); err != nil {
+				if err := pc.kubeclient.CoreV1().Pods(p.Namespace).Evict(nil); err != nil {
 					glog.Infof("Failed to preempt pod <%v/%v>: %#v", p.Namespace, p.Name, err)
 					return err
 				}
