@@ -22,6 +22,8 @@ import (
 
 	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kube-batchd/app/options"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/controller"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 func buildConfig(master, kubeconfig string) (*rest.Config, error) {
@@ -44,7 +46,7 @@ func Run(opt *options.ServerOption) error {
 	queueController.Run(neverStop)
 
 	// Start policy controller to allocate resources.
-	policyController, err := controller.NewPolicyController(config, opt.Policy)
+	policyController, err := controller.NewPolicyController(config, opt.Policy, opt.SchedulerName)
 	if err != nil {
 		panic(err)
 	}

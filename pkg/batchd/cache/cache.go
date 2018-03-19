@@ -18,6 +18,7 @@ package cache
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/golang/glog"
@@ -38,8 +39,8 @@ import (
 )
 
 // New returns a Cache implementation.
-func New(config *rest.Config) Cache {
-	return newSchedulerCache(config)
+func New(config *rest.Config, schedulerName string) Cache {
+	return newSchedulerCache(config, schedulerName)
 }
 
 type SchedulerCache struct {
@@ -50,18 +51,21 @@ type SchedulerCache struct {
 	queueInformer arbclient.QueueInformer
 	pdbInformer   policyv1.PodDisruptionBudgetInformer
 
+	assumedPodStates map[string]*podState
+
 	Pods   map[string]*PodInfo
 	Nodes  map[string]*NodeInfo
 	Queues map[string]*QueueInfo
 	Pdbs   map[string]*PdbInfo
 }
 
-func newSchedulerCache(config *rest.Config) *SchedulerCache {
+func newSchedulerCache(config *rest.Config, schedulerName string) *SchedulerCache {
 	sc := &SchedulerCache{
-		Nodes:  make(map[string]*NodeInfo),
-		Pods:   make(map[string]*PodInfo),
-		Queues: make(map[string]*QueueInfo),
-		Pdbs:   make(map[string]*PdbInfo),
+		assumedPodStates: make(map[string]*podState),
+		Nodes:            make(map[string]*NodeInfo),
+		Pods:             make(map[string]*PodInfo),
+		Queues:           make(map[string]*QueueInfo),
+		Pdbs:             make(map[string]*PdbInfo),
 	}
 
 	kubecli := kubernetes.NewForConfigOrDie(config)
@@ -83,9 +87,13 @@ func newSchedulerCache(config *rest.Config) *SchedulerCache {
 	sc.podInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: func(obj interface{}) bool {
-				switch t := obj.(type) {
+				switch obj.(type) {
 				case *v1.Pod:
-					return nonTerminatedPod(t)
+					pod := obj.(*v1.Pod)
+					if strings.Compare(pod.Spec.SchedulerName, schedulerName) == 0 && pod.Status.Phase == v1.PodPending {
+						return true
+					}
+					return pod.Status.Phase == v1.PodRunning
 				default:
 					return false
 				}
@@ -170,6 +178,41 @@ func nonTerminatedPod(pod *v1.Pod) bool {
 	return true
 }
 
+func (sc *SchedulerCache) AssumePod(pod *v1.Pod) error {
+	key := podKey(pod)
+
+	sc.Mutex.Lock()
+	defer sc.Mutex.Unlock()
+
+	_, ok := sc.assumedPodStates[key]
+	if ok {
+		glog.V(4).Infof("pod %s already assumed, ignore it")
+		return nil
+	}
+
+	pi, ok := sc.Pods[key]
+	if !ok {
+		return fmt.Errorf("pod %s not in cache but get assumed", pod.Name)
+	}
+
+	if len(pi.NodeName) > 0 {
+		return fmt.Errorf("pod %s is assigned in cache but get assumed", pod.Name)
+	}
+
+	if err := sc.deletePod(pod); err != nil {
+		glog.V(4).Infof("delete pod %s from cache error %v", pod.Name, err)
+	}
+	if err := sc.addPod(pod); err != nil {
+		glog.V(4).Infof("Failed to add pod %s into cache: %v", pod.Name, err)
+	}
+	ps := &podState{
+		pod: pod,
+	}
+	sc.assumedPodStates[key] = ps
+
+	return nil
+}
+
 // Assumes that lock is already acquired.
 func (sc *SchedulerCache) addPod(pod *v1.Pod) error {
 	key := podKey(pod)
@@ -178,9 +221,21 @@ func (sc *SchedulerCache) addPod(pod *v1.Pod) error {
 		return fmt.Errorf("pod %v exist", key)
 	}
 
+	// for assumed pod, check coming pod status
+	// running, remove from assumed pods and add pod to cache
+	// pending with host(same or different), remove from assumed pods and add pod to cache
+	// pending without host, do nothing for the pod due to it is assumed by policy
+	if _, ok := sc.assumedPodStates[key]; ok {
+		if pod.Status.Phase == v1.PodPending && len(pod.Spec.NodeName) == 0 {
+			return fmt.Errorf("pending pod %s without hostname is assumed", pod.Name)
+		} else {
+			delete(sc.assumedPodStates, key)
+		}
+	}
+
 	pi := NewPodInfo(pod)
 
-	if pod.Status.Phase == v1.PodRunning {
+	if len(pod.Spec.NodeName) > 0 {
 		if sc.Nodes[pod.Spec.NodeName] == nil {
 			sc.Nodes[pod.Spec.NodeName] = NewNodeInfo(nil)
 		}
@@ -207,13 +262,15 @@ func (sc *SchedulerCache) updatePod(oldPod, newPod *v1.Pod) error {
 	if err := sc.deletePod(oldPod); err != nil {
 		return err
 	}
-	sc.addPod(newPod)
-	return nil
+	return sc.addPod(newPod)
 }
 
 // Assumes that lock is already acquired.
 func (sc *SchedulerCache) deletePod(pod *v1.Pod) error {
 	key := podKey(pod)
+
+	// remove assumed Pod directly
+	delete(sc.assumedPodStates, key)
 
 	pi, ok := sc.Pods[key]
 	if !ok {
@@ -221,8 +278,8 @@ func (sc *SchedulerCache) deletePod(pod *v1.Pod) error {
 	}
 	delete(sc.Pods, key)
 
-	if len(pi.NodeName) != 0 && pi.Phase == v1.PodRunning {
-		node := sc.Nodes[pod.Spec.NodeName]
+	if len(pi.NodeName) != 0 {
+		node := sc.Nodes[pi.NodeName]
 		if node != nil {
 			node.RemovePod(pi)
 		}
@@ -622,7 +679,7 @@ func (sc *SchedulerCache) Snapshot() *CacheSnapshot {
 	return snapshot
 }
 
-func (sc SchedulerCache) String() string {
+func (sc *SchedulerCache) String() string {
 	sc.Mutex.Lock()
 	defer sc.Mutex.Unlock()
 

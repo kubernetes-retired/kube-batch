@@ -52,7 +52,7 @@ func podSetKey(obj interface{}) (string, error) {
 	return fmt.Sprintf("%s/%s", podSet.Namespace, podSet.Name), nil
 }
 
-func NewPolicyController(config *rest.Config, policyName string) (*PolicyController, error) {
+func NewPolicyController(config *rest.Config, policyName string, schedulerName string) (*PolicyController, error) {
 	cs, err := clientset.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create client for PolicyController: %#v", err)
@@ -68,16 +68,16 @@ func NewPolicyController(config *rest.Config, policyName string) (*PolicyControl
 		return nil, fmt.Errorf("failed to create allocator: %#v", err)
 	}
 
-	queueController := &PolicyController{
+	policyController := &PolicyController{
 		config:     config,
 		clientset:  cs,
 		kubeclient: kc,
-		cache:      schedcache.New(config),
+		cache:      schedcache.New(config, schedulerName),
 		allocator:  alloc,
 		podSets:    cache.NewFIFO(podSetKey),
 	}
 
-	return queueController, nil
+	return policyController, nil
 }
 
 func (pc *PolicyController) Run(stopCh <-chan struct{}) {
@@ -85,7 +85,7 @@ func (pc *PolicyController) Run(stopCh <-chan struct{}) {
 	go pc.cache.Run(stopCh)
 	pc.cache.WaitForCacheSync(stopCh)
 
-	go wait.Until(pc.runOnce, 20*time.Second, stopCh)
+	go wait.Until(pc.runOnce, 2*time.Second, stopCh)
 	go wait.Until(pc.processAllocDecision, 0, stopCh)
 }
 
@@ -98,6 +98,8 @@ func (pc *PolicyController) runOnce() {
 	snapshot := pc.cache.Snapshot()
 
 	queues := pc.allocator.Allocate(snapshot.Queues, snapshot.Nodes)
+
+	pc.assumePods(queues)
 
 	pc.enqueue(queues)
 }
@@ -118,6 +120,28 @@ func (pc *PolicyController) cancelAllocDecisionProcessing() {
 	}
 }
 
+func (pc *PolicyController) assumePods(queues []*schedcache.QueueInfo) {
+	for _, queue := range queues {
+		for _, ps := range queue.PodSets {
+			for _, p := range ps.Pending {
+				if len(p.NodeName) != 0 {
+					pc.assume(p.Pod.DeepCopy(), p.NodeName)
+				}
+			}
+		}
+	}
+}
+
+// assume signals to the cache that a pod is already in the cache, so that binding can be asynchronous.
+// assume modifies `assumed`
+func (pc *PolicyController) assume(assumed *v1.Pod, host string) {
+	assumed.Spec.NodeName = host
+	err := pc.cache.AssumePod(assumed)
+	if err != nil {
+		glog.V(4).Infof("fail to assume pod %s", assumed.Name)
+	}
+}
+
 func (pc *PolicyController) processAllocDecision() {
 	pc.podSets.Pop(func(obj interface{}) error {
 		ps, ok := obj.(*schedcache.PodSet)
@@ -125,7 +149,7 @@ func (pc *PolicyController) processAllocDecision() {
 			return fmt.Errorf("not a PodSet")
 		}
 
-		for _, p := range ps.Pending {
+		for _, p := range ps.Assigned {
 			if len(p.NodeName) != 0 {
 				if err := pc.kubeclient.CoreV1().Pods(p.Namespace).Bind(&v1.Binding{
 					ObjectMeta: metav1.ObjectMeta{Namespace: p.Namespace, Name: p.Name, UID: p.UID},

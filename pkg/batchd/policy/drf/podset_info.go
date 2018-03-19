@@ -21,23 +21,32 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/cache"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/util"
 )
 
 type podSetInfo struct {
-	podSet           *cache.PodSet
-	dominantResource v1.ResourceName
-	allocated        *cache.Resource
-	priority         float64
-	total            *cache.Resource
-	pendingIndex     int
+	podSet *cache.PodSet
+
+	dominantResource v1.ResourceName // The dominant resource name of PodSet
+	allocated        *cache.Resource // Allocated resource of PodSet
+	share            float64         // The DRF share of PodSet
+	total            *cache.Resource // The total resource of cluster, used to update DRF share
+
+	unacceptedAllocated    *cache.Resource
+	unacceptedAssignedPods []*cache.PodInfo
+
+	pendingSorted *util.PriorityQueue
 }
 
 func newPodSetInfo(ps *cache.PodSet, t *cache.Resource) *podSetInfo {
 	psi := &podSetInfo{
-		podSet:           ps,
-		allocated:        ps.Allocated.Clone(),
-		total:            t,
-		dominantResource: v1.ResourceCPU,
+		podSet:                 ps,
+		allocated:              ps.Allocated.Clone(),
+		total:                  t,
+		dominantResource:       v1.ResourceCPU,
+		unacceptedAllocated:    cache.EmptyResource(),
+		unacceptedAssignedPods: make([]*cache.PodInfo, 0),
+		pendingSorted:          util.NewPriorityQueue(),
 	}
 
 	// Calculates the dominant resource.
@@ -46,43 +55,94 @@ func newPodSetInfo(ps *cache.PodSet, t *cache.Resource) *podSetInfo {
 			continue
 		}
 
-		p := psi.allocated.Get(rn) / psi.total.Get(rn)
-		if p > psi.priority {
-			psi.priority = p
+		p := psi.calculateShare(rn)
+		if p > psi.share {
+			psi.share = p
 			psi.dominantResource = rn
 		}
 	}
 
+	// TODO(jinzhejz): it is better to move sorted pods to PodSet
+	for _, ps := range psi.podSet.Pending {
+		psi.pendingSorted.Push(ps, -float64(ps.Priority))
+	}
+
 	glog.V(3).Infof("PodSet <%v/%v>: priority <%f>, dominant resource <%v>",
-		psi.podSet.Namespace, psi.podSet.Name, psi.priority, psi.dominantResource)
+		psi.podSet.Namespace, psi.podSet.Name, psi.share, psi.dominantResource)
 
 	return psi
 }
 
-func (psi *podSetInfo) assignPendingPod(nodeName string) {
-	p := psi.podSet.Pending[psi.pendingIndex]
-	psi.allocated.Add(p.Request)
+func (psi *podSetInfo) assignPendingPod(p *cache.PodInfo, nodeName string) {
+	// assign node to pending pod temporarily
+	psi.unacceptedAllocated.Add(p.Request)
 	p.NodeName = nodeName
-
-	// Update related info.
-	psi.pendingIndex++
-	psi.priority = psi.allocated.Get(psi.dominantResource) / psi.total.Get(psi.dominantResource)
+	psi.unacceptedAssignedPods = append(psi.unacceptedAssignedPods, p)
 
 	glog.V(3).Infof("PodSet <%v/%v> after assignment: priority <%f>, dominant resource <%v>",
-		psi.podSet.Namespace, psi.podSet.Name, psi.priority, psi.dominantResource)
+		psi.podSet.Namespace, psi.podSet.Name, psi.share, psi.dominantResource)
 }
 
-func (psi *podSetInfo) nextPendingPod() *cache.PodInfo {
-	for i := psi.pendingIndex; i < len(psi.podSet.Pending); i++ {
-		if len(psi.podSet.Pending[i].NodeName) == 0 {
-			psi.pendingIndex = i
-			return psi.podSet.Pending[i]
-		}
+func (psi *podSetInfo) popPendingPod() *cache.PodInfo {
+	if psi.pendingSorted.Empty() {
+		return nil
 	}
 
-	return nil
+	pi := psi.pendingSorted.Pop().(*cache.PodInfo)
+
+	return pi
 }
 
-func (psi *podSetInfo) meetMinAvailable() bool {
-	return len(psi.podSet.Running)+psi.pendingIndex >= psi.podSet.MinAvailable
+func (psi *podSetInfo) pushPendingPod(p *cache.PodInfo) {
+	psi.pendingSorted.Push(p, -float64(p.Priority))
+}
+
+func (psi *podSetInfo) insufficientMinAvailable() int {
+	insufficient := 0
+	if len(psi.podSet.Running)+len(psi.podSet.Assigned) < psi.podSet.MinAvailable {
+		insufficient = psi.podSet.MinAvailable - len(psi.podSet.Running) - len(psi.podSet.Assigned)
+	}
+	return insufficient
+}
+
+func (psi *podSetInfo) acceptAssignedPods() {
+	if len(psi.unacceptedAssignedPods) == 0 {
+		return
+	}
+
+	// accept temporary assigned Pods
+	// put them to PodSet assigned queue
+	psi.podSet.Assigned = append(psi.podSet.Assigned, psi.unacceptedAssignedPods...)
+	psi.unacceptedAssignedPods = make([]*cache.PodInfo, 0)
+
+	// update allocate resource for consistent
+	psi.allocated.Add(psi.unacceptedAllocated)
+	psi.unacceptedAllocated = cache.EmptyResource()
+
+	// update podset share
+	psi.share = psi.calculateShare(psi.dominantResource)
+}
+
+func (psi *podSetInfo) discardAssignedPods() {
+	if len(psi.unacceptedAssignedPods) == 0 {
+		return
+	}
+
+	// clean assigned node
+	for _, p := range psi.unacceptedAssignedPods {
+		p.NodeName = ""
+	}
+
+	// discard temporary assigned Pods
+	// put them back to PodSet pending queue
+	for _, p := range psi.unacceptedAssignedPods {
+		psi.pendingSorted.Push(p, -float64(p.Priority))
+	}
+	psi.unacceptedAssignedPods = make([]*cache.PodInfo, 0)
+
+	psi.unacceptedAllocated = cache.EmptyResource()
+}
+
+func (psi *podSetInfo) calculateShare(rn v1.ResourceName) float64 {
+	return psi.allocated.Get(rn) / psi.total.Get(rn)
 }
