@@ -61,13 +61,13 @@ func TestPodSet_AddPodInfo(t *testing.T) {
 				Allocated:    buildResource("3000m", "3G"),
 				TotalRequest: buildResource("4000m", "4G"),
 				Running: []*PodInfo{
-					NewPodInfo(case01_pod2),
+					NewPodInfo(case01_pod2, ""),
 				},
 				Pending: []*PodInfo{
-					NewPodInfo(case01_pod1),
+					NewPodInfo(case01_pod1, ""),
 				},
 				Assigned: []*PodInfo{
-					NewPodInfo(case01_pod3),
+					NewPodInfo(case01_pod3, ""),
 				},
 				Others: []*PodInfo{},
 			},
@@ -78,7 +78,7 @@ func TestPodSet_AddPodInfo(t *testing.T) {
 		ps := NewPodSet(test.uid)
 
 		for _, pod := range test.pods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ps.AddPodInfo(pi)
 		}
 
@@ -126,11 +126,11 @@ func TestPodSet_DeletePodInfo(t *testing.T) {
 				Allocated:    buildResource("3000m", "3G"),
 				TotalRequest: buildResource("4000m", "4G"),
 				Running: []*PodInfo{
-					NewPodInfo(case01_pod3),
+					NewPodInfo(case01_pod3, ""),
 				},
 				Assigned: []*PodInfo{},
 				Pending: []*PodInfo{
-					NewPodInfo(case01_pod1),
+					NewPodInfo(case01_pod1, ""),
 				},
 				Others: []*PodInfo{},
 			},
@@ -150,11 +150,11 @@ func TestPodSet_DeletePodInfo(t *testing.T) {
 				Allocated:    buildResource("3000m", "3G"),
 				TotalRequest: buildResource("4000m", "4G"),
 				Running: []*PodInfo{
-					NewPodInfo(case02_pod3),
+					NewPodInfo(case02_pod3, ""),
 				},
 				Assigned: []*PodInfo{},
 				Pending: []*PodInfo{
-					NewPodInfo(case02_pod1),
+					NewPodInfo(case02_pod1, ""),
 				},
 				Others: []*PodInfo{},
 			},
@@ -165,12 +165,12 @@ func TestPodSet_DeletePodInfo(t *testing.T) {
 		ps := NewPodSet(test.uid)
 
 		for _, pod := range test.pods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ps.AddPodInfo(pi)
 		}
 
 		for _, pod := range test.rmPods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ps.DeletePodInfo(pi)
 		}
 

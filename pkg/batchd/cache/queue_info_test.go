@@ -65,8 +65,8 @@ func TestQueueInfo_AddPod(t *testing.T) {
 				Namespace: "c1",
 				PodSets:   make(map[types.UID]*PodSet),
 				Pods: map[string]*PodInfo{
-					"p1": NewPodInfo(case01_pod1),
-					"p2": NewPodInfo(case01_pod2),
+					"p1": NewPodInfo(case01_pod1, ""),
+					"p2": NewPodInfo(case01_pod2, ""),
 				},
 			},
 		},
@@ -89,11 +89,11 @@ func TestQueueInfo_AddPod(t *testing.T) {
 						Allocated:    buildResource("1000m", "1G"),
 						TotalRequest: buildResource("2000m", "2G"),
 						Running: []*PodInfo{
-							NewPodInfo(case02_pod2),
+							NewPodInfo(case02_pod2, ""),
 						},
 						Assigned: []*PodInfo{},
 						Pending: []*PodInfo{
-							NewPodInfo(case02_pod1),
+							NewPodInfo(case02_pod1, ""),
 						},
 						Others: []*PodInfo{},
 					},
@@ -107,7 +107,7 @@ func TestQueueInfo_AddPod(t *testing.T) {
 		ci := NewQueueInfo(test.queue)
 
 		for _, pod := range test.pods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ci.AddPod(pi)
 		}
 
@@ -151,8 +151,8 @@ func TestQueueInfo_RemovePod(t *testing.T) {
 				Namespace: "c1",
 				PodSets:   make(map[types.UID]*PodSet),
 				Pods: map[string]*PodInfo{
-					"p1": NewPodInfo(case01_pod1),
-					"p3": NewPodInfo(case01_pod3),
+					"p1": NewPodInfo(case01_pod1, ""),
+					"p3": NewPodInfo(case01_pod3, ""),
 				},
 			},
 		},
@@ -176,11 +176,11 @@ func TestQueueInfo_RemovePod(t *testing.T) {
 						Allocated:    buildResource("1000m", "1G"),
 						TotalRequest: buildResource("2000m", "2G"),
 						Running: []*PodInfo{
-							NewPodInfo(case02_pod3),
+							NewPodInfo(case02_pod3, ""),
 						},
 						Assigned: []*PodInfo{},
 						Pending: []*PodInfo{
-							NewPodInfo(case02_pod1),
+							NewPodInfo(case02_pod1, ""),
 						},
 						Others: []*PodInfo{},
 					},
@@ -194,12 +194,12 @@ func TestQueueInfo_RemovePod(t *testing.T) {
 		ci := NewQueueInfo(test.queue)
 
 		for _, pod := range test.pods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ci.AddPod(pi)
 		}
 
 		for _, pod := range test.rmPods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ci.RemovePod(pi)
 		}
 
@@ -253,11 +253,11 @@ func TestQueueInfo_AddPdb(t *testing.T) {
 						Allocated:    buildResource("1000m", "1G"),
 						TotalRequest: buildResource("2000m", "2G"),
 						Running: []*PodInfo{
-							NewPodInfo(case01_pod2),
+							NewPodInfo(case01_pod2, ""),
 						},
 						Assigned: []*PodInfo{},
 						Pending: []*PodInfo{
-							NewPodInfo(case01_pod1),
+							NewPodInfo(case01_pod1, ""),
 						},
 						Others: []*PodInfo{},
 					},
@@ -271,7 +271,7 @@ func TestQueueInfo_AddPdb(t *testing.T) {
 		ci := NewQueueInfo(test.queue)
 
 		for _, pod := range test.pods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ci.AddPod(pi)
 		}
 
@@ -332,11 +332,11 @@ func TestQueueInfo_RemovePdb(t *testing.T) {
 						Allocated:    buildResource("1000m", "1G"),
 						TotalRequest: buildResource("2000m", "2G"),
 						Running: []*PodInfo{
-							NewPodInfo(case01_pod2),
+							NewPodInfo(case01_pod2, ""),
 						},
 						Assigned: []*PodInfo{},
 						Pending: []*PodInfo{
-							NewPodInfo(case01_pod1),
+							NewPodInfo(case01_pod1, ""),
 						},
 						Others: []*PodInfo{},
 					},
@@ -350,7 +350,7 @@ func TestQueueInfo_RemovePdb(t *testing.T) {
 		ci := NewQueueInfo(test.queue)
 
 		for _, pod := range test.pods {
-			pi := NewPodInfo(pod)
+			pi := NewPodInfo(pod, "")
 			ci.AddPod(pi)
 		}
 
