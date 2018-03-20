@@ -47,7 +47,7 @@ type PodInfo struct {
 	Request *Resource
 }
 
-func NewPodInfo(pod *v1.Pod) *PodInfo {
+func NewPodInfo(pod *v1.Pod, groupLabel string) *PodInfo {
 	req := EmptyResource()
 
 	for _, c := range pod.Spec.Containers {
@@ -56,7 +56,7 @@ func NewPodInfo(pod *v1.Pod) *PodInfo {
 
 	pi := &PodInfo{
 		UID:       pod.UID,
-		Owner:     getPodOwner(pod),
+		Owner:     getPodOwner(pod, groupLabel),
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
 		NodeName:  pod.Spec.NodeName,

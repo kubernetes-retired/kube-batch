@@ -26,6 +26,7 @@ type ServerOption struct {
 	Kubeconfig    string
 	Policy        string
 	SchedulerName string
+	GroupLabel    string
 }
 
 // NewServerOption creates a new CMServer with a default config.
@@ -42,6 +43,8 @@ func (s *ServerOption) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.Policy, "policy", "drf", "The policy that used to allocate resources")
 	// kube-arbitrator will ignore pods with scheduler names other than specified with the option
 	fs.StringVar(&s.SchedulerName, "scheduler-name", "default-scheduler", "kube-arbitrator will handle pods with the scheduler-name")
+	// kube-arbitrator will group pod into PodSet by this options
+	fs.StringVar(&s.GroupLabel, "group-label", "", "kube-arbitrator will group pod into PodSet by this options first if it exist")
 }
 
 func (s *ServerOption) CheckOptionOrDie() {
