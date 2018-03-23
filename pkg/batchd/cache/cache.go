@@ -39,12 +39,14 @@ import (
 )
 
 // New returns a Cache implementation.
-func New(config *rest.Config, schedulerName string) Cache {
-	return newSchedulerCache(config, schedulerName)
+func New(config *rest.Config, schedulerName string, groupLabel string) Cache {
+	return newSchedulerCache(config, schedulerName, groupLabel)
 }
 
 type SchedulerCache struct {
 	sync.Mutex
+
+	groupLabel string
 
 	podInformer   clientv1.PodInformer
 	nodeInformer  clientv1.NodeInformer
@@ -59,8 +61,9 @@ type SchedulerCache struct {
 	Pdbs   map[string]*PdbInfo
 }
 
-func newSchedulerCache(config *rest.Config, schedulerName string) *SchedulerCache {
+func newSchedulerCache(config *rest.Config, schedulerName string, groupLabel string) *SchedulerCache {
 	sc := &SchedulerCache{
+		groupLabel:       groupLabel,
 		assumedPodStates: make(map[string]*podState),
 		Nodes:            make(map[string]*NodeInfo),
 		Pods:             make(map[string]*PodInfo),
@@ -233,7 +236,7 @@ func (sc *SchedulerCache) addPod(pod *v1.Pod) error {
 		}
 	}
 
-	pi := NewPodInfo(pod)
+	pi := NewPodInfo(pod, sc.groupLabel)
 
 	if len(pod.Spec.NodeName) > 0 {
 		if sc.Nodes[pod.Spec.NodeName] == nil {

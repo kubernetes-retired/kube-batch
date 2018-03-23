@@ -35,7 +35,30 @@ func podKey(pod *v1.Pod) string {
 	}
 }
 
-func getPodOwner(pod *v1.Pod) types.UID {
+func getPodOwner(pod *v1.Pod, groupLabel string) types.UID {
+	// The pod with different owner reference may belong to the same PodSet,
+	//
+	// K8S Deployment
+	// A deployment may contain more than one RS when rolling-upgrade happens,
+	// pods in different RS have different owner references, so kube-batchd will
+	// group them into different PodSet. However, these pods belong to the same
+	// deployment and should be in one PodSet.
+	//
+	// Kubeflow job
+	// In a tfjob, kubeflow create Master/PS/Worker as a k8s job and each job
+	// contains one pod. kube-batchd will group these pods into different PodSet
+	// because of different owner references. However, they belong to the same
+	// tfjob and should be in one PodSet.
+	//
+	// It is hard to get a k8s resources by its uid currently, use label
+	// groupLabel as its owner reference temporarily to group pods into PodSet
+	// it is user's responsibility to make the label unique
+	// TODO(jinzhej): get the root owner references for a pod, not use label
+	if v, ok := pod.Labels[groupLabel]; ok {
+		return types.UID(v)
+	}
+
+	// get pod owner reference directly if label groupLabel is empty
 	meta_pod, err := meta.Accessor(pod)
 	if err != nil {
 		return ""
