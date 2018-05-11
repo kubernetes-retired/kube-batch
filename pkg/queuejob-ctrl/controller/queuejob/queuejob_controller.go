@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/glog"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,13 +37,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubernetes/pkg/controller"
 
-	"github.com/golang/glog"
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/apis/v1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/clientset"
 	arbinformers "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/informers"
 	informersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/informers/v1"
 	listersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/listers/v1"
+
 )
 
 const (
@@ -146,7 +148,6 @@ func NewController(config *rest.Config) *Controller {
 
 // Run start QueueJob Controller
 func (cc *Controller) Run(stopCh chan struct{}) {
-	glog.V(3).Infof("About to create QueueJob CRD")
 	// initialized
 	createQueueJobCRD(cc.config)
 
@@ -181,7 +182,7 @@ func (cc *Controller) updateQueueJob(oldObj, newObj interface{}) {
 
 	if _, ok := cc.queueJobToPDB[newQJ.Name]; !ok {
 		// create PDB for the QueueJob if controller doesn't create it before
-		pdb, err := cc.initPDB(int(newQJ.Spec.Replicas), newQJ.Spec.Template.Labels)
+		pdb, err := cc.initPDB(newQJ.Namespace, int(newQJ.Spec.Replicas), newQJ.Spec.Template.Labels)
 		if err != nil {
 			glog.Errorf("Failed to create PDB for QueueJob %s, err %#v", newQJ.Name, err)
 			return
@@ -194,13 +195,13 @@ func (cc *Controller) updateQueueJob(oldObj, newObj interface{}) {
 		// 1. delete old pdb
 		oldPDB, ok := cc.queueJobToPDB[newQJ.Name]
 		if ok {
-			err := cc.clients.Policy().PodDisruptionBudgets("default").Delete(oldPDB, &metav1.DeleteOptions{})
+			err := cc.clients.Policy().PodDisruptionBudgets(oldQJ.Namespace).Delete(oldPDB, &metav1.DeleteOptions{})
 			if err != nil {
 				glog.Errorf("Failed to delete PDB for QueueJob %s, err %#v", newQJ.Name, err)
 			}
 		}
 		// 2. create a new pdb
-		newPDB, err := cc.initPDB(int(newQJ.Spec.Replicas), newQJ.Spec.Template.Labels)
+		newPDB, err := cc.initPDB(newQJ.Namespace, int(newQJ.Spec.Replicas), newQJ.Spec.Template.Labels)
 		if err != nil {
 			glog.Errorf("Failed to create PDB for QueueJob %s, err %#v", newQJ.Name, err)
 			return
@@ -344,7 +345,7 @@ func (cc *Controller) updateWorker() {
 	}
 }
 
-func (cc *Controller) initPDB(min int, selectorMap map[string]string) (string, error) {
+func (cc *Controller) initPDB(ns string, min int, selectorMap map[string]string) (string, error) {
 	pdbName := fmt.Sprintf("pdb-%s", generateUUID())
 	selector := &metav1.LabelSelector{
 		MatchLabels: selectorMap,
@@ -360,7 +361,7 @@ func (cc *Controller) initPDB(min int, selectorMap map[string]string) (string, e
 		},
 	}
 
-	_, err := cc.clients.Policy().PodDisruptionBudgets("default").Create(pdb)
+	_, err := cc.clients.Policy().PodDisruptionBudgets(ns).Create(pdb)
 
 	return pdbName, err
 }

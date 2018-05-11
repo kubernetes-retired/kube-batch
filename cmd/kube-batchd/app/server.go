@@ -21,7 +21,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kube-batchd/app/options"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/controller"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/controller/policy"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/controller/queue"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
@@ -42,11 +43,11 @@ func Run(opt *options.ServerOption) error {
 	neverStop := make(chan struct{})
 
 	// Start Queue Controller to create CRD and manage Queue lifecycle.
-	queueController := controller.NewQueueController(config)
+	queueController := queue.NewQueueController(config)
 	queueController.Run(neverStop)
 
 	// Start policy controller to allocate resources.
-	policyController, err := controller.NewPolicyController(config, opt.Policy, opt.SchedulerName)
+	policyController, err := policy.NewPolicyController(config, opt.Policy, opt.SchedulerName)
 	if err != nil {
 		panic(err)
 	}
