@@ -36,12 +36,12 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 
 	"github.com/golang/glog"
-	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/apis/v1"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client/clientset"
-	arbinformers "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client/informers"
-	informersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client/informers/v1"
-	listersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client/listers/v1"
+	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/apis/v1"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/clientset"
+	arbinformers "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/informers"
+	informersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/informers/v1"
+	listersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/listers/v1"
 )
 
 const (
@@ -146,6 +146,7 @@ func NewController(config *rest.Config) *Controller {
 
 // Run start QueueJob Controller
 func (cc *Controller) Run(stopCh chan struct{}) {
+	glog.V(3).Infof("About to create QueueJob CRD")
 	// initialized
 	createQueueJobCRD(cc.config)
 
