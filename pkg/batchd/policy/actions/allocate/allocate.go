@@ -25,24 +25,20 @@ import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/util"
 )
 
-// PolicyName is the name of allocate policy; it'll be use for any case
-// that need a name, e.g. default policy, register allocate policy.
-var PolicyName = "allocate"
-
-type drfScheduler struct {
+type allocateAction struct {
 }
 
-func New() *drfScheduler {
-	return &drfScheduler{}
+func New() *allocateAction {
+	return &allocateAction{}
 }
 
-func (drf *drfScheduler) Name() string {
-	return PolicyName
+func (drf *allocateAction) Name() string {
+	return "allocate"
 }
 
-func (drf *drfScheduler) Initialize() {}
+func (drf *allocateAction) Initialize() {}
 
-func (drf *drfScheduler) Execute(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo {
+func (drf *allocateAction) Execute(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo {
 	glog.V(4).Infof("Enter Execute ...")
 	defer glog.V(4).Infof("Leaving Execute ...")
 
@@ -103,11 +99,11 @@ func (drf *drfScheduler) Execute(queues []*cache.QueueInfo, nodes []*cache.NodeI
 	return queues
 }
 
-func (drf *drfScheduler) UnInitialize() {}
+func (drf *allocateAction) UnInitialize() {}
 
 // Assign node for min Pods of psi
 // If min Pods can not be satisfy, then don't assign any pods
-func (drf *drfScheduler) assignMinimalPods(min int, psi *podSetInfo, nodes []*cache.NodeInfo) bool {
+func (drf *allocateAction) assignMinimalPods(min int, psi *podSetInfo, nodes []*cache.NodeInfo) bool {
 	glog.V(4).Infof("Enter assignMinimalPods ...")
 	defer glog.V(4).Infof("Leaving assignMinimalPods ...")
 
