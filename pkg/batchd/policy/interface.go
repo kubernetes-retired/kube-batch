@@ -20,17 +20,17 @@ import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/cache"
 )
 
-// Interface is the interface of policy.
+// Interface is the interface of actions.
 type Interface interface {
 	// The unique name of allocator.
 	Name() string
 
-	// Initialize initializes the allocator plugins.
+	// Initialize initializes the allocator actions.
 	Initialize()
 
-	// Allocate allocates the cluster's resources into each queue.
-	Allocate(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo
+	// Execute allocates the cluster's resources into each queue.
+	Execute(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo
 
-	// UnIntialize un-initializes the allocator plugins.
+	// UnIntialize un-initializes the allocator actions.
 	UnInitialize()
 }

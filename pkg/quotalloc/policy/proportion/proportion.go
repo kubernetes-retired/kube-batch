@@ -116,8 +116,8 @@ func (ps *proportionScheduler) Allocate(
 	jobGroup map[string][]*cache.QuotaAllocatorInfo,
 	nodes []*cache.NodeInfo,
 ) map[string]*cache.QuotaAllocatorInfo {
-	glog.V(4).Infof("Enter Allocate ...")
-	defer glog.V(4).Infof("Leaving Allocate ...")
+	glog.V(4).Infof("Enter Execute ...")
+	defer glog.V(4).Infof("Leaving Execute ...")
 
 	totalCPU, totalMEM, totalWeight := ps.collectSchedulingInfo(jobGroup, nodes)
 	if totalCPU == 0 || totalMEM == 0 || totalWeight == 0 {

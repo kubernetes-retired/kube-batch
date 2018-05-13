@@ -39,7 +39,6 @@ type PolicyController struct {
 	clientset  *clientset.Clientset
 	kubeclient *kubernetes.Clientset
 	cache      schedcache.Cache
-	allocator  policy.Interface
 	podSets    *cache.FIFO
 }
 
@@ -52,7 +51,7 @@ func podSetKey(obj interface{}) (string, error) {
 	return fmt.Sprintf("%s/%s", podSet.Namespace, podSet.Name), nil
 }
 
-func NewPolicyController(config *rest.Config, policyName string, schedulerName string) (*PolicyController, error) {
+func NewPolicyController(config *rest.Config, schedulerName string) (*PolicyController, error) {
 	cs, err := clientset.NewForConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create client for PolicyController: %#v", err)
@@ -63,17 +62,11 @@ func NewPolicyController(config *rest.Config, policyName string, schedulerName s
 		return nil, fmt.Errorf("failed to create kube client for PolicyController: %#v", err)
 	}
 
-	alloc, err := policy.New(policyName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create allocator: %#v", err)
-	}
-
 	policyController := &PolicyController{
 		config:     config,
 		clientset:  cs,
 		kubeclient: kc,
 		cache:      schedcache.New(config, schedulerName),
-		allocator:  alloc,
 		podSets:    cache.NewFIFO(podSetKey),
 	}
 
@@ -97,11 +90,14 @@ func (pc *PolicyController) runOnce() {
 
 	snapshot := pc.cache.Snapshot()
 
-	queues := pc.allocator.Allocate(snapshot.Queues, snapshot.Nodes)
+	for _, action := range policy.ActionChain {
+		queues := action.Execute(snapshot.Queues, snapshot.Nodes)
 
-	pc.assumePods(queues)
+		pc.assumePods(queues)
 
-	pc.enqueue(queues)
+		pc.enqueue(queues)
+	}
+
 }
 
 func (pc *PolicyController) enqueue(queues []*schedcache.QueueInfo) {

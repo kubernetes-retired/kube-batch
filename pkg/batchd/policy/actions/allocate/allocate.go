@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package drf
+package allocate
 
 import (
 	"sort"
@@ -25,9 +25,9 @@ import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/util"
 )
 
-// PolicyName is the name of drf policy; it'll be use for any case
-// that need a name, e.g. default policy, register drf policy.
-var PolicyName = "drf"
+// PolicyName is the name of allocate policy; it'll be use for any case
+// that need a name, e.g. default policy, register allocate policy.
+var PolicyName = "allocate"
 
 type drfScheduler struct {
 }
@@ -42,9 +42,9 @@ func (drf *drfScheduler) Name() string {
 
 func (drf *drfScheduler) Initialize() {}
 
-func (drf *drfScheduler) Allocate(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo {
-	glog.V(4).Infof("Enter Allocate ...")
-	defer glog.V(4).Infof("Leaving Allocate ...")
+func (drf *drfScheduler) Execute(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo {
+	glog.V(4).Infof("Enter Execute ...")
+	defer glog.V(4).Infof("Leaving Execute ...")
 
 	total := cache.EmptyResource()
 	for _, n := range nodes {
