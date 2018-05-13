@@ -20,6 +20,7 @@ pkg/batchd/controller/policy
 pkg/batchd/controller/queue
 pkg/batchd/policy
 pkg/batchd/policy/actions/allocate
+pkg/batchd/policy/framework
 pkg/batchd/policy/util
 pkg/quotalloc/apis/v1
 pkg/quotalloc/cache

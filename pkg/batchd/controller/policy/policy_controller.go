@@ -32,6 +32,7 @@ import (
 	schedcache "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/cache"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client/clientset"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/framework"
 )
 
 type PolicyController struct {
@@ -90,6 +91,7 @@ func (pc *PolicyController) runOnce() {
 
 	snapshot := pc.cache.Snapshot()
 
+	ssn := framework.OpenSession()
 	for _, action := range policy.ActionChain {
 		queues := action.Execute(snapshot.Queues, snapshot.Nodes)
 
@@ -97,7 +99,7 @@ func (pc *PolicyController) runOnce() {
 
 		pc.enqueue(queues)
 	}
-
+	framework.CloseSession(ssn)
 }
 
 func (pc *PolicyController) enqueue(queues []*schedcache.QueueInfo) {
