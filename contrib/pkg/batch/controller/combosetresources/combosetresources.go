@@ -32,7 +32,7 @@ type RegisteredResources struct {
 	registry map[qjobv1.ResourceType]Factory
 }
 
-// Registered enumerates the names of all registered plugins.
+// Registered enumerates the names of all registered actions.
 func (rres *RegisteredResources) Registered() []qjobv1.ResourceType {
 	rres.lock.Lock()
 	defer rres.lock.Unlock()
