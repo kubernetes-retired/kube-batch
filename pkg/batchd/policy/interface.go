@@ -18,19 +18,26 @@ package policy
 
 import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/cache"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/actions/allocate"
 )
 
-// Interface is the interface of actions.
-type Interface interface {
-	// The unique name of allocator.
+// Action is the interface of actions.
+type Action interface {
+	// The unique name of action.
 	Name() string
 
-	// Initialize initializes the allocator actions.
+	// Initialize initializes the allocator action.
 	Initialize()
 
-	// Execute allocates the cluster's resources into each queue.
+	// Execute executes the action for resource allocation of cluster.
 	Execute(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo
 
-	// UnIntialize un-initializes the allocator actions.
+	// UnIntialize un-initializes the allocator action.
 	UnInitialize()
+}
+
+// ActionChain is the action chain that to allocate resource; the actions MUST be
+// executed in order.
+var ActionChain = []Action{
+	allocate.New(),
 }
