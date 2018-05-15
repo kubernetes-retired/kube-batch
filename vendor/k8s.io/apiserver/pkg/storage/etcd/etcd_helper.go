@@ -235,7 +235,7 @@ func (h *etcdHelper) Watch(ctx context.Context, key string, resourceVersion stri
 	if ctx == nil {
 		glog.Errorf("Context is nil")
 	}
-	watchRV, err := storage.ParseWatchResourceVersion(resourceVersion)
+	watchRV, err := h.versioner.ParseWatchResourceVersion(resourceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +250,7 @@ func (h *etcdHelper) WatchList(ctx context.Context, key string, resourceVersion 
 	if ctx == nil {
 		glog.Errorf("Context is nil")
 	}
-	watchRV, err := storage.ParseWatchResourceVersion(resourceVersion)
+	watchRV, err := h.versioner.ParseWatchResourceVersion(resourceVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -584,6 +584,10 @@ func (h *etcdHelper) GuaranteedUpdate(
 		_, _, _, err = h.extractObj(response, err, ptrToType, false, false)
 		return toStorageErr(err, key, int64(index))
 	}
+}
+
+func (*etcdHelper) Count(pathPerfix string) (int64, error) {
+	return 0, fmt.Errorf("Count is unimplemented for etcd2!")
 }
 
 // etcdCache defines interface used for caching objects stored in etcd. Objects are keyed by

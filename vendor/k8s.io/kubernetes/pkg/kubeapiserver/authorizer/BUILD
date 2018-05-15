@@ -13,7 +13,6 @@ go_test(
         "//pkg/auth/authorizer/abac:example_policy",
     ],
     embed = [":go_default_library"],
-    importpath = "k8s.io/kubernetes/pkg/kubeapiserver/authorizer",
     deps = ["//pkg/kubeapiserver/authorizer/modes:go_default_library"],
 )
 
@@ -33,6 +32,7 @@ go_library(
         "//vendor/k8s.io/apiserver/pkg/authorization/authorizerfactory:go_default_library",
         "//vendor/k8s.io/apiserver/pkg/authorization/union:go_default_library",
         "//vendor/k8s.io/apiserver/plugin/pkg/authorizer/webhook:go_default_library",
+        "//vendor/k8s.io/client-go/informers:go_default_library",
     ],
 )
 
