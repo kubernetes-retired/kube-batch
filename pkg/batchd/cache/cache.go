@@ -36,6 +36,7 @@ import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client"
 	informerfactory "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client/informers"
 	arbclient "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/client/informers/v1"
+	policyapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/api"
 )
 
 // New returns a Cache implementation.
@@ -657,26 +658,50 @@ func (sc *SchedulerCache) PdbInformer() policyv1.PodDisruptionBudgetInformer {
 	return sc.pdbInformer
 }
 
-func (sc *SchedulerCache) Snapshot() *CacheSnapshot {
+//
+//func (sc *SchedulerCache) Snapshot() *CacheSnapshot {
+//	sc.Mutex.Lock()
+//	defer sc.Mutex.Unlock()
+//
+//	snapshot := &CacheSnapshot{
+//		Nodes:  make([]*NodeInfo, 0, len(sc.Nodes)),
+//		Pods:   make([]*PodInfo, 0, len(sc.Pods)),
+//		Queues: make([]*QueueInfo, 0, len(sc.Queues)),
+//	}
+//
+//	for _, value := range sc.Nodes {
+//		snapshot.Nodes = append(snapshot.Nodes, value.Clone())
+//	}
+//	for _, value := range sc.Pods {
+//		snapshot.Pods = append(snapshot.Pods, value.Clone())
+//	}
+//	for _, value := range sc.Queues {
+//		snapshot.Queues = append(snapshot.Queues, value.Clone())
+//	}
+//	return snapshot
+//}
+
+func (sc *SchedulerCache) Snapshot() ([]*policyapi.Request, []*policyapi.Node) {
 	sc.Mutex.Lock()
 	defer sc.Mutex.Unlock()
 
-	snapshot := &CacheSnapshot{
-		Nodes:  make([]*NodeInfo, 0, len(sc.Nodes)),
-		Pods:   make([]*PodInfo, 0, len(sc.Pods)),
-		Queues: make([]*QueueInfo, 0, len(sc.Queues)),
+	var reqs []*policyapi.Request
+	var nodes []*policyapi.Node
+
+	for _, q := range sc.Queues {
+		for _, psi := range q.PodSets {
+			req := newRequest(psi)
+			req.Consumer = fmt.Sprintf("%v/%v", q.Namespace, q.Name)
+			req.CreationTimestamp = psi.CreationTimestamp.Time
+			reqs = append(reqs, req)
+		}
 	}
 
-	for _, value := range sc.Nodes {
-		snapshot.Nodes = append(snapshot.Nodes, value.Clone())
+	for _, n := range sc.Nodes {
+		nodes = append(nodes, newNode(n))
 	}
-	for _, value := range sc.Pods {
-		snapshot.Pods = append(snapshot.Pods, value.Clone())
-	}
-	for _, value := range sc.Queues {
-		snapshot.Queues = append(snapshot.Queues, value.Clone())
-	}
-	return snapshot
+
+	return reqs, nodes
 }
 
 func (sc *SchedulerCache) String() string {

@@ -17,27 +17,25 @@ limitations under the License.
 package policy
 
 import (
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/cache"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/framework"
+
+	// Import schedule actions
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/actions/allocate"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/actions/garantee"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/actions/predicate"
+
+	// Import schedule plugins
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/plugins/drf"
 )
 
-// Action is the interface of actions.
-type Action interface {
-	// The unique name of action.
-	Name() string
-
-	// Initialize initializes the allocator action.
-	Initialize()
-
-	// Execute executes the action for resource allocation of cluster.
-	Execute(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo
-
-	// UnIntialize un-initializes the allocator action.
-	UnInitialize()
+func init() {
+	framework.RegisterPlugin(drf.New())
 }
 
 // ActionChain is the action chain that to allocate resource; the actions MUST be
 // executed in order.
-var ActionChain = []Action{
+var ActionChain = []framework.Action{
+	predicate.New(),
+	garantee.New(),
 	allocate.New(),
 }

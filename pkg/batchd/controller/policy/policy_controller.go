@@ -89,16 +89,16 @@ func (pc *PolicyController) runOnce() {
 
 	pc.cancelAllocDecisionProcessing()
 
-	snapshot := pc.cache.Snapshot()
+	//snapshot := pc.cache.Snapshot()
 
 	ssn := framework.OpenSession()
 	for _, action := range policy.ActionChain {
-		queues := action.Execute(snapshot.Queues, snapshot.Nodes)
-
-		pc.assumePods(queues)
-
-		pc.enqueue(queues)
+		action.Execute(ssn)
+		//pc.assumePods(queues)
+		//
+		//pc.enqueue(queues)
 	}
+
 	framework.CloseSession(ssn)
 }
 

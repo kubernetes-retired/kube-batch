@@ -17,11 +17,10 @@ limitations under the License.
 package allocate
 
 import (
-	"sort"
-
 	"github.com/golang/glog"
 
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/cache"
+	policyapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/api"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/framework"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/util"
 )
 
@@ -38,142 +37,173 @@ func (drf *allocateAction) Name() string {
 
 func (drf *allocateAction) Initialize() {}
 
-func (drf *allocateAction) Execute(queues []*cache.QueueInfo, nodes []*cache.NodeInfo) []*cache.QueueInfo {
+func (drf *allocateAction) Execute(ssn *framework.Session) {
 	glog.V(4).Infof("Enter Execute ...")
 	defer glog.V(4).Infof("Leaving Execute ...")
 
-	total := cache.EmptyResource()
-	for _, n := range nodes {
-		total.Add(n.Allocatable)
-	}
+	requests := util.NewPriorityQueue(ssn.RequestOrderFn)
+	pendings := map[string]*util.PriorityQueue{}
 
-	dq := util.NewDictionaryQueue()
-	for _, c := range queues {
-		for _, ps := range c.PodSets {
-			psi := newPodSetInfo(ps, total)
-			dq.Push(util.NewDictionaryItem(psi, psi.podSet.Name))
+	for _, req := range ssn.Requests {
+		requests.Push(req)
+
+		ps := util.NewPriorityQueue(nil)
+		for _, ru := range req.Units {
+			if ru.Status == policyapi.Pending {
+				ps.Push(ru)
+			}
 		}
+
+		pendings[req.ID] = ps
 	}
 
-	// assign MinAvailable of each podSet first by chronologically
-	sort.Sort(dq)
-	pq := util.NewPriorityQueue()
-	matchNodesForPodSet := make(map[string][]*cache.NodeInfo)
-	for _, q := range dq {
-		psi := q.Value.(*podSetInfo)
+	for !requests.Empty() {
+		req := requests.Pop().(*policyapi.Request)
 
-		// fetch the nodes that match PodSet NodeSelector and NodeAffinity
-		// and store it for following DRF assignment
-		matchNodes := fetchMatchNodeForPodSet(psi, nodes)
-		matchNodesForPodSet[psi.podSet.Name] = matchNodes
+		glog.V(3).Infof("Try to allocate resources to Request <%v>", req.ID)
 
-		assigned := drf.assignMinimalPods(psi.insufficientMinAvailable(), psi, matchNodes)
-		if assigned {
-			// only push PodSet with MinAvailable to priority queue
-			// to avoid PodSet get resources less than MinAvailable by following DRF assignment
-			pq.Push(psi, psi.share)
+		rus := pendings[req.ID]
 
-			glog.V(3).Infof("assign MinAvailable for podset %s/%s successfully",
-				psi.podSet.Namespace, psi.podSet.Name)
-		} else {
-			glog.V(3).Infof("assign MinAvailable for podset %s/%s failed, there is no enough resources",
-				psi.podSet.Namespace, psi.podSet.Name)
-		}
-	}
-
-	for !pq.Empty() {
-		psi := pq.Pop().(*podSetInfo)
-
-		glog.V(3).Infof("try to allocate resources to PodSet <%v/%v>",
-			psi.podSet.Namespace, psi.podSet.Name)
-
-		// assign one pod of PodSet by DRF
-		assigned := drf.assignMinimalPods(1, psi, matchNodesForPodSet[psi.podSet.Name])
-
-		if assigned {
-			// push PosSet back for next assignment
-			pq.Push(psi, psi.share)
-		}
-	}
-
-	return queues
-}
-
-func (drf *allocateAction) UnInitialize() {}
-
-// Assign node for min Pods of psi
-// If min Pods can not be satisfy, then don't assign any pods
-func (drf *allocateAction) assignMinimalPods(min int, psi *podSetInfo, nodes []*cache.NodeInfo) bool {
-	glog.V(4).Infof("Enter assignMinimalPods ...")
-	defer glog.V(4).Infof("Leaving assignMinimalPods ...")
-
-	if min == 0 {
-		// PodSet need to be assigned 0 Pod this time
-		// the assignment is successful directly
-		return true
-	}
-
-	unacceptedAssignedNodes := make(map[string]*cache.NodeInfo)
-	for min > 0 {
-		p := psi.popPendingPod()
+		p := rus.Pop().(*policyapi.RequestUnit)
 		if p == nil {
-			glog.V(3).Infof("no pending Pod in PodSet <%v/%v>",
-				psi.podSet.Namespace, psi.podSet.Name)
-			break
+			glog.V(3).Infof("no pending units in Request <%v/%v>")
+			continue
 		}
 
 		assigned := false
-		for _, node := range nodes {
-			currentIdle := node.CurrentIdle()
-			if p.Request.LessEqual(currentIdle) {
-
-				// record the assignment temporarily in PodSet and Node
-				// this assignment will be accepted (min could be met in this time)
-				// or discarded (min could not be met in this time)
-				psi.assignPendingPod(p, node.Name)
-				node.AddUnAcceptedAllocated(p.Request)
-
+		for _, n := range ssn.Nodes {
+			if p.Resreq.Less(n.Idle) {
+				ssn.PublishDecision(&policyapi.Decision{
+					RequestID:     req.ID,
+					RequestUnitID: p.ID,
+					Host:          n.Name,
+					Type:          policyapi.Allocate,
+				})
 				assigned = true
 
-				unacceptedAssignedNodes[node.Name] = node
-
-				glog.V(3).Infof("assign <%v/%v> to <%s>: available <%v>, request <%v>",
-					p.Namespace, p.Name, p.NodeName, node.Idle, p.Request)
 				break
 			}
 		}
 
-		// the left resources can not meet any pod in this PodSet
-		// (assume that all pods in same PodSet share same resource request)
-		if !assigned {
-			// push pending pod back for consistent
-			psi.pushPendingPod(p)
-			break
+		if assigned {
+			// push Request back for next allocation
+			requests.Push(req)
+		} else {
+			glog.V(3).Infof("Failed to allocate resources to Request <%v>", req.ID)
 		}
-
-		min--
 	}
 
-	if len(unacceptedAssignedNodes) == 0 {
-		// there is no nodes assigned pods this time
-		// the assignment is failed(no pod is assigned in this time)
-		return false
-	}
+	// TODO: move this to 'predicate'
+	//pq := util.NewPriorityQueue()
+	//matchNodesForPodSet := make(map[string][]*policyapi.Node)
 
-	if min == 0 {
-		// min is met, accept all assignment this time
-		psi.acceptAssignedPods()
-		for _, node := range unacceptedAssignedNodes {
-			node.AcceptAllocated()
-		}
-		return true
-	} else {
-		// min could not be met, discard all assignment this time
-		// to avoid PodSet get resources less than min
-		psi.discardAssignedPods()
-		for _, node := range unacceptedAssignedNodes {
-			node.DiscardAllocated()
-		}
-		return false
-	}
+	//for _, q := range dq {
+	//	ru := q.Value.(*policyapi.RequestUnit)
+	//
+	//	// fetch the nodes that match PodSet NodeSelector and NodeAffinity
+	//	// and store it for following DRF assignment
+	//	//matchNodes := fetchMatchNodeForPodSet(psi, ssn.Nodes)
+	//	//matchNodesForPodSet[psi.podSet.Name] = matchNodes
+	//
+	//	assigned := drf.assignMinimalPods(ru.insufficientMinAvailable(), ru)
+	//	if assigned {
+	//		// only push PodSet with MinAvailable to priority queue
+	//		// to avoid PodSet get resources less than MinAvailable by following DRF assignment
+	//		pq.Push(psi, psi.share)
+	//
+	//		glog.V(3).Infof("assign MinAvailable for podset %s/%s successfully",
+	//			psi.podSet.Namespace, psi.podSet.Name)
+	//	} else {
+	//		glog.V(3).Infof("assign MinAvailable for podset %s/%s failed, there is no enough resources",
+	//			psi.podSet.Namespace, psi.podSet.Name)
+	//	}
+	//}
+
 }
+
+func (drf *allocateAction) UnInitialize() {}
+
+//
+//func (drf *allocateAction) allocate(ssn *framework.Session, reqID string, rus *util.PriorityQueue) bool {
+//	glog.V(4).Infof("Enter allocate ...")
+//	defer glog.V(4).Infof("Leaving allocate ...")
+//
+//	p := rus.Pop().(*policyapi.RequestUnit)
+//	if p == nil {
+//		glog.V(3).Infof("no pending units in Request <%v/%v>")
+//		return false
+//	}
+//
+//	assigned := false
+//
+//	for _, n := range ssn.Nodes {
+//		if p.Resreq.Less(n.Idle) {
+//			ssn.PublishDecision(&policyapi.Decision{
+//				RequestID:     reqID,
+//				RequestUnitID: p.ID,
+//				Host:          n.Name,
+//				Type:          policyapi.Allocate,
+//			})
+//			assigned = true
+//
+//			break
+//		}
+//	}
+//
+//	return assigned
+
+//assigned := false
+//for _, node := range nodes {
+//	currentIdle := node.CurrentIdle()
+//	if p.Request.LessEqual(currentIdle) {
+//
+//		// record the assignment temporarily in PodSet and Node
+//		// this assignment will be accepted (min could be met in this time)
+//		// or discarded (min could not be met in this time)
+//		psi.assignPendingPod(p, node.Name)
+//		node.AddUnAcceptedAllocated(p.Request)
+//
+//		assigned = true
+//
+//		unacceptedAssignedNodes[node.Name] = node
+//
+//		glog.V(3).Infof("assign <%v/%v> to <%s>: available <%v>, request <%v>",
+//			p.Namespace, p.Name, p.NodeName, node.Idle, p.Request)
+//		break
+//	}
+//}
+//
+//// the left resources can not meet any pod in this PodSet
+//// (assume that all pods in same PodSet share same resource request)
+//if !assigned {
+//	// push pending pod back for consistent
+//	psi.pushPendingPod(p)
+//	break
+//}
+//
+//min--
+//
+//
+//if len(unacceptedAssignedNodes) == 0 {
+//	// there is no nodes assigned pods this time
+//	// the assignment is failed(no pod is assigned in this time)
+//	return false
+//}
+//
+//if min == 0 {
+//	// min is met, accept all assignment this time
+//	psi.acceptAssignedPods()
+//	for _, node := range unacceptedAssignedNodes {
+//		node.AcceptAllocated()
+//	}
+//	return true
+//} else {
+//	// min could not be met, discard all assignment this time
+//	// to avoid PodSet get resources less than min
+//	psi.discardAssignedPods()
+//	for _, node := range unacceptedAssignedNodes {
+//		node.DiscardAllocated()
+//	}
+//	return false
+//}
+//}

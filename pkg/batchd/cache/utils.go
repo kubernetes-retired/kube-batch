@@ -19,6 +19,7 @@ package cache
 import (
 	"fmt"
 
+	policyapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/api"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,4 +48,60 @@ func getPodOwner(pod *v1.Pod) types.UID {
 	}
 
 	return ""
+}
+
+func newResource(res *Resource) *policyapi.Resource {
+	return &policyapi.Resource{
+		MilliCPU: res.MilliCPU,
+		Memory:   res.Memory,
+		GPU:      res.GPU,
+	}
+}
+
+func newRequestUnit(pi *PodInfo) *policyapi.RequestUnit {
+	ru := &policyapi.RequestUnit{}
+
+	ru.ID = fmt.Sprintf("%v/%v", pi.Namespace, pi.Name)
+	ru.Resreq = newResource(pi.Request)
+
+	return ru
+}
+
+func newRequest(psi *PodSet) *policyapi.Request {
+	req := &policyapi.Request{}
+
+	req.ID = fmt.Sprintf("%v/%v", psi.Namespace, psi.Name)
+
+	for _, pi := range psi.Pending {
+		ru := newRequestUnit(pi)
+		ru.Status = policyapi.Pending
+		req.Units[ru.ID] = ru
+	}
+
+	for _, pi := range psi.Assigned {
+		ru := newRequestUnit(pi)
+		ru.Status = policyapi.Bound
+		req.Units[ru.ID] = ru
+	}
+
+	for _, pi := range psi.Running {
+		ru := newRequestUnit(pi)
+		ru.Status = policyapi.Running
+		req.Units[ru.ID] = ru
+	}
+
+	return req
+}
+
+func newNode(ni *NodeInfo) *policyapi.Node {
+	node := &policyapi.Node{}
+
+	node.Name = ni.Name
+	node.Allocatable = newResource(ni.Allocatable)
+	for _, pi := range ni.Pods {
+		ru := newRequestUnit(pi)
+		node.Units[ru.ID] = ru
+	}
+
+	return node
 }

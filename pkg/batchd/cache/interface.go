@@ -18,6 +18,8 @@ package cache
 
 import (
 	"k8s.io/api/core/v1"
+
+	policyapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/policy/api"
 )
 
 // Cache collects pods/nodes/queues information
@@ -27,7 +29,7 @@ type Cache interface {
 	Run(stopCh <-chan struct{})
 
 	// Snapshot deep copy overall cache information into snapshot
-	Snapshot() *CacheSnapshot
+	Snapshot() ([]*policyapi.Request, []*policyapi.Node)
 
 	// WaitForCacheSync waits for all cache synced
 	WaitForCacheSync(stopCh <-chan struct{}) bool
