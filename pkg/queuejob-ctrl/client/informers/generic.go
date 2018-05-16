@@ -17,10 +17,12 @@ limitations under the License.
 package informers
 
 import (
+	"fmt"
+
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/apis/v1"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
-	"fmt"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other

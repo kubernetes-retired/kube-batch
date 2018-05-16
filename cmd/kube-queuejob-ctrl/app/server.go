@@ -21,8 +21,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kube-queuejob-ctrl/app/options"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/controller/queuejob"
+
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 func buildConfig(master, kubeconfig string) (*rest.Config, error) {
@@ -43,7 +44,6 @@ func Run(opt *options.ServerOption) error {
 	// Start QueueJob Controller to create CRD and manage QueueJob lifecycle.
 	queuejobController := queuejob.NewController(config)
 	queuejobController.Run(neverStop)
-
 
 	<-neverStop
 

@@ -43,7 +43,6 @@ import (
 	arbinformers "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/informers"
 	informersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/informers/v1"
 	listersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/client/listers/v1"
-
 )
 
 const (

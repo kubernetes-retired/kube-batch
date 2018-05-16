@@ -19,9 +19,9 @@ package v1
 import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/batchd/apis/v1"
 
-	"k8s.io/client-go/rest"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/rest"
 )
 
 type ArbV1Interface interface {
