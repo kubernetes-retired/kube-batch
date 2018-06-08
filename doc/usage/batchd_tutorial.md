@@ -11,13 +11,17 @@ kube-batchd need to run as a kubernetes scheduler. The next step will show how t
 
 ### (1) Kube-batchd image
 
-An official kube-batchd image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubearbitrator/batchd/). The version is `v0.1` now.
+An official kube-batchd image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubearbitrator/batchd/). The version is `v0.3` now.
 
-### (2) Kube-queuejob-ctrl image
+### (2) Kube-queue-ctrl image
 
-An official kube-queuejob-ctrl image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubearbitrator/queuejob-ctrl/). The version is `v0.1` now.
+An official kube-queue-ctrl image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubearbitrator/queue-ctrl/). The version is `v0.3` now.
 
-### (3) Create a Kubernetes Deployment for kube-batchd and kube-queuejob-ctrl
+### (3) Kube-queuejob-ctrl image
+
+An official kube-queuejob-ctrl image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubearbitrator/queuejob-ctrl/). The version is `v0.3` now.
+
+### (4) Create a Kubernetes Deployment for kube-batchd and kube-queuejob-ctrl
 
 #### Download kube-arbitrator
 
@@ -51,9 +55,31 @@ kube-system   kube-batchd-2521827519-khmgx     1/1       Running      0         
 
 NOTE: kube-batchd need to collect cluster information(such as Pod, Node, CRD, etc) for scheduing, so the service account used by the deployment must have permission to access those cluster resources, otherwise, kube-batchd will fail to startup.
 
+#### Create a deployment for kube-queue-ctrl
+
+Run the kube-queue-ctrl as a Custom Resource Definition
+
+```
+# kubectl create -f $GOPATH/src/github.com/kubernetes-incubator/kube-arbitrator/deployment/kube-queue-ctrl.yaml
+```
+
+Verify kube-queue-ctrl deployment as a Custom Resource Definition
+
+```
+# kubectl get deploy kube-queue-ctrl -n kube-system
+NAME              DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+kube-queue-ctrl   1         1         1            1           19h
+
+# kubectl get pods --all-namespaces
+NAMESPACE     NAME                                           READY     STATUS    RESTARTS   AGE
+... ...
+kube-system   kube-queue-ctrl-5475c6c9f-xqnwg                1/1       Running   0          19h
+... ...
+```
+
 #### Create a deployment for kube-queuejob-ctrl
 
-Run the kube-queuejob-ctrl
+Run the kube-queuejob-ctrl as a Custom Resource Definition
 
 ```
 # kubectl create -f $GOPATH/src/github.com/kubernetes-incubator/kube-arbitrator/deployment/kube-queuejob-ctrl.yaml
@@ -73,7 +99,7 @@ kube-system   kube-queuejob-ctrl-7d5ff64686-fs979            1/1       Running  
 ... ...
 ```
 
-### (4) Create a QueueJob
+### (5) Create a QueueJob
 
 Create a file named `queuejob-01.yaml` with the following content:
 
@@ -102,7 +128,7 @@ spec:
         - containerPort: 80
 ```
 
-The yaml file means a QueueJob named `qj-01` contains 3 pods(it is specified by `replicas`), these pods will be scheduled by scheudler `kube-batchd`(it is specified by `schedulerName`). `kube-batchd` will start `replicas` pods for a QueueJob at the same time, otherwise, such as resources are not sufficient, `kube-batchd` will not start any pods for the QueueJob.
+The yaml file means a QueueJob named `qj-01` contains 3 pods (it is specified by `replicas`), these pods will be scheduled by scheduler `kube-batchd` (it is specified by `schedulerName`). `kube-batchd` will start `replicas` pods for a QueueJob at the same time, otherwise, such as resources are not sufficient, `kube-batchd` will not start any pods for the QueueJob.
 
 Create the QueueJob
 
