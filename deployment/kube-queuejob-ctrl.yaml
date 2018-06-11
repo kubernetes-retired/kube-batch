@@ -20,7 +20,7 @@ spec:
         - /bin/sh
         - -c
         - touch /tmp/healthy; /opt/kube-queuejob-ctrl --scheduler-name kube-batchd; rm -f /tmp/healthy
-        image: kubearbitrator/queuejob-ctrl:v0.1
+        image: kubearbitrator/queuejob-ctrl:v0.3
         livenessProbe:
           exec:
             command:
