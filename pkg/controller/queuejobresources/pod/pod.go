@@ -42,7 +42,7 @@ import (
 )
 
 var queueJobKind = arbv1.SchemeGroupVersion.WithKind("QueueJob")
-
+var queueJobName = "queuejob.arbitrator.k8s.io"
 
 const (
 	// QueueJobNameLabel label string for queuejob name
@@ -62,6 +62,9 @@ type QueueJobResPod struct {
 	// A store of pods, populated by the podController
 	podStore       corelisters.PodLister
 	podInformer    corev1informer.PodInformer
+	
+	podSynced func() bool
+
 	// A counter that stores the current terminating pod no of QueueJob
 	// this is used to avoid to re-create the pods of a QueueJob before
 	// all the old resources are terminated
@@ -91,6 +94,7 @@ func NewQueueJobResPod(config *rest.Config) queuejobresources.Interface {
 		clients:    kubernetes.NewForConfigOrDie(config),
 		arbclients: clientset.NewForConfigOrDie(config),
 		deletedPodsCounter: maputils.NewSyncCounterMap(),
+		
 	}
 
 	// create informer for pod information
@@ -117,6 +121,9 @@ func NewQueueJobResPod(config *rest.Config) queuejobresources.Interface {
 	v1.AddToScheme(qjrPod.rtScheme)
 
 	qjrPod.jsonSerializer = json.NewYAMLSerializer(json.DefaultMetaFactory, qjrPod.rtScheme, qjrPod.rtScheme)
+
+	qjrPod.podStore = qjrPod.podInformer.Lister()
+	qjrPod.podSynced = qjrPod.podInformer.Informer().HasSynced
 
 	qjrPod.refManager = queuejobresources.NewLabelRefManager()
 
@@ -214,7 +221,7 @@ func (cc *QueueJobResPod) SyncQueueJob(queuejob *arbv1.QueueJob, qjobRes *arbv1.
 	if err != nil {
 		return err
 	}
-	glog.V(4).Infof("There are %d pods of QueueJob %s\n", len(pods), queuejob.Name)
+	fmt.Printf("There are %d pods of QueueJob %s\n", len(pods), queuejob.Name)
 
 	err = cc.manageQueueJob(queuejob, pods, qjobRes)
 	
@@ -243,7 +250,7 @@ func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod, ar 
 		// we call clean-up for each controller
 		for _, ar := range qj.Spec.AggrResources.Items {
 			if ar.Type == arbv1.ResourceTypePod {
-				replicas = replicas + 1
+				replicas = int(ar.Replicas)
 		}
 	 }}
 	running := int32(filterPods(pods, v1.PodRunning))
@@ -251,8 +258,8 @@ func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod, ar 
 	succeeded := int32(filterPods(pods, v1.PodSucceeded))
 	failed := int32(filterPods(pods, v1.PodFailed))
 
-	glog.V(3).Infof("There are %d pods of QueueJob %s:  pending %d, running %d, succeeded %d, failed %d",
-		len(pods), qj.Name, pending, running, succeeded, failed)
+	fmt.Printf("There are %d pods of QueueJob %s:  replicas: %d pending %d, running %d, succeeded %d, failed %d",
+		len(pods), qj.Name, replicas, pending, running, succeeded, failed)
 
 	ss, err := cc.arbclients.ArbV1().SchedulingSpecs(qj.Namespace).List(metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("metadata.name=%s", qj.Name),
@@ -305,18 +312,16 @@ func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod, ar 
 		MinAvailable: int32(qj.Spec.SchedSpec.MinAvailable),
 	}
 
-	// TODO(k82cn): replaced it with `UpdateStatus`
-	if _, err := cc.arbclients.ArbV1().QueueJobs(qj.Namespace).Update(qj); err != nil {
-		glog.Errorf("Failed to update status of QueueJob %v/%v: %v",
-			qj.Namespace, qj.Name, err)
-		return err
-	}
-
 	return err
 }
 
 func (cc *QueueJobResPod) getPodsForQueueJob(qj *arbv1.QueueJob) ([]*v1.Pod, error) {
-	selector, err := metav1.LabelSelectorAsSelector(qj.Spec.Selector)
+	sel := &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					queueJobName: qj.Name,
+				},
+			}
+	selector, err := metav1.LabelSelectorAsSelector(sel)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't convert QueueJob selector: %v", err)
 	}
@@ -504,6 +509,8 @@ func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.QueueJob, ix int32, qj
 	}
         podName := fmt.Sprintf("%s-%d-%s", qj.Name, ix, generateUUID())
 
+	tmpl := templateCopy.Labels
+	tmpl[queueJobName] = qj.Name
         return &corev1.Pod{
                 ObjectMeta: metav1.ObjectMeta{
                         Name:      podName,
@@ -511,7 +518,7 @@ func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.QueueJob, ix int32, qj
                         OwnerReferences: []metav1.OwnerReference{
                                 *metav1.NewControllerRef(qj, queueJobKind),
                         },
-                        Labels: templateCopy.Labels,
+                        Labels: tmpl,
                 },
                 Spec: templateCopy.Spec,
         }

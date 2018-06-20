@@ -102,6 +102,7 @@ func NewQueueJobController(config *rest.Config) *Controller {
 		config:             config,
 		clients:            kubernetes.NewForConfigOrDie(config),
 		arbclients:         clientset.NewForConfigOrDie(config),
+		eventQueue:	    cache.NewFIFO(queueJobKey),
 		initQueue:          cache.NewFIFO(queueJobKey),
 		updateQueue:        cache.NewFIFO(queueJobKey),
 	}
@@ -110,6 +111,8 @@ func NewQueueJobController(config *rest.Config) *Controller {
 	if err != nil {
 		panic(err)
 	}
+	cc.qjobResControls = map[arbv1.ResourceType]queuejobresources.Interface{}
+	RegisterAllQueueJobResourceTypes(&cc.qjobRegisteredResources)
 	
 	//initialize pod sub-resource control
 	resControlPod, found, err := cc.qjobRegisteredResources.InitQueueJobResource(arbv1.ResourceTypePod, config)
@@ -122,10 +125,6 @@ func NewQueueJobController(config *rest.Config) *Controller {
 		return nil
 	}
 	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
-	
-	//register and initialize sub-resources controls
-	RegisterAllQueueJobResourceTypes(&cc.qjobRegisteredResources)
-	cc.qjobResControls = map[arbv1.ResourceType]queuejobresources.Interface{}
 
 	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).QueueJob().QueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
@@ -146,6 +145,8 @@ func NewQueueJobController(config *rest.Config) *Controller {
 			},
 	})
 	cc.queueJobLister = cc.queueJobInformer.Lister()
+
+	cc.queueJobSynced = cc.queueJobInformer.Informer().HasSynced
 	
 	//create sub-resource reference manager
 	cc.refManager = queuejobresources.NewLabelRefManager()

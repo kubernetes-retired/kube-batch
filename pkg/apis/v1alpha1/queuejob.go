@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1
+package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
@@ -46,6 +46,11 @@ type QueueJobSpec struct {
 	Priority      int                  `json:"priority,omitempty"`
 	Service       QueueJobService      `json:"service"`
 	AggrResources QueueJobResourceList `json:"resources"`
+
+	 Selector *metav1.LabelSelector `json:"selector,omitempty" protobuf:"bytes,1,opt,name=selector"`
+
+        // SchedSpec specifies the parameters for scheduling.
+        SchedSpec SchedulingSpecTemplate `json:"schedulingSpec,omitempty" protobuf:"bytes,2,opt,name=schedulingSpec"`
 }
 
 // QueueJobService is queue job service definition
@@ -127,6 +132,3 @@ type QueueJobStatus struct {
 }
 
 type QueueJobState string
-
-	Items []QueueJob `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
