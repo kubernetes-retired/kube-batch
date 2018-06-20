@@ -17,31 +17,21 @@ limitations under the License.
 package queuejob
 
 import (
-	"fmt"
-	"sync"
 	"time"
-
+	"fmt"
 	"github.com/golang/glog"
 
-	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/informers"
-	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/controller/queuejobresources"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/controller/queuejobresources"
-	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/controller/queuejobresources/pod"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
+	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/pod"
 
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/utils"
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
@@ -84,8 +74,9 @@ type Controller struct {
 	// QueueJobs that need to sync up after initialization
 	updateQueue *cache.FIFO
 
-	// A map that store PDB name for each QueueJob
-	queueJobToPDB map[string]string
+	// eventQueue that need to sync up
+	eventQueue *cache.FIFO
+
 	// Reference manager to manage membership of queuejob resource and its members
 	refManager queuejobresources.RefManager
 }
@@ -95,15 +86,24 @@ func RegisterAllQueueJobResourceTypes(regs *queuejobresources.RegisteredResource
 
 }
 
+func queueJobKey(obj interface{}) (string, error) {
+	qj, ok := obj.(*arbv1.QueueJob)
+	if !ok {
+		return "", fmt.Errorf("not a QueueJob")
+	}
+
+	return fmt.Sprintf("%s/%s", qj.Namespace, qj.Name), nil
+}
+
 // NewController create new QueueJob Controller
-func NewController(config *rest.Config) *Controller {
+func NewQueueJobController(config *rest.Config) *Controller {
+
 	cc := &Controller{
 		config:             config,
 		clients:            kubernetes.NewForConfigOrDie(config),
 		arbclients:         clientset.NewForConfigOrDie(config),
 		initQueue:          cache.NewFIFO(queueJobKey),
 		updateQueue:        cache.NewFIFO(queueJobKey),
-		queueJobToPDB:      make(map[string]string),
 	}
 
 	queueJobClient, _, err := client.NewClient(cc.config)
@@ -124,7 +124,7 @@ func NewController(config *rest.Config) *Controller {
 	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
 	
 	//register and initialize sub-resources controls
-	RegisterAllQueueJobResourceTypes(&arbv1.qjobRegisteredResources)
+	RegisterAllQueueJobResourceTypes(&cc.qjobRegisteredResources)
 	cc.qjobResControls = map[arbv1.ResourceType]queuejobresources.Interface{}
 
 	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).QueueJob().QueueJobs()
@@ -156,14 +156,16 @@ func NewController(config *rest.Config) *Controller {
 // Run start QueueJob Controller
 func (cc *Controller) Run(stopCh chan struct{}) {
 	// initialized
-	createQueueJobCRD(cc.config)
+	createQueueJobKind(cc.config)	
 
 	go cc.queueJobInformer.Informer().Run(stopCh)
 	
 	go cc.qjobResControls[arbv1.ResourceTypePod].Run(stopCh)
 
-	go wait.Until(cc.initWorker, time.Second, stopCh)
-	go wait.Until(cc.updateWorker, time.Second, stopCh)
+	cache.WaitForCacheSync(stopCh, cc.queueJobSynced)
+
+	go wait.Until(cc.worker, time.Second, stopCh)
+
 }
 
 func (cc *Controller) addQueueJob(obj interface{}) {
@@ -173,15 +175,10 @@ func (cc *Controller) addQueueJob(obj interface{}) {
 		return
 	}
 
-	cc.enqueueInitQueue(qj)
+	cc.enqueue(qj)
 }
 
 func (cc *Controller) updateQueueJob(oldObj, newObj interface{}) {
-	oldQJ, ok := oldObj.(*arbv1.QueueJob)
-	if !ok {
-		glog.Errorf("oldObj is not QueueJob")
-		return
-	}
 	newQJ, ok := newObj.(*arbv1.QueueJob)
 	if !ok {
 		glog.Errorf("newObj is not QueueJob")
@@ -251,22 +248,22 @@ func (cc *Controller) syncQueueJob(qj *arbv1.QueueJob) error {
 		return err
 	}
 
-	return cc.manageQueueJob(queueJob, pods)
+	return cc.manageQueueJob(queueJob)
 }
 
 // manageQueueJob is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec.
 // Does NOT modify <activePods>.
-func (cc *Controller) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod) error {
-	
+func (cc *Controller) manageQueueJob(qj *arbv1.QueueJob) error {
+	var err error	
 	startTime := time.Now()
 	defer func() {
-		glog.V(4).Infof("Finished syncing queue job %q (%v)", key, time.Now().Sub(startTime))
+		glog.V(4).Infof("Finished syncing queue job %q (%v)", qj.Name, time.Now().Sub(startTime))
 	}()
 
 	if qj.DeletionTimestamp != nil {
 		// cleanup resources for running job
-		err = qjm.Cleanup(qj)
+		err = cc.Cleanup(qj)
 		if err != nil {
 			return err
 		}
@@ -277,15 +274,16 @@ func (cc *Controller) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod) error {
 		}
 		accessor.SetFinalizers(nil)
 
-		var result arbv1.QueueJob
-		return qjm.qjobClient.Put().
-			Namespace(ns).Resource(arbv1.QueueJobPlural).
-			Name(name).Body(qj).Do().Into(&result)
+		return nil
+		//var result arbv1.QueueJob
+		//return cc.arbclients.Put().
+		//	Namespace(qj.Namespace).Resource(arbv1.QueueJobPlural).
+		//	Name(qj.Name).Body(qj).Do().Into(&result)
 	}
 	
 	// we call sync for each controller
-	for _, ar := range queuejob.Spec.AggrResources.Items {
-			cc.qjobResControls[ar.Type].Sync(qj)
+	for _, ar := range qj.Spec.AggrResources.Items {
+			cc.qjobResControls[ar.Type].SyncQueueJob(qj, &ar)
 	}
 	
 	// TODO(k82cn): replaced it with `UpdateStatus`

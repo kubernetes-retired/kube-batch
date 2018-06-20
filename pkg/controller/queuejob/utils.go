@@ -79,24 +79,6 @@ func createQueueJobSchedulingSpec(qj *arbv1.QueueJob) *arbv1.SchedulingSpec {
 	}
 }
 
-func createQueueJobPod(qj *arbv1.QueueJob, ix int32) *corev1.Pod {
-	templateCopy := qj.Spec.Template.DeepCopy()
-
-	podName := fmt.Sprintf("%s-%d-%s", qj.Name, ix, generateUUID())
-
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      podName,
-			Namespace: qj.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(qj, queueJobKind),
-			},
-			Labels: templateCopy.Labels,
-		},
-		Spec: templateCopy.Spec,
-	}
-}
-
 func createQueueJobKind(config *rest.Config) error {
 	extensionscs, err := apiextensionsclient.NewForConfig(config)
 	if err != nil {

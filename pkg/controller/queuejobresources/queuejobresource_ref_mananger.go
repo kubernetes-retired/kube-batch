@@ -18,7 +18,7 @@ package queuejobresources
 
 import (
 	"fmt"
-	qjobv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/apis/v1"
+	qjobv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 )

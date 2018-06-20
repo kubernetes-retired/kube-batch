@@ -17,7 +17,7 @@ limitations under the License.
 package queuejobresources
 
 import (
-	qjobv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/queuejob-ctrl/apis/v1"
+	qjobv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 )
 
 // Interface is an abstract interface for queue job resource management.

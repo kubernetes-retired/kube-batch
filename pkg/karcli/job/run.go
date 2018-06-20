@@ -18,7 +18,6 @@ package job
 import (
 	"github.com/spf13/cobra"
 
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
@@ -60,10 +59,10 @@ func RunJob() error {
 
 	queueClient := clientset.NewForConfigOrDie(config)
 
-	req, err := populateResourceListV1(launchJobFlags.Requests)
-	if err != nil {
-		return err
-	}
+	//_, err := populateResourceListV1(launchJobFlags.Requests)
+	//if err != nil {
+	//	return err
+	//}
 
 	qj := &arbv1.QueueJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -76,28 +75,11 @@ func RunJob() error {
 					queueJobName: launchJobFlags.Name,
 				},
 			},
-			Replicas: int32(launchJobFlags.Replicas),
 			SchedSpec: arbv1.SchedulingSpecTemplate{
 				MinAvailable: launchJobFlags.MinAvailable,
 			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{queueJobName: launchJobFlags.Name},
-				},
-				Spec: v1.PodSpec{
-					SchedulerName: launchJobFlags.SchedulerName,
-					RestartPolicy: v1.RestartPolicyNever,
-					Containers: []v1.Container{
-						{
-							Image:           launchJobFlags.Image,
-							Name:            launchJobFlags.Name,
-							ImagePullPolicy: v1.PullIfNotPresent,
-							Resources: v1.ResourceRequirements{
-								Requests: req,
-							},
-						},
-					},
-				},
+			AggrResources: arbv1.QueueJobResourceList {
+				Items: make([]arbv1.QueueJobResource, 0),
 			},
 		},
 	}
