@@ -14,44 +14,92 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1
 
 import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const QueueJobPlural = "queuejobs"
+const QueueJobPlural string = "queuejobs"
 
+// Definition of QueueJob class
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type QueueJob struct {
-	metav1.TypeMeta `json:",inline"`
-
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	// Specification of the desired behavior of a cron job, including the minAvailable
-	Spec QueueJobSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-
-	// Current status of QueueJob
-	Status QueueJobStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              QueueJobSpec   `json:"spec"`
+	Status            QueueJobStatus `json:"status,omitempty"`
 }
 
-// QueueJobSpec describes how the job execution will look like and when it will actually run
-type QueueJobSpec struct {
-	// A label query over pods that should match the pod count.
-	// Normally, the system sets this field for you.
-	// +optional
-	Selector *metav1.LabelSelector `json:"selector,omitempty" protobuf:"bytes,1,opt,name=selector"`
+// QueueJobList is a collection of queuejobs.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type QueueJobList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []QueueJob `json:"items"`
+}
 
-	// Replicas specifies the replicas of this QueueJob.
+// JobSpec describes how the queue job will look like.
+type QueueJobSpec struct {
+	Priority      int                  `json:"priority,omitempty"`
+	Service       QueueJobService      `json:"service"`
+	AggrResources QueueJobResourceList `json:"resources"`
+}
+
+// QueueJobService is queue job service definition
+type QueueJobService struct {
+	Spec v1.ServiceSpec `json:"spec"`
+}
+
+// QueueJobSecret is queue job service definition
+//type QueueJobSecret struct {
+//	Spec v1.SecretSpec `json:"spec"`
+//}
+
+// QueueJobResource is queue job aggregation resource
+type QueueJobResource struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	// Replicas is the number of desired replicas
 	Replicas int32 `json:"replicas,omitempty" protobuf:"bytes,2,opt,name=replicas"`
 
-	// SchedSpec specifies the parameters for scheduling.
-	SchedSpec SchedulingSpecTemplate `json:"schedulingSpec,omitempty" protobuf:"bytes,2,opt,name=schedulingSpec"`
-
-	// Specifies the pod that will be created when executing a QueueJob
-	Template v1.PodTemplateSpec `json:"template,omitempty" protobuf:"bytes,3,opt,name=template"`
+	// The minimal available pods to run for this QueueJob; the default value is nil
+	MinAvailable *int32 `json:"minavailable,omitempty" protobuf:"bytes,3,opt,name=minavailable"`
+	
+	// The number of allocated replicas from this resource type
+	AllocatedReplicas int32                `json:"allocatedreplicas"`
+	
+	// The priority of this resource
+	Priority           float64              `json:"priority"`
+	
+	//The type of the resource (is the resource a Pod, a ReplicaSet, a ... ?)
+	Type              ResourceType         `json:"type"`
+	
+	//The template for the resource; it is now a raw text because we don't know for what resource
+	//it should be instantiated
+	Template          runtime.RawExtension `json:"template"`
 }
+
+// a collection of QueueJobResource
+type QueueJobResourceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []QueueJobResource
+}
+
+// queue job resources type
+type ResourceType string
+
+const (
+	ResourceTypePod        ResourceType = "Pod"
+	ResourceTypeService    ResourceType = "Service"
+	ResourceTypeSecret    ResourceType = "Secret"
+	ResourceTypeStatefulSet    ResourceType = "StatefulSet"
+	ResourceTypeDeployment    ResourceType = "Deployment"
+	ResourceTypeReplicaSet ResourceType = "ReplicaSet"
+)
 
 // QueueJobStatus represents the current state of a QueueJob
 type QueueJobStatus struct {
@@ -59,27 +107,26 @@ type QueueJobStatus struct {
 	// +optional
 	Pending int32 `json:"pending,omitempty" protobuf:"bytes,1,opt,name=pending"`
 
-	// The number of running pods.
+	// The number of actively running resources.
 	// +optional
 	Running int32 `json:"running,omitempty" protobuf:"bytes,1,opt,name=running"`
 
-	// The number of pods which reached phase Succeeded.
+	// The number of resources which reached phase Succeeded.
 	// +optional
 	Succeeded int32 `json:"Succeeded,omitempty" protobuf:"bytes,2,opt,name=succeeded"`
 
-	// The number of pods which reached phase Failed.
+	// The number of resources which reached phase Failed.
 	// +optional
 	Failed int32 `json:"failed,omitempty" protobuf:"bytes,3,opt,name=failed"`
 
-	// The minimal available pods to run for this QueueJob
+	// The minimal available resources to run for this QueueJob (is this different from the MinAvailable from JobStatus)
 	// +optional
-	MinAvailable int32 `json:"minAvailable,omitempty" protobuf:"bytes,4,opt,name=minAvailable"`
+	MinAvailable int32 `json:"template,omitempty" protobuf:"bytes,4,opt,name=template"`
+	
+	Message string `json:"message,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type QueueJobList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+type QueueJobState string
 
 	Items []QueueJob `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
