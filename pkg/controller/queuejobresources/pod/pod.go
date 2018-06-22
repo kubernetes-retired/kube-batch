@@ -221,7 +221,6 @@ func (cc *QueueJobResPod) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1
 	if err != nil {
 		return err
 	}
-	fmt.Printf("There are %d pods of QueueJob %s\n", len(pods), queuejob.Name)
 
 	err = cc.manageQueueJob(queuejob, pods, qjobRes)
 	
@@ -258,7 +257,7 @@ func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.XQueueJob, pods []*v1.Pod, ar
 	succeeded := int32(filterPods(pods, v1.PodSucceeded))
 	failed := int32(filterPods(pods, v1.PodFailed))
 
-	fmt.Printf("There are %d pods of QueueJob %s:  replicas: %d pending %d, running %d, succeeded %d, failed %d",
+	glog.Infof("There are %d pods of QueueJob %s:  replicas: %d pending %d, running %d, succeeded %d, failed %d",
 		len(pods), qj.Name, replicas, pending, running, succeeded, failed)
 
 	ss, err := cc.arbclients.ArbV1().SchedulingSpecs(qj.Namespace).List(metav1.ListOptions{

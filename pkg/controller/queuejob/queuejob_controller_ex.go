@@ -125,19 +125,15 @@ func NewXQueueJobController(config *rest.Config) *XController {
 	}
 	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
 
-	fmt.Printf("I create new XQueueJob!")
-
 	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).XQueueJob().XQueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: func(obj interface{}) bool {
 				switch t := obj.(type) {
 				case *arbv1.XQueueJob:
-					fmt.Printf("Filter XQueueJob name(%s) namespace(%s)\n", t.Name, t.Namespace)
 					glog.V(4).Infof("Filter XQueueJob name(%s) namespace(%s)\n", t.Name, t.Namespace)
 					return true
 				default:
-					fmt.Printf("Not an XQueueJob")
 					return false
 				}
 			},
@@ -162,7 +158,6 @@ func (cc *XController) Run(stopCh chan struct{}) {
 	// initialized
 	createXQueueJobKind(cc.config)	
 
-	fmt.Printf("Running XQueueJob Controller!")
 
 	go cc.queueJobInformer.Informer().Run(stopCh)
 	
@@ -176,7 +171,6 @@ func (cc *XController) Run(stopCh chan struct{}) {
 
 func (cc *XController) addQueueJob(obj interface{}) {
 	qj, ok := obj.(*arbv1.XQueueJob)
-	fmt.Printf("New QueueJob!")
 	if !ok {
 		glog.Errorf("obj is not XQueueJob")
 		return
