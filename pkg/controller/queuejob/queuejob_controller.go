@@ -1,12 +1,9 @@
 /*
 Copyright 2017 The Kubernetes Authors.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,21 +14,26 @@ limitations under the License.
 package queuejob
 
 import (
-	"time"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/golang/glog"
 
+	"k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
-	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/pod"
-
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/utils"
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
@@ -41,25 +43,15 @@ import (
 )
 
 const (
-	// QueueJobNameLabel label string for queuejob name
-	QueueJobNameLabel string = "queuejob-name"
-
-	// ControllerUIDLabel label string for queuejob controller uid
-	ControllerUIDLabel string = "controller-uid"
+	// QueueJobLabel label string for queuejob name
+	QueueJobLabel string = "queuejob.kube-arbitrator.k8s.io"
 )
-
-// controllerKind contains the schema.GroupVersionKind for this controller type.
-var controllerKind = arbv1.SchemeGroupVersion.WithKind("QueueJob")
 
 // Controller the QueueJob Controller type
 type Controller struct {
 	config           *rest.Config
 	queueJobInformer informersv1.QueueJobInformer
-	// resources registered for the QueueJob
-	qjobRegisteredResources queuejobresources.RegisteredResources
-	// controllers for these resources
-	qjobResControls         map[arbv1.ResourceType]queuejobresources.Interface
-	
+	podInformer      coreinformers.PodInformer
 	clients          *kubernetes.Clientset
 	arbclients       *clientset.Clientset
 
@@ -67,64 +59,27 @@ type Controller struct {
 	queueJobLister listersv1.QueueJobLister
 	queueJobSynced func() bool
 
-	// QueueJobs that need to be initialized
-	// Add labels and selectors to QueueJob
-	initQueue *cache.FIFO
-
-	// QueueJobs that need to sync up after initialization
-	updateQueue *cache.FIFO
+	// A store of pods, populated by the podController
+	podStore  corelisters.PodLister
+	podSynced func() bool
 
 	// eventQueue that need to sync up
 	eventQueue *cache.FIFO
-
-	// Reference manager to manage membership of queuejob resource and its members
-	refManager queuejobresources.RefManager
 }
 
-func RegisterAllQueueJobResourceTypes(regs *queuejobresources.RegisteredResources) {
-	respod.Register(regs)
-
-}
-
-func queueJobKey(obj interface{}) (string, error) {
-	qj, ok := obj.(*arbv1.QueueJob)
-	if !ok {
-		return "", fmt.Errorf("not a QueueJob")
-	}
-
-	return fmt.Sprintf("%s/%s", qj.Namespace, qj.Name), nil
-}
-
-// NewController create new QueueJob Controller
+// NewQueueJobController create new QueueJob Controller
 func NewQueueJobController(config *rest.Config) *Controller {
-
 	cc := &Controller{
-		config:             config,
-		clients:            kubernetes.NewForConfigOrDie(config),
-		arbclients:         clientset.NewForConfigOrDie(config),
-		eventQueue:	    cache.NewFIFO(queueJobKey),
-		initQueue:          cache.NewFIFO(queueJobKey),
-		updateQueue:        cache.NewFIFO(queueJobKey),
+		config:     config,
+		clients:    kubernetes.NewForConfigOrDie(config),
+		arbclients: clientset.NewForConfigOrDie(config),
+		eventQueue: cache.NewFIFO(eventKey),
 	}
 
 	queueJobClient, _, err := client.NewClient(cc.config)
 	if err != nil {
 		panic(err)
 	}
-	cc.qjobResControls = map[arbv1.ResourceType]queuejobresources.Interface{}
-	RegisterAllQueueJobResourceTypes(&cc.qjobRegisteredResources)
-	
-	//initialize pod sub-resource control
-	resControlPod, found, err := cc.qjobRegisteredResources.InitQueueJobResource(arbv1.ResourceTypePod, config)
-	if err != nil {
-		glog.Errorf("fail to create queuejob resource control")
-		return nil
-	}
-	if !found {
-		glog.Errorf("queuejob resource type Pod not found")
-		return nil
-	}
-	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
 
 	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).QueueJob().QueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
@@ -143,13 +98,29 @@ func NewQueueJobController(config *rest.Config) *Controller {
 				UpdateFunc: cc.updateQueueJob,
 				DeleteFunc: cc.deleteQueueJob,
 			},
-	})
+		})
 	cc.queueJobLister = cc.queueJobInformer.Lister()
-
 	cc.queueJobSynced = cc.queueJobInformer.Informer().HasSynced
-	
-	//create sub-resource reference manager
-	cc.refManager = queuejobresources.NewLabelRefManager()
+
+	cc.podInformer = informers.NewSharedInformerFactory(cc.clients, 0).Core().V1().Pods()
+	cc.podInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			switch t := obj.(type) {
+			case *v1.Pod:
+				glog.V(4).Infof("Filter Pod name(%s) namespace(%s)\n", t.Name, t.Namespace)
+				return true
+			default:
+				return false
+			}
+		},
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    cc.addPod,
+			UpdateFunc: cc.updatePod,
+			DeleteFunc: cc.deletePod,
+		},
+	})
+	cc.podStore = cc.podInformer.Lister()
+	cc.podSynced = cc.podInformer.Informer().HasSynced
 
 	return cc
 }
@@ -157,16 +128,14 @@ func NewQueueJobController(config *rest.Config) *Controller {
 // Run start QueueJob Controller
 func (cc *Controller) Run(stopCh chan struct{}) {
 	// initialized
-	createQueueJobKind(cc.config)	
+	createQueueJobKind(cc.config)
 
 	go cc.queueJobInformer.Informer().Run(stopCh)
-	
-	go cc.qjobResControls[arbv1.ResourceTypePod].Run(stopCh)
+	go cc.podInformer.Informer().Run(stopCh)
 
-	cache.WaitForCacheSync(stopCh, cc.queueJobSynced)
+	cache.WaitForCacheSync(stopCh, cc.queueJobSynced, cc.podSynced)
 
 	go wait.Until(cc.worker, time.Second, stopCh)
-
 }
 
 func (cc *Controller) addQueueJob(obj interface{}) {
@@ -199,6 +168,57 @@ func (cc *Controller) deleteQueueJob(obj interface{}) {
 	cc.enqueue(qj)
 }
 
+func (cc *Controller) addPod(obj interface{}) {
+	pod, ok := obj.(*v1.Pod)
+	if !ok {
+		glog.Error("Failed to convert %v to v1.Pod", obj)
+		return
+	}
+
+	cc.enqueue(pod)
+}
+
+func (cc *Controller) updatePod(oldObj, newObj interface{}) {
+	pod, ok := newObj.(*v1.Pod)
+	if !ok {
+		glog.Error("Failed to convert %v to v1.Pod", newObj)
+		return
+	}
+
+	cc.enqueue(pod)
+}
+
+func (cc *Controller) deletePod(obj interface{}) {
+	var pod *v1.Pod
+	switch t := obj.(type) {
+	case *v1.Pod:
+		pod = t
+	case cache.DeletedFinalStateUnknown:
+		var ok bool
+		pod, ok = t.Obj.(*v1.Pod)
+		if !ok {
+			glog.Errorf("Cannot convert to *v1.Pod: %v", t.Obj)
+			return
+		}
+	default:
+		glog.Errorf("Cannot convert to *v1.Pod: %v", t)
+		return
+	}
+
+	queuejobs, err := cc.queueJobLister.List(labels.Everything())
+	if err != nil {
+		glog.Errorf("Failed to list QueueJobs for Pod %v/%v", pod.Namespace, pod.Name)
+	}
+
+	ctl := utils.GetController(pod)
+	for _, qj := range queuejobs {
+		if qj.UID == ctl {
+			cc.enqueue(qj)
+			break
+		}
+	}
+}
+
 func (cc *Controller) enqueue(obj interface{}) {
 	err := cc.eventQueue.Add(obj)
 	if err != nil {
@@ -212,6 +232,20 @@ func (cc *Controller) worker() {
 		switch v := obj.(type) {
 		case *arbv1.QueueJob:
 			queuejob = v
+		case *v1.Pod:
+			queuejobs, err := cc.queueJobLister.List(labels.Everything())
+			if err != nil {
+				glog.Errorf("Failed to list QueueJobs for Pod %v/%v", v.Namespace, v.Name)
+			}
+
+			ctl := utils.GetController(v)
+			for _, qj := range queuejobs {
+				if qj.UID == ctl {
+					queuejob = qj
+					break
+				}
+			}
+
 		default:
 			glog.Errorf("Un-supported type of %v", obj)
 			return nil
@@ -225,7 +259,7 @@ func (cc *Controller) worker() {
 			return nil
 		}
 
-		// sync QueueJob
+		// sync Pods for a QueueJob
 		if err := cc.syncQueueJob(queuejob); err != nil {
 			glog.Errorf("Failed to sync QueueJob %s, err %#v", queuejob.Name, err)
 			// If any error, requeue it.
@@ -239,6 +273,26 @@ func (cc *Controller) worker() {
 	}
 }
 
+// filterActivePods returns pods that have not terminated.
+func filterActivePods(pods []*v1.Pod) []*v1.Pod {
+	var result []*v1.Pod
+	for _, p := range pods {
+		if isPodActive(p) {
+			result = append(result, p)
+		} else {
+			glog.V(4).Infof("Ignoring inactive pod %v/%v in state %v, deletion time %v",
+				p.Namespace, p.Name, p.Status.Phase, p.DeletionTimestamp)
+		}
+	}
+	return result
+}
+
+func isPodActive(p *v1.Pod) bool {
+	return v1.PodSucceeded != p.Status.Phase &&
+		v1.PodFailed != p.Status.Phase &&
+		p.DeletionTimestamp == nil
+}
+
 func (cc *Controller) syncQueueJob(qj *arbv1.QueueJob) error {
 	queueJob, err := cc.queueJobLister.QueueJobs(qj.Namespace).Get(qj.Name)
 	if err != nil {
@@ -249,44 +303,98 @@ func (cc *Controller) syncQueueJob(qj *arbv1.QueueJob) error {
 		return err
 	}
 
-	return cc.manageQueueJob(queueJob)
+	pods, err := cc.getPodsForQueueJob(queueJob)
+	if err != nil {
+		return err
+	}
+
+	return cc.manageQueueJob(queueJob, pods)
+}
+
+func (cc *Controller) getPodsForQueueJob(qj *arbv1.QueueJob) ([]*v1.Pod, error) {
+	selector, err := metav1.LabelSelectorAsSelector(qj.Spec.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't convert QueueJob selector: %v", err)
+	}
+
+	// List all pods under QueueJob
+	pods, err := cc.podStore.Pods(qj.Namespace).List(selector)
+	if err != nil {
+		return nil, err
+	}
+
+	return pods, nil
 }
 
 // manageQueueJob is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec.
 // Does NOT modify <activePods>.
-func (cc *Controller) manageQueueJob(qj *arbv1.QueueJob) error {
-	var err error	
-	startTime := time.Now()
-	defer func() {
-		glog.V(4).Infof("Finished syncing queue job %q (%v)", qj.Name, time.Now().Sub(startTime))
-	}()
+func (cc *Controller) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod) error {
+	var err error
 
-	if qj.DeletionTimestamp != nil {
-		// cleanup resources for running job
-		err = cc.Cleanup(qj)
-		if err != nil {
-			return err
-		}
-		//empty finalizers and delete the queuejob again
-		accessor, err := meta.Accessor(qj)
-		if err != nil {
-			return err
-		}
-		accessor.SetFinalizers(nil)
+	replicas := qj.Spec.Replicas
 
-		return nil
-		//var result arbv1.QueueJob
-		//return cc.arbclients.Put().
-		//	Namespace(qj.Namespace).Resource(arbv1.QueueJobPlural).
-		//	Name(qj.Name).Body(qj).Do().Into(&result)
+	running := int32(filterPods(pods, v1.PodRunning))
+	pending := int32(filterPods(pods, v1.PodPending))
+	succeeded := int32(filterPods(pods, v1.PodSucceeded))
+	failed := int32(filterPods(pods, v1.PodFailed))
+
+	glog.V(3).Infof("There are %d pods of QueueJob %s: replicas %d, pending %d, running %d, succeeded %d, failed %d",
+		len(pods), qj.Name, replicas, pending, running, succeeded, failed)
+
+	ss, err := cc.arbclients.ArbV1().SchedulingSpecs(qj.Namespace).List(metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("metadata.name=%s", qj.Name),
+	})
+
+	if len(ss.Items) == 0 {
+		schedSpc := createQueueJobSchedulingSpec(qj)
+		_, err := cc.arbclients.ArbV1().SchedulingSpecs(qj.Namespace).Create(schedSpc)
+		if err != nil {
+			glog.Errorf("Failed to create SchedulingSpec for QueueJob %v/%v: %v",
+				qj.Namespace, qj.Name, err)
+		}
+	} else {
+		glog.V(3).Infof("There's %v SchedulingSpec for QueueJob %v/%v",
+			len(ss.Items), qj.Namespace, qj.Name)
 	}
-	
-	// we call sync for each controller
-	for _, ar := range qj.Spec.AggrResources.Items {
-			cc.qjobResControls[ar.Type].SyncQueueJob(qj, &ar)
+
+	// Create pod if necessary
+	if diff := replicas - pending - running - succeeded; diff > 0 {
+		glog.V(3).Infof("Try to create %v Pods for QueueJob %v/%v", diff, qj.Namespace, qj.Name)
+
+		var errs []error
+		wait := sync.WaitGroup{}
+		wait.Add(int(diff))
+		for i := int32(0); i < diff; i++ {
+			go func(ix int32) {
+				defer wait.Done()
+				newPod := createQueueJobPod(qj, ix)
+				_, err := cc.clients.Core().Pods(newPod.Namespace).Create(newPod)
+				if err != nil {
+					// Failed to create Pod, wait a moment and then create it again
+					// This is to ensure all pods under the same QueueJob created
+					// So gang-scheduling could schedule the QueueJob successfully
+					glog.Errorf("Failed to create pod %s for QueueJob %s, err %#v",
+						newPod.Name, qj.Name, err)
+					errs = append(errs, err)
+				}
+			}(i)
+		}
+		wait.Wait()
+
+		if len(errs) != 0 {
+			return fmt.Errorf("failed to create %d pods of %d", len(errs), diff)
+		}
 	}
-	
+
+	qj.Status = arbv1.QueueJobStatus{
+		Pending:      pending,
+		Running:      running,
+		Succeeded:    succeeded,
+		Failed:       failed,
+		MinAvailable: int32(qj.Spec.SchedSpec.MinAvailable),
+	}
+
 	// TODO(k82cn): replaced it with `UpdateStatus`
 	if _, err := cc.arbclients.ArbV1().QueueJobs(qj.Namespace).Update(qj); err != nil {
 		glog.Errorf("Failed to update status of QueueJob %v/%v: %v",
@@ -295,14 +403,4 @@ func (cc *Controller) manageQueueJob(qj *arbv1.QueueJob) error {
 	}
 
 	return err
-}
-
-func (cc *Controller) Cleanup(queuejob *arbv1.QueueJob) error {
-	if queuejob.Spec.AggrResources.Items != nil {
-		// we call clean-up for each controller
-		for _, ar := range queuejob.Spec.AggrResources.Items {
-			cc.qjobResControls[ar.Type].Cleanup(queuejob, &ar)
-		}
-	}
-	return nil
 }

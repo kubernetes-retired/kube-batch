@@ -41,12 +41,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var queueJobKind = arbv1.SchemeGroupVersion.WithKind("QueueJob")
-var queueJobName = "queuejob.arbitrator.k8s.io"
+var queueJobKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
+var queueJobName = "xqueuejob.arbitrator.k8s.io"
 
 const (
 	// QueueJobNameLabel label string for queuejob name
-	QueueJobNameLabel string = "queuejob-name"
+	QueueJobNameLabel string = "xqueuejob-name"
 
 	// ControllerUIDLabel label string for queuejob controller uid
 	ControllerUIDLabel string = "controller-uid"
@@ -83,7 +83,7 @@ type QueueJobResPod struct {
 // Register registers a queue job resource type
 func Register(regs *queuejobresources.RegisteredResources) {
 	regs.Register(arbv1.ResourceTypePod, func(config *rest.Config) queuejobresources.Interface {
-		return NewQueueJobResPod(config)
+		return NewXQueueJobResPod(config)
 	})
 }
 
@@ -172,7 +172,7 @@ func (cc *QueueJobResPod) deletePod(obj interface{}) {
 
 
 // Parse queue job api object to get Pod template
-func (cc *QueueJobResPod) getPodTemplate(qjobRes *arbv1.QueueJobResource) (*v1.PodTemplateSpec, error) {
+func (cc *QueueJobResPod) getPodTemplate(qjobRes *arbv1.XQueueJobResource) (*v1.PodTemplateSpec, error) {
 
 	podGVK := schema.GroupVersion{Group: v1.GroupName, Version: "v1"}.WithKind("PodTemplate")
 
@@ -210,7 +210,7 @@ func isPodActive(p *v1.Pod) bool {
 		p.DeletionTimestamp == nil
 }
 
-func (cc *QueueJobResPod) SyncQueueJob(queuejob *arbv1.QueueJob, qjobRes *arbv1.QueueJobResource) error {
+func (cc *QueueJobResPod) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.QueueJobResource) error {
 	// check if there are still terminating pods for this QueueJob
 	counter, ok := cc.deletedPodsCounter.Get(fmt.Sprintf("%s/%s", queuejob.Namespace, queuejob.Name))
 	if ok && counter >= 0 {
@@ -243,7 +243,7 @@ func filterPods(pods []*corev1.Pod, phase corev1.PodPhase) int {
 // manageQueueJob is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec.
 // Does NOT modify <activePods>.
-func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod, ar *arbv1.QueueJobResource) error {
+func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.XQueueJob, pods []*v1.Pod, ar *arbv1.QueueJobResource) error {
 	var err error
 	replicas := 0
 	if qj.Spec.AggrResources.Items != nil {
@@ -315,7 +315,7 @@ func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.QueueJob, pods []*v1.Pod, ar 
 	return err
 }
 
-func (cc *QueueJobResPod) getPodsForQueueJob(qj *arbv1.QueueJob) ([]*v1.Pod, error) {
+func (cc *QueueJobResPod) getPodsForQueueJob(qj *arbv1.XQueueJob) ([]*v1.Pod, error) {
 	sel := &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					queueJobName: qj.Name,
@@ -338,7 +338,7 @@ func (cc *QueueJobResPod) getPodsForQueueJob(qj *arbv1.QueueJob) ([]*v1.Pod, err
 // manageQueueJobPods is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec. This is a controller for all pods specified in the QJ template
 // Does NOT modify <activePods>.
-func (cc *QueueJobResPod) manageQueueJobPods(activePods []*v1.Pod, succeeded int32, qj *arbv1.QueueJob, ar *arbv1.QueueJobResource) (bool, error) {
+func (cc *QueueJobResPod) manageQueueJobPods(activePods []*v1.Pod, succeeded int32, qj *arbv1.XQueueJob, ar *arbv1.QueueJobResource) (bool, error) {
 	jobDone := false
 	var err error
 	active := int32(len(activePods))
@@ -408,7 +408,7 @@ func (cc *QueueJobResPod) manageQueueJobPods(activePods []*v1.Pod, succeeded int
 	return jobDone, err
 }
 
-func (cc *QueueJobResPod) terminatePodsForQueueJob(qj *arbv1.QueueJob) error {
+func (cc *QueueJobResPod) terminatePodsForQueueJob(qj *arbv1.XQueueJob) error {
 	pods, err := cc.getPodsForQueueJob(qj)
 	if len(pods) == 0 || err != nil {
 		return err
@@ -434,7 +434,7 @@ func (cc *QueueJobResPod) terminatePodsForQueueJob(qj *arbv1.QueueJob) error {
 }
 
 
-func (qjrPod *QueueJobResPod) getPodsForQueueJobRes(qjobRes *arbv1.QueueJobResource, j *arbv1.QueueJob) ([]*v1.Pod, error) {
+func (qjrPod *QueueJobResPod) getPodsForQueueJobRes(qjobRes *arbv1.QueueJobResource, j *arbv1.XQueueJob) ([]*v1.Pod, error) {
 
 	pods, err := qjrPod.getPodsForQueueJob(j)
 	if err != nil {
@@ -458,7 +458,7 @@ func generateUUID() string {
 	return fmt.Sprintf("%s", id)
 }
 
-func (qjrPod *QueueJobResPod) deleteQueueJobResPods(qjobRes *arbv1.QueueJobResource, queuejob *arbv1.QueueJob) error {
+func (qjrPod *QueueJobResPod) deleteQueueJobResPods(qjobRes *arbv1.QueueJobResource, queuejob *arbv1.XQueueJob) error {
 
 	job := *queuejob
 
@@ -487,7 +487,7 @@ func (qjrPod *QueueJobResPod) deleteQueueJobResPods(qjobRes *arbv1.QueueJobResou
 }
 
 
-func createQueueJobSchedulingSpec(qj *arbv1.QueueJob) *arbv1.SchedulingSpec {
+func createQueueJobSchedulingSpec(qj *arbv1.XQueueJob) *arbv1.SchedulingSpec {
         return &arbv1.SchedulingSpec{
                 ObjectMeta: metav1.ObjectMeta{
                         Name:      qj.Name,
@@ -500,7 +500,7 @@ func createQueueJobSchedulingSpec(qj *arbv1.QueueJob) *arbv1.SchedulingSpec {
         }
 }
 
-func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.QueueJob, ix int32, qjobRes *arbv1.QueueJobResource) *corev1.Pod {
+func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.XQueueJob, ix int32, qjobRes *arbv1.QueueJobResource) *corev1.Pod {
         templateCopy, err := qjrPod.getPodTemplate(qjobRes)
 
 	if err != nil {
@@ -525,7 +525,7 @@ func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.QueueJob, ix int32, qj
 }
    
 
-func (qjrPod *QueueJobResPod) Cleanup(queuejob *arbv1.QueueJob, qjobRes *arbv1.QueueJobResource) error {
+func (qjrPod *QueueJobResPod) Cleanup(queuejob *arbv1.XQueueJob, qjobRes *arbv1.QueueJobResource) error {
 
 	return qjrPod.deleteQueueJobResPods(qjobRes, queuejob)
 }

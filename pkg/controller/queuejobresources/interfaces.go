@@ -22,7 +22,7 @@ import (
 
 // Interface is an abstract interface for queue job resource management.
 type Interface interface {
-	SyncQueueJob(queuejob *qjobv1.QueueJob, qjobRes *qjobv1.QueueJobResource) error
-	Cleanup(queuejob *qjobv1.QueueJob, qjobRes *qjobv1.QueueJobResource) error
+	SyncQueueJob(queuejob *qjobv1.XQueueJob, qjobRes *qjobv1.XQueueJobResource) error
+	Cleanup(queuejob *qjobv1.XQueueJob, qjobRes *qjobv1.XQueueJobResource) error
 	Run(stopCh <-chan struct{})
 }
