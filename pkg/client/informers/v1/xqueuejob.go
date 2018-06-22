@@ -36,14 +36,14 @@ type XQueueJobInformer interface {
 	Lister() v1.XQueueJobLister
 }
 
-type queueJobInformer struct {
+type xqueueJobInformer struct {
 	factory internalinterfaces.SharedInformerFactory
 }
 
 // NewQueueJobInformer constructs a new informer for QueueJob type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewQueueJobInformer(client *rest.RESTClient, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+func NewXQueueJobInformer(client *rest.RESTClient, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	source := cache.NewListWatchFromClient(
 		client,
 		arbv1.XQueueJobPlural,
@@ -58,14 +58,14 @@ func NewQueueJobInformer(client *rest.RESTClient, namespace string, resyncPeriod
 	)
 }
 
-func defaultQueueJobInformer(client *rest.RESTClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewQueueJobInformer(client, meta_v1.NamespaceAll, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+func defaultXQueueJobInformer(client *rest.RESTClient, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewXQueueJobInformer(client, meta_v1.NamespaceAll, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
 
-func (f *queueJobInformer) Informer() cache.SharedIndexInformer {
+func (f *xqueueJobInformer) Informer() cache.SharedIndexInformer {
 	return f.factory.InformerFor(&arbv1.XQueueJob{}, defaultXQueueJobInformer)
 }
 
-func (f *queueJobInformer) Lister() v1.XQueueJobLister {
-	return v1.NewQueueJobLister(f.Informer().GetIndexer())
+func (f *xqueueJobInformer) Lister() v1.XQueueJobLister {
+	return v1.NewXQueueJobLister(f.Informer().GetIndexer())
 }

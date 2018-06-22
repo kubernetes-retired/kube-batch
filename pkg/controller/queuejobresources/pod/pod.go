@@ -83,7 +83,7 @@ type QueueJobResPod struct {
 // Register registers a queue job resource type
 func Register(regs *queuejobresources.RegisteredResources) {
 	regs.Register(arbv1.ResourceTypePod, func(config *rest.Config) queuejobresources.Interface {
-		return NewXQueueJobResPod(config)
+		return NewQueueJobResPod(config)
 	})
 }
 
@@ -210,7 +210,7 @@ func isPodActive(p *v1.Pod) bool {
 		p.DeletionTimestamp == nil
 }
 
-func (cc *QueueJobResPod) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.QueueJobResource) error {
+func (cc *QueueJobResPod) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 	// check if there are still terminating pods for this QueueJob
 	counter, ok := cc.deletedPodsCounter.Get(fmt.Sprintf("%s/%s", queuejob.Namespace, queuejob.Name))
 	if ok && counter >= 0 {
@@ -243,7 +243,7 @@ func filterPods(pods []*corev1.Pod, phase corev1.PodPhase) int {
 // manageQueueJob is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec.
 // Does NOT modify <activePods>.
-func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.XQueueJob, pods []*v1.Pod, ar *arbv1.QueueJobResource) error {
+func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.XQueueJob, pods []*v1.Pod, ar *arbv1.XQueueJobResource) error {
 	var err error
 	replicas := 0
 	if qj.Spec.AggrResources.Items != nil {
@@ -304,7 +304,7 @@ func (cc *QueueJobResPod) manageQueueJob(qj *arbv1.XQueueJob, pods []*v1.Pod, ar
 			return fmt.Errorf("failed to create %d pods of %d", len(errs), diff)
 		}
 	}
-	qj.Status = arbv1.QueueJobStatus {
+	qj.Status = arbv1.XQueueJobStatus {
 		Pending:      pending,
 		Running:      running,
 		Succeeded:    succeeded,
@@ -338,7 +338,7 @@ func (cc *QueueJobResPod) getPodsForQueueJob(qj *arbv1.XQueueJob) ([]*v1.Pod, er
 // manageQueueJobPods is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec. This is a controller for all pods specified in the QJ template
 // Does NOT modify <activePods>.
-func (cc *QueueJobResPod) manageQueueJobPods(activePods []*v1.Pod, succeeded int32, qj *arbv1.XQueueJob, ar *arbv1.QueueJobResource) (bool, error) {
+func (cc *QueueJobResPod) manageQueueJobPods(activePods []*v1.Pod, succeeded int32, qj *arbv1.XQueueJob, ar *arbv1.XQueueJobResource) (bool, error) {
 	jobDone := false
 	var err error
 	active := int32(len(activePods))
@@ -434,7 +434,7 @@ func (cc *QueueJobResPod) terminatePodsForQueueJob(qj *arbv1.XQueueJob) error {
 }
 
 
-func (qjrPod *QueueJobResPod) getPodsForQueueJobRes(qjobRes *arbv1.QueueJobResource, j *arbv1.XQueueJob) ([]*v1.Pod, error) {
+func (qjrPod *QueueJobResPod) getPodsForQueueJobRes(qjobRes *arbv1.XQueueJobResource, j *arbv1.XQueueJob) ([]*v1.Pod, error) {
 
 	pods, err := qjrPod.getPodsForQueueJob(j)
 	if err != nil {
@@ -458,7 +458,7 @@ func generateUUID() string {
 	return fmt.Sprintf("%s", id)
 }
 
-func (qjrPod *QueueJobResPod) deleteQueueJobResPods(qjobRes *arbv1.QueueJobResource, queuejob *arbv1.XQueueJob) error {
+func (qjrPod *QueueJobResPod) deleteQueueJobResPods(qjobRes *arbv1.XQueueJobResource, queuejob *arbv1.XQueueJob) error {
 
 	job := *queuejob
 
@@ -500,7 +500,7 @@ func createQueueJobSchedulingSpec(qj *arbv1.XQueueJob) *arbv1.SchedulingSpec {
         }
 }
 
-func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.XQueueJob, ix int32, qjobRes *arbv1.QueueJobResource) *corev1.Pod {
+func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.XQueueJob, ix int32, qjobRes *arbv1.XQueueJobResource) *corev1.Pod {
         templateCopy, err := qjrPod.getPodTemplate(qjobRes)
 
 	if err != nil {
@@ -525,7 +525,7 @@ func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.XQueueJob, ix int32, q
 }
    
 
-func (qjrPod *QueueJobResPod) Cleanup(queuejob *arbv1.XQueueJob, qjobRes *arbv1.QueueJobResource) error {
+func (qjrPod *QueueJobResPod) Cleanup(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 
 	return qjrPod.deleteQueueJobResPods(qjobRes, queuejob)
 }

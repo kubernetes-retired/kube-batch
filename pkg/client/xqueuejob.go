@@ -31,12 +31,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-const queueJobKindName = arbv1.XQueueJobPlural + "." + arbv1.GroupName
+const xqueueJobKindName = arbv1.XQueueJobPlural + "." + arbv1.GroupName
 
-func CreateQueueJobKind(clientset apiextensionsclient.Interface) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
+func CreateXQueueJobKind(clientset apiextensionsclient.Interface) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: queueJobKindName,
+			Name: xqueueJobKindName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   arbv1.GroupName,
@@ -56,7 +56,7 @@ func CreateQueueJobKind(clientset apiextensionsclient.Interface) (*apiextensions
 
 	// wait for CRD being established
 	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		crd, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(queueJobKindName, metav1.GetOptions{})
+		crd, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(xqueueJobKindName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

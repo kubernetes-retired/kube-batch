@@ -38,21 +38,21 @@ type XQueueJobInterface interface {
 }
 
 // queuejobs implements QueueJobInterface
-type queuejobs struct {
+type xqueuejobs struct {
 	client rest.Interface
 	ns     string
 }
 
 // newQueueJobs returns a QueueJobs
-func newQueueJobs(c *ArbV1Client, namespace string) *queuejobs {
-	return &queuejobs{
+func newXQueueJobs(c *ArbV1Client, namespace string) *xqueuejobs {
+	return &xqueuejobs{
 		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
 
 // Create takes the representation of a queuejob and creates it.  Returns the server's representation of the queuejob, and an error, if there is any.
-func (c *queuejobs) Create(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
+func (c *xqueuejobs) Create(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
 	result = &v1.XQueueJob{}
 	err = c.client.Post().
 		Namespace(c.ns).
@@ -64,7 +64,7 @@ func (c *queuejobs) Create(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err er
 }
 
 // Update takes the representation of a queuejob and updates it. Returns the server's representation of the queuejob, and an error, if there is any.
-func (c *queuejobs) Update(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
+func (c *xqueuejobs) Update(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
 	result = &v1.XQueueJob{}
 	err = c.client.Put().
 		Namespace(c.ns).
@@ -79,7 +79,7 @@ func (c *queuejobs) Update(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err er
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 
-func (c *queuejobs) UpdateStatus(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
+func (c *xqueuejobs) UpdateStatus(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
 	result = &v1.XQueueJob{}
 	err = c.client.Put().
 		Namespace(c.ns).
@@ -93,7 +93,7 @@ func (c *queuejobs) UpdateStatus(queuejob *v1.XQueueJob) (result *v1.XQueueJob, 
 }
 
 // Delete takes name of the queuejob and deletes it. Returns an error if one occurs.
-func (c *queuejobs) Delete(name string, options *meta_v1.DeleteOptions) error {
+func (c *xqueuejobs) Delete(name string, options *meta_v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource(v1.XQueueJobPlural).
@@ -104,7 +104,7 @@ func (c *queuejobs) Delete(name string, options *meta_v1.DeleteOptions) error {
 }
 
 // Get takes name of the queuejob, and returns the corresponding queuejob object, and an error if there is any.
-func (c *queuejobs) Get(name string, options meta_v1.GetOptions) (result *v1.XQueueJob, err error) {
+func (c *xqueuejobs) Get(name string, options meta_v1.GetOptions) (result *v1.XQueueJob, err error) {
 	result = &v1.XQueueJob{}
 	err = c.client.Get().
 		Namespace(c.ns).
@@ -117,7 +117,7 @@ func (c *queuejobs) Get(name string, options meta_v1.GetOptions) (result *v1.XQu
 }
 
 // List takes label and field selectors, and returns the list of QueueJobs that match those selectors.
-func (c *queuejobs) List(opts meta_v1.ListOptions) (result *v1.XQueueJobList, err error) {
+func (c *xqueuejobs) List(opts meta_v1.ListOptions) (result *v1.XQueueJobList, err error) {
 	result = &v1.XQueueJobList{}
 	err = c.client.Get().
 		Namespace(c.ns).

@@ -41,8 +41,11 @@ func Run(opt *options.ServerOption) error {
 
 	neverStop := make(chan struct{})
 
-	queuejobctrl := queuejob.NewQueueJobController(config)
-	queuejobctrl.Run(neverStop)
+	//queuejobctrl := queuejob.NewQueueJobController(config)
+	//queuejobctrl.Run(neverStop)
+
+	xqueuejobctrl := queuejob.NewXQueueJobController(config)
+	xqueuejobctrl.Run(neverStop)
 
 	<-neverStop
 

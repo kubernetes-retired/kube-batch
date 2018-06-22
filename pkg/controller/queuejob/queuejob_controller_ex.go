@@ -42,7 +42,7 @@ import (
 
 const (
 	// QueueJobNameLabel label string for queuejob name
-	QueueJobNameLabel string = "queuejob-name"
+	QueueJobNameLabel string = "xqueuejob-name"
 
 	// ControllerUIDLabel label string for queuejob controller uid
 	ControllerUIDLabel string = "controller-uid"
@@ -52,9 +52,9 @@ const (
 var controllerKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
 
 // Controller the XQueueJob Controller type
-type Controller struct {
+type XController struct {
 	config           *rest.Config
-	queueJobInformer informersv1.QueueJobInformer
+	queueJobInformer informersv1.XQueueJobInformer
 	// resources registered for the XQueueJob
 	qjobRegisteredResources queuejobresources.RegisteredResources
 	// controllers for these resources
@@ -64,7 +64,7 @@ type Controller struct {
 	arbclients       *clientset.Clientset
 
 	// A store of jobs
-	queueJobLister listersv1.QueueJobLister
+	queueJobLister listersv1.XQueueJobLister
 	queueJobSynced func() bool
 
 	// QueueJobs that need to be initialized
@@ -96,9 +96,8 @@ func queueJobKey(obj interface{}) (string, error) {
 }
 
 // NewController create new XQueueJob Controller
-func NewQueueJobController(config *rest.Config) *Controller {
-
-	cc := &Controller{
+func NewXQueueJobController(config *rest.Config) *XController {
+	cc := &XController{
 		config:             config,
 		clients:            kubernetes.NewForConfigOrDie(config),
 		arbclients:         clientset.NewForConfigOrDie(config),
@@ -126,15 +125,19 @@ func NewQueueJobController(config *rest.Config) *Controller {
 	}
 	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
 
-	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).XQueueJob().QueueJobs()
+	fmt.Printf("I create new XQueueJob!")
+
+	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).XQueueJob().XQueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: func(obj interface{}) bool {
 				switch t := obj.(type) {
 				case *arbv1.XQueueJob:
+					fmt.Printf("Filter XQueueJob name(%s) namespace(%s)\n", t.Name, t.Namespace)
 					glog.V(4).Infof("Filter XQueueJob name(%s) namespace(%s)\n", t.Name, t.Namespace)
 					return true
 				default:
+					fmt.Printf("Not an XQueueJob")
 					return false
 				}
 			},
@@ -155,9 +158,11 @@ func NewQueueJobController(config *rest.Config) *Controller {
 }
 
 // Run start XQueueJob Controller
-func (cc *Controller) Run(stopCh chan struct{}) {
+func (cc *XController) Run(stopCh chan struct{}) {
 	// initialized
-	createQueueJobKind(cc.config)	
+	createXQueueJobKind(cc.config)	
+
+	fmt.Printf("Running XQueueJob Controller!")
 
 	go cc.queueJobInformer.Informer().Run(stopCh)
 	
@@ -169,8 +174,9 @@ func (cc *Controller) Run(stopCh chan struct{}) {
 
 }
 
-func (cc *Controller) addQueueJob(obj interface{}) {
+func (cc *XController) addQueueJob(obj interface{}) {
 	qj, ok := obj.(*arbv1.XQueueJob)
+	fmt.Printf("New QueueJob!")
 	if !ok {
 		glog.Errorf("obj is not XQueueJob")
 		return
@@ -179,7 +185,7 @@ func (cc *Controller) addQueueJob(obj interface{}) {
 	cc.enqueue(qj)
 }
 
-func (cc *Controller) updateQueueJob(oldObj, newObj interface{}) {
+func (cc *XController) updateQueueJob(oldObj, newObj interface{}) {
 	newQJ, ok := newObj.(*arbv1.XQueueJob)
 	if !ok {
 		glog.Errorf("newObj is not XQueueJob")
@@ -189,7 +195,7 @@ func (cc *Controller) updateQueueJob(oldObj, newObj interface{}) {
 	cc.enqueue(newQJ)
 }
 
-func (cc *Controller) deleteQueueJob(obj interface{}) {
+func (cc *XController) deleteQueueJob(obj interface{}) {
 	qj, ok := obj.(*arbv1.XQueueJob)
 	if !ok {
 		glog.Errorf("obj is not XQueueJob")
@@ -199,14 +205,14 @@ func (cc *Controller) deleteQueueJob(obj interface{}) {
 	cc.enqueue(qj)
 }
 
-func (cc *Controller) enqueue(obj interface{}) {
+func (cc *XController) enqueue(obj interface{}) {
 	err := cc.eventQueue.Add(obj)
 	if err != nil {
 		glog.Errorf("Fail to enqueue XQueueJob to updateQueue, err %#v", err)
 	}
 }
 
-func (cc *Controller) worker() {
+func (cc *XController) worker() {
 	if _, err := cc.eventQueue.Pop(func(obj interface{}) error {
 		var queuejob *arbv1.XQueueJob
 		switch v := obj.(type) {
@@ -239,8 +245,8 @@ func (cc *Controller) worker() {
 	}
 }
 
-func (cc *Controller) syncQueueJob(qj *arbv1.XQueueJob) error {
-	queueJob, err := cc.queueJobLister.QueueJobs(qj.Namespace).Get(qj.Name)
+func (cc *XController) syncQueueJob(qj *arbv1.XQueueJob) error {
+	queueJob, err := cc.queueJobLister.XQueueJobs(qj.Namespace).Get(qj.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			glog.V(3).Infof("Job has been deleted: %v", qj.Name)
@@ -255,7 +261,7 @@ func (cc *Controller) syncQueueJob(qj *arbv1.XQueueJob) error {
 // manageQueueJob is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec.
 // Does NOT modify <activePods>.
-func (cc *Controller) manageQueueJob(qj *arbv1.XQueueJob) error {
+func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 	var err error	
 	startTime := time.Now()
 	defer func() {
@@ -288,7 +294,7 @@ func (cc *Controller) manageQueueJob(qj *arbv1.XQueueJob) error {
 	}
 	
 	// TODO(k82cn): replaced it with `UpdateStatus`
-	if _, err := cc.arbclients.ArbV1().QueueJobs(qj.Namespace).Update(qj); err != nil {
+	if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).Update(qj); err != nil {
 		glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
 			qj.Namespace, qj.Name, err)
 		return err
@@ -297,7 +303,7 @@ func (cc *Controller) manageQueueJob(qj *arbv1.XQueueJob) error {
 	return err
 }
 
-func (cc *Controller) Cleanup(queuejob *arbv1.XQueueJob) error {
+func (cc *XController) Cleanup(queuejob *arbv1.XQueueJob) error {
 	if queuejob.Spec.AggrResources.Items != nil {
 		// we call clean-up for each controller
 		for _, ar := range queuejob.Spec.AggrResources.Items {

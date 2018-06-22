@@ -33,17 +33,17 @@ type XQueueJobLister interface {
 }
 
 // queueJobLister implements the QueueJobLister interface.
-type queueJobLister struct {
+type xqueueJobLister struct {
 	indexer cache.Indexer
 }
 
 // NewQueueJobLister returns a new QueueJobLister.
-func NewQueueJobLister(indexer cache.Indexer) XQueueJobLister {
-	return &queueJobLister{indexer: indexer}
+func NewXQueueJobLister(indexer cache.Indexer) XQueueJobLister {
+	return &xqueueJobLister{indexer: indexer}
 }
 
 // List lists all QueueJobs in the indexer.
-func (s *queueJobLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error) {
+func (s *xqueueJobLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*arbv1.XQueueJob))
 	})
@@ -51,12 +51,12 @@ func (s *queueJobLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob,
 }
 
 // QueueJobs returns an object that can list and get QueueJobs.
-func (s *queueJobLister) XQueueJobs(namespace string) XQueueJobNamespaceLister {
-	return queueJobNamespaceLister{indexer: s.indexer, namespace: namespace}
+func (s *xqueueJobLister) XQueueJobs(namespace string) XQueueJobNamespaceLister {
+	return xqueueJobNamespaceLister{indexer: s.indexer, namespace: namespace}
 }
 
 // QueueJobNamespaceLister helps list and get QueueJobs.
-type QueueJobNamespaceLister interface {
+type XQueueJobNamespaceLister interface {
 	// List lists all QueueJobs in the indexer for a given namespace.
 	List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error)
 	// Get retrieves the QueueJob from the indexer for a given namespace and name.
@@ -65,13 +65,13 @@ type QueueJobNamespaceLister interface {
 
 // queueJobNamespaceLister implements the QueueJobNamespaceLister
 // interface.
-type queueJobNamespaceLister struct {
+type xqueueJobNamespaceLister struct {
 	indexer   cache.Indexer
 	namespace string
 }
 
 // List lists all QueueJobs in the indexer for a given namespace.
-func (s queueJobNamespaceLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error) {
+func (s xqueueJobNamespaceLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error) {
 	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
 		ret = append(ret, m.(*arbv1.XQueueJob))
 	})
@@ -79,13 +79,13 @@ func (s queueJobNamespaceLister) List(selector labels.Selector) (ret []*arbv1.XQ
 }
 
 // Get retrieves the QueueJob from the indexer for a given namespace and name.
-func (s queueJobNamespaceLister) Get(name string) (*arbv1.XQueueJob, error) {
+func (s xqueueJobNamespaceLister) Get(name string) (*arbv1.XQueueJob, error) {
 	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(arbv1.Resource("queuejobs"), name)
+		return nil, errors.NewNotFound(arbv1.Resource("xqueuejobs"), name)
 	}
 	return obj.(*arbv1.XQueueJob), nil
 }

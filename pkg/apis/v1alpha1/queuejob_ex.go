@@ -91,7 +91,7 @@ type XQueueJobResource struct {
 type XQueueJobResourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
-	Items           []QueueJobResource
+	Items           []XQueueJobResource
 }
 
 // queue job resources type
