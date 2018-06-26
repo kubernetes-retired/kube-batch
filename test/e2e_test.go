@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package framework
+package test
 
 import (
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-type Event struct {
-	Task *api.TaskInfo
-}
-
-type EventHandler struct {
-	AllocateFunc func(event *Event)
-	PipelineFunc func(event *Event)
-	BindFunc     func(event *Event)
-	EvictFunc    func(event *Event)
-	PreemptFunc  func(event *Event)
+func TestE2E(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "kube-arbitrator Test Suite")
 }
