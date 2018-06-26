@@ -110,14 +110,13 @@ func createQueueJobKind(config *rest.Config) error {
 }
 
 func createXQueueJobKind(config *rest.Config) error {
-        extensionscs, err := apiextensionsclient.NewForConfig(config)
-        if err != nil {
-                return err
-        }
-        _, err = client.CreateXQueueJobKind(extensionscs)
-        if err != nil && !apierrors.IsAlreadyExists(err) {
-                return err
-        }
-        return nil
+	extensionscs, err := apiextensionsclient.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	_, err = client.CreateXQueueJobKind(extensionscs)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
 }
-

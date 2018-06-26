@@ -17,9 +17,9 @@ limitations under the License.
 package queuejob
 
 import (
-	"time"
 	"fmt"
 	"github.com/golang/glog"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -51,9 +51,9 @@ var controllerKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
 type XController struct {
 	config           *rest.Config
 	queueJobInformer informersv1.XQueueJobInformer
-	
-	clients          *kubernetes.Clientset
-	arbclients       *clientset.Clientset
+
+	clients    *kubernetes.Clientset
+	arbclients *clientset.Clientset
 
 	// A store of jobs
 	queueJobLister listersv1.XQueueJobLister
@@ -68,9 +68,7 @@ type XController struct {
 
 	// eventQueue that need to sync up
 	eventQueue *cache.FIFO
-
 }
-
 
 func queueJobKey(obj interface{}) (string, error) {
 	qj, ok := obj.(*arbv1.XQueueJob)
@@ -84,19 +82,19 @@ func queueJobKey(obj interface{}) (string, error) {
 // NewController create new XQueueJob Controller
 func NewXQueueJobController(config *rest.Config) *XController {
 	cc := &XController{
-		config:             config,
-		clients:            kubernetes.NewForConfigOrDie(config),
-		arbclients:         clientset.NewForConfigOrDie(config),
-		eventQueue:	   	    cache.NewFIFO(queueJobKey),
-		initQueue:          cache.NewFIFO(queueJobKey),
-		updateQueue:        cache.NewFIFO(queueJobKey),
+		config:      config,
+		clients:     kubernetes.NewForConfigOrDie(config),
+		arbclients:  clientset.NewForConfigOrDie(config),
+		eventQueue:  cache.NewFIFO(queueJobKey),
+		initQueue:   cache.NewFIFO(queueJobKey),
+		updateQueue: cache.NewFIFO(queueJobKey),
 	}
 
 	queueJobClient, _, err := client.NewClient(cc.config)
 	if err != nil {
 		panic(err)
 	}
-	
+
 	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).XQueueJob().XQueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
@@ -114,21 +112,21 @@ func NewXQueueJobController(config *rest.Config) *XController {
 				UpdateFunc: cc.updateQueueJob,
 				DeleteFunc: cc.deleteQueueJob,
 			},
-	})
+		})
 	cc.queueJobLister = cc.queueJobInformer.Lister()
 
 	cc.queueJobSynced = cc.queueJobInformer.Informer().HasSynced
-	
+
 	return cc
 }
 
 // Run start XQueueJob Controller
 func (cc *XController) Run(stopCh chan struct{}) {
 	// initialized
-	createXQueueJobKind(cc.config)	
+	createXQueueJobKind(cc.config)
 
 	go cc.queueJobInformer.Informer().Run(stopCh)
-	
+
 	cache.WaitForCacheSync(stopCh, cc.queueJobSynced)
 
 	go wait.Until(cc.worker, time.Second, stopCh)
@@ -220,7 +218,7 @@ func (cc *XController) syncQueueJob(qj *arbv1.XQueueJob) error {
 
 // dummy function for managing a queuejob
 func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
-	var err error	
+	var err error
 	startTime := time.Now()
 	defer func() {
 		glog.Infof("Finished syncing queue job %q (%v)", qj.Name, time.Now().Sub(startTime))
@@ -236,7 +234,6 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 }
 
 func (cc *XController) Cleanup(queuejob *arbv1.XQueueJob) error {
-	
+
 	return nil
 }
-

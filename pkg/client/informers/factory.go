@@ -113,7 +113,7 @@ type SharedInformerFactory interface {
 	SchedulingSpec() arbclient.Interface
 
 	QueueJob() arbclient.Interface
-	
+
 	XQueueJob() arbclient.Interface
 }
 
