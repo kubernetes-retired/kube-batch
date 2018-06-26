@@ -43,14 +43,14 @@ type XQueueJobList struct {
 
 // JobSpec describes how the queue job will look like.
 type XQueueJobSpec struct {
-	Priority      int                  `json:"priority,omitempty"`
+	Priority      int                   `json:"priority,omitempty"`
 	Service       XQueueJobService      `json:"service"`
 	AggrResources XQueueJobResourceList `json:"resources"`
 
-	 Selector *metav1.LabelSelector `json:"selector,omitempty" protobuf:"bytes,1,opt,name=selector"`
+	Selector *metav1.LabelSelector `json:"selector,omitempty" protobuf:"bytes,1,opt,name=selector"`
 
-        // SchedSpec specifies the parameters for scheduling.
-        SchedSpec SchedulingSpecTemplate `json:"schedulingSpec,omitempty" protobuf:"bytes,2,opt,name=schedulingSpec"`
+	// SchedSpec specifies the parameters for scheduling.
+	SchedSpec SchedulingSpecTemplate `json:"schedulingSpec,omitempty" protobuf:"bytes,2,opt,name=schedulingSpec"`
 }
 
 // QueueJobService is queue job service definition
@@ -72,19 +72,19 @@ type XQueueJobResource struct {
 
 	// The minimal available pods to run for this QueueJob; the default value is nil
 	MinAvailable *int32 `json:"minavailable,omitempty" protobuf:"bytes,3,opt,name=minavailable"`
-	
+
 	// The number of allocated replicas from this resource type
-	AllocatedReplicas int32                `json:"allocatedreplicas"`
-	
+	AllocatedReplicas int32 `json:"allocatedreplicas"`
+
 	// The priority of this resource
-	Priority           float64              `json:"priority"`
-	
+	Priority float64 `json:"priority"`
+
 	//The type of the resource (is the resource a Pod, a ReplicaSet, a ... ?)
-	Type              ResourceType         `json:"type"`
-	
+	Type ResourceType `json:"type"`
+
 	//The template for the resource; it is now a raw text because we don't know for what resource
 	//it should be instantiated
-	Template          runtime.RawExtension `json:"template"`
+	Template runtime.RawExtension `json:"template"`
 }
 
 // a collection of QueueJobResource
@@ -98,12 +98,12 @@ type XQueueJobResourceList struct {
 type ResourceType string
 
 const (
-	ResourceTypePod        ResourceType = "Pod"
-	ResourceTypeService    ResourceType = "Service"
-	ResourceTypeSecret    ResourceType = "Secret"
-	ResourceTypeStatefulSet    ResourceType = "StatefulSet"
-	ResourceTypeDeployment    ResourceType = "Deployment"
-	ResourceTypeReplicaSet ResourceType = "ReplicaSet"
+	ResourceTypePod         ResourceType = "Pod"
+	ResourceTypeService     ResourceType = "Service"
+	ResourceTypeSecret      ResourceType = "Secret"
+	ResourceTypeStatefulSet ResourceType = "StatefulSet"
+	ResourceTypeDeployment  ResourceType = "Deployment"
+	ResourceTypeReplicaSet  ResourceType = "ReplicaSet"
 )
 
 // QueueJobStatus represents the current state of a QueueJob
@@ -127,9 +127,8 @@ type XQueueJobStatus struct {
 	// The minimal available resources to run for this QueueJob (is this different from the MinAvailable from JobStatus)
 	// +optional
 	MinAvailable int32 `json:"template,omitempty" protobuf:"bytes,4,opt,name=template"`
-	
+
 	Message string `json:"message,omitempty"`
 }
 
 type XQueueJobState string
-
