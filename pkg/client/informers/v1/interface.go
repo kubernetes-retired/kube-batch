@@ -26,6 +26,7 @@ type Interface interface {
 	SchedulingSpecs() SchedulingSpecInformer
 	// QueueJobs returns a QueueJobInformer.
 	QueueJobs() QueueJobInformer
+	XQueueJobs() XQueueJobInformer
 }
 
 type version struct {
@@ -45,4 +46,8 @@ func (v *version) SchedulingSpecs() SchedulingSpecInformer {
 // QueueJobs returns a QueueJobInformer.
 func (v *version) QueueJobs() QueueJobInformer {
 	return &queueJobInformer{factory: v.SharedInformerFactory}
+}
+
+func (v *version) XQueueJobs() XQueueJobInformer {
+        return &xqueueJobInformer{factory: v.SharedInformerFactory}
 }
