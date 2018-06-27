@@ -1,9 +1,12 @@
 /*
 Copyright 2017 The Kubernetes Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,36 +24,36 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-type QueueJobGetter interface {
-	QueueJobs(namespaces string) QueueJobInterface
+type XQueueJobGetter interface {
+	XQueueJobs(namespaces string) XQueueJobInterface
 }
 
-type QueueJobInterface interface {
-	Create(*v1.QueueJob) (*v1.QueueJob, error)
-	Update(*v1.QueueJob) (*v1.QueueJob, error)
-	UpdateStatus(*v1.QueueJob) (*v1.QueueJob, error)
+type XQueueJobInterface interface {
+	Create(*v1.XQueueJob) (*v1.XQueueJob, error)
+	Update(*v1.XQueueJob) (*v1.XQueueJob, error)
+	UpdateStatus(*v1.XQueueJob) (*v1.XQueueJob, error)
 	Delete(name string, options *meta_v1.DeleteOptions) error
-	Get(name string, options meta_v1.GetOptions) (*v1.QueueJob, error)
-	List(opts meta_v1.ListOptions) (*v1.QueueJobList, error)
+	Get(name string, options meta_v1.GetOptions) (*v1.XQueueJob, error)
+	List(opts meta_v1.ListOptions) (*v1.XQueueJobList, error)
 }
 
 // queuejobs implements QueueJobInterface
-type queuejobs struct {
+type xqueuejobs struct {
 	client rest.Interface
 	ns     string
 }
 
 // newQueueJobs returns a QueueJobs
-func newQueueJobs(c *ArbV1Client, namespace string) *queuejobs {
-	return &queuejobs{
+func newXQueueJobs(c *ArbV1Client, namespace string) *xqueuejobs {
+	return &xqueuejobs{
 		client: c.RESTClient(),
 		ns:     namespace,
 	}
 }
 
 // Create takes the representation of a queuejob and creates it.  Returns the server's representation of the queuejob, and an error, if there is any.
-func (c *queuejobs) Create(queuejob *v1.QueueJob) (result *v1.QueueJob, err error) {
-	result = &v1.QueueJob{}
+func (c *xqueuejobs) Create(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
+	result = &v1.XQueueJob{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource(v1.QueueJobPlural).
@@ -61,8 +64,8 @@ func (c *queuejobs) Create(queuejob *v1.QueueJob) (result *v1.QueueJob, err erro
 }
 
 // Update takes the representation of a queuejob and updates it. Returns the server's representation of the queuejob, and an error, if there is any.
-func (c *queuejobs) Update(queuejob *v1.QueueJob) (result *v1.QueueJob, err error) {
-	result = &v1.QueueJob{}
+func (c *xqueuejobs) Update(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
+	result = &v1.XQueueJob{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource(v1.QueueJobPlural).
@@ -76,11 +79,11 @@ func (c *queuejobs) Update(queuejob *v1.QueueJob) (result *v1.QueueJob, err erro
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 
-func (c *queuejobs) UpdateStatus(queuejob *v1.QueueJob) (result *v1.QueueJob, err error) {
-	result = &v1.QueueJob{}
+func (c *xqueuejobs) UpdateStatus(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err error) {
+	result = &v1.XQueueJob{}
 	err = c.client.Put().
 		Namespace(c.ns).
-		Resource(v1.QueueJobPlural).
+		Resource(v1.XQueueJobPlural).
 		Name(queuejob.Name).
 		SubResource("status").
 		Body(queuejob).
@@ -90,10 +93,10 @@ func (c *queuejobs) UpdateStatus(queuejob *v1.QueueJob) (result *v1.QueueJob, er
 }
 
 // Delete takes name of the queuejob and deletes it. Returns an error if one occurs.
-func (c *queuejobs) Delete(name string, options *meta_v1.DeleteOptions) error {
+func (c *xqueuejobs) Delete(name string, options *meta_v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
-		Resource(v1.QueueJobPlural).
+		Resource(v1.XQueueJobPlural).
 		Name(name).
 		Body(options).
 		Do().
@@ -101,11 +104,11 @@ func (c *queuejobs) Delete(name string, options *meta_v1.DeleteOptions) error {
 }
 
 // Get takes name of the queuejob, and returns the corresponding queuejob object, and an error if there is any.
-func (c *queuejobs) Get(name string, options meta_v1.GetOptions) (result *v1.QueueJob, err error) {
-	result = &v1.QueueJob{}
+func (c *xqueuejobs) Get(name string, options meta_v1.GetOptions) (result *v1.XQueueJob, err error) {
+	result = &v1.XQueueJob{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource(v1.QueueJobPlural).
+		Resource(v1.XQueueJobPlural).
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
 		Do().
@@ -114,11 +117,11 @@ func (c *queuejobs) Get(name string, options meta_v1.GetOptions) (result *v1.Que
 }
 
 // List takes label and field selectors, and returns the list of QueueJobs that match those selectors.
-func (c *queuejobs) List(opts meta_v1.ListOptions) (result *v1.QueueJobList, err error) {
-	result = &v1.QueueJobList{}
+func (c *xqueuejobs) List(opts meta_v1.ListOptions) (result *v1.XQueueJobList, err error) {
+	result = &v1.XQueueJobList{}
 	err = c.client.Get().
 		Namespace(c.ns).
-		Resource(v1.QueueJobPlural).
+		Resource(v1.XQueueJobPlural).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Do().
 		Into(result)

@@ -18,9 +18,8 @@ package job
 import (
 	"github.com/spf13/cobra"
 
-	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/api/core/v1"
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
 )
@@ -65,6 +64,7 @@ func RunJob() error {
 		return err
 	}
 
+
 	qj := &arbv1.QueueJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      launchJobFlags.Name,
@@ -93,7 +93,7 @@ func RunJob() error {
 							Name:            launchJobFlags.Name,
 							ImagePullPolicy: v1.PullIfNotPresent,
 							Resources: v1.ResourceRequirements{
-								Requests: req,
+									Requests: req,
 							},
 						},
 					},

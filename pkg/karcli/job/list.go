@@ -57,10 +57,10 @@ func ListJobs() error {
 	}
 
 	fmt.Printf("%-30s%-25s%-12s%-8s%-12s%-12s%-12s%-12s\n",
-		"Name", "Creation", "Replicas", "Min", "Pending", "Running", "Succeeded", "Failed")
+		"Name", "Creation",  "Min", "Pending", "Running", "Succeeded", "Failed")
 	for _, qj := range queueJobs.Items {
-		fmt.Printf("%-30s%-25s%-12d%-8d%-12d%-12d%-12d%-12d\n",
-			qj.Name, qj.CreationTimestamp.Format("2006-01-02 15:04:05"), qj.Spec.Replicas,
+		fmt.Printf("%-30s%-25s%-8d%-12d%-12d%-12d%-12d\n",
+			qj.Name, qj.CreationTimestamp.Format("2006-01-02 15:04:05"),
 			qj.Status.MinAvailable, qj.Status.Pending, qj.Status.Running, qj.Status.Succeeded, qj.Status.Failed)
 	}
 

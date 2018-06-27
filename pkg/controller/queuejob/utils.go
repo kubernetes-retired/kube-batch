@@ -33,6 +33,8 @@ import (
 
 var queueJobKind = arbv1.SchemeGroupVersion.WithKind("QueueJob")
 
+var xqueueJobKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
+
 func generateUUID() string {
 	id := uuid.NewUUID()
 
@@ -79,6 +81,43 @@ func createQueueJobSchedulingSpec(qj *arbv1.QueueJob) *arbv1.SchedulingSpec {
 	}
 }
 
+func createXQueueJobSchedulingSpec(qj *arbv1.XQueueJob) *arbv1.SchedulingSpec {
+        return &arbv1.SchedulingSpec{
+                ObjectMeta: metav1.ObjectMeta{
+                        Name:      qj.Name,
+                        Namespace: qj.Namespace,
+                        OwnerReferences: []metav1.OwnerReference{
+                                *metav1.NewControllerRef(qj, queueJobKind),
+                        },
+                },
+                Spec: qj.Spec.SchedSpec,
+        }
+}
+
+func createQueueJobKind(config *rest.Config) error {
+	extensionscs, err := apiextensionsclient.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	_, err = client.CreateQueueJobKind(extensionscs)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
+}
+
+func createXQueueJobKind(config *rest.Config) error {
+        extensionscs, err := apiextensionsclient.NewForConfig(config)
+        if err != nil {
+                return err
+        }
+        _, err = client.CreateXQueueJobKind(extensionscs)
+        if err != nil && !apierrors.IsAlreadyExists(err) {
+                return err
+        }
+        return nil
+}
+
 func createQueueJobPod(qj *arbv1.QueueJob, ix int32) *corev1.Pod {
 	templateCopy := qj.Spec.Template.DeepCopy()
 
@@ -95,16 +134,4 @@ func createQueueJobPod(qj *arbv1.QueueJob, ix int32) *corev1.Pod {
 		},
 		Spec: templateCopy.Spec,
 	}
-}
-
-func createQueueJobKind(config *rest.Config) error {
-	extensionscs, err := apiextensionsclient.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	_, err = client.CreateQueueJobKind(extensionscs)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return err
-	}
-	return nil
 }

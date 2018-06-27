@@ -18,9 +18,7 @@ package informers
 
 import (
 	"fmt"
-
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
-
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
@@ -63,7 +61,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 			resource: resource.GroupResource(),
 			informer: f.QueueJob().QueueJobs().Informer(),
 		}, nil
-	}
+	case arbv1.SchemeGroupVersion.WithResource("xqueuejobs"):
+                return &genericInformer{
+                        resource: resource.GroupResource(),
+                        informer: f.XQueueJob().XQueueJobs().Informer(),
+                }, nil
+        }
 
 	return nil, fmt.Errorf("no informer found for %v", resource)
 }
