@@ -49,5 +49,5 @@ func (v *version) QueueJobs() QueueJobInformer {
 }
 
 func (v *version) XQueueJobs() XQueueJobInformer {
-        return &xqueueJobInformer{factory: v.SharedInformerFactory}
+	return &xqueueJobInformer{factory: v.SharedInformerFactory}
 }

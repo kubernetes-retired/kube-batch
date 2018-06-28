@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-//Define reference manager commont interface
+//RefManager : Define reference manager commont interface
 type RefManager interface {
 
 	//Tag the owner
@@ -36,15 +36,17 @@ type RefManager interface {
 	AddReference(owner *qjobv1.XQueueJobResource, ownee runtime.Object) error
 }
 
-//A reference manager by resource vector index
+//RefByLabel : A reference manager by resource vector index
 type RefByLabel struct {
 	qjobResLabel string
 }
 
+//NewLabelRefManager : new ref manager
 func NewLabelRefManager() RefManager {
 	return &RefByLabel{qjobResLabel: "qjobResLabel"}
 }
 
+//AddTag : add tag
 func (rm *RefByLabel) AddTag(owner *qjobv1.XQueueJobResource, getTag func() string) error {
 
 	accessor, err := meta.Accessor(owner)
@@ -63,6 +65,7 @@ func (rm *RefByLabel) AddTag(owner *qjobv1.XQueueJobResource, getTag func() stri
 	return nil
 }
 
+//BelongTo : belong to QJ
 func (rm *RefByLabel) BelongTo(owner *qjobv1.XQueueJobResource, ownee runtime.Object) bool {
 
 	accessor, err := meta.Accessor(ownee)
@@ -70,18 +73,19 @@ func (rm *RefByLabel) BelongTo(owner *qjobv1.XQueueJobResource, ownee runtime.Ob
 		return false
 	}
 
-	accessor_owner, err := meta.Accessor(owner)
+	accessorOwner, err := meta.Accessor(owner)
 	if err != nil {
 		return false
 	}
 
 	labels := accessor.GetLabels()
-	labels_owner := accessor_owner.GetLabels()
+	labelsOwner := accessorOwner.GetLabels()
 
-	return labels != nil && labels_owner != nil && labels[rm.qjobResLabel] == labels_owner[rm.qjobResLabel]
+	return labels != nil && labelsOwner != nil && labels[rm.qjobResLabel] == labelsOwner[rm.qjobResLabel]
 
 }
 
+//AddReference : add ref
 func (rm *RefByLabel) AddReference(owner *qjobv1.XQueueJobResource, ownee runtime.Object) error {
 
 	accessor, err := meta.Accessor(ownee)
@@ -89,14 +93,14 @@ func (rm *RefByLabel) AddReference(owner *qjobv1.XQueueJobResource, ownee runtim
 		return fmt.Errorf("Cannot get object meta")
 	}
 
-	accessor_owner, err := meta.Accessor(owner)
+	accessorOwner, err := meta.Accessor(owner)
 	if err != nil {
 		return fmt.Errorf("Cannot get object meta")
 	}
 
-	labels_owner := accessor_owner.GetLabels()
+	labelsOwner := accessorOwner.GetLabels()
 
-	tag, found := labels_owner[rm.qjobResLabel]
+	tag, found := labelsOwner[rm.qjobResLabel]
 	if !found {
 		return fmt.Errorf("The identification label not found")
 	}

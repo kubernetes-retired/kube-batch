@@ -27,6 +27,7 @@ import (
 // Factory is a function that returns an Interface for queue job resources.
 type Factory func(config *rest.Config) Interface
 
+//RegisteredResources : registered resources
 type RegisteredResources struct {
 	lock     sync.Mutex
 	registry map[qjobv1.ResourceType]Factory

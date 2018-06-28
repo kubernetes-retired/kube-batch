@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// QueueJobLister helps list QueueJobs.
+//XQueueJobLister helps list QueueJobs.
 type XQueueJobLister interface {
 	// List lists all QueueJobs in the indexer.
 	List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error)
@@ -37,12 +37,12 @@ type xqueueJobLister struct {
 	indexer cache.Indexer
 }
 
-// NewQueueJobLister returns a new QueueJobLister.
+//NewXQueueJobLister returns a new QueueJobLister.
 func NewXQueueJobLister(indexer cache.Indexer) XQueueJobLister {
 	return &xqueueJobLister{indexer: indexer}
 }
 
-// List lists all QueueJobs in the indexer.
+//List lists all QueueJobs in the indexer.
 func (s *xqueueJobLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
 		ret = append(ret, m.(*arbv1.XQueueJob))
@@ -50,12 +50,12 @@ func (s *xqueueJobLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob
 	return ret, err
 }
 
-// QueueJobs returns an object that can list and get QueueJobs.
+//XQueueJobs returns an object that can list and get QueueJobs.
 func (s *xqueueJobLister) XQueueJobs(namespace string) XQueueJobNamespaceLister {
 	return xqueueJobNamespaceLister{indexer: s.indexer, namespace: namespace}
 }
 
-// QueueJobNamespaceLister helps list and get QueueJobs.
+//XQueueJobNamespaceLister helps list and get QueueJobs.
 type XQueueJobNamespaceLister interface {
 	// List lists all QueueJobs in the indexer for a given namespace.
 	List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error)

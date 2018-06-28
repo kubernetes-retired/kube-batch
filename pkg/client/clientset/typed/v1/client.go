@@ -48,7 +48,6 @@ func (c *ArbV1Client) XQueueJobs(namespace string) XQueueJobInterface {
 	return newXQueueJobs(c, namespace)
 }
 
-
 // NewForConfig creates a new ArbV1Client for the given config.
 func NewForConfig(c *rest.Config) (*ArbV1Client, error) {
 	config := *c
