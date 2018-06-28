@@ -29,7 +29,7 @@ import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/listers/v1"
 )
 
-// QueueJobInformer provides access to a shared informer and lister for
+//XQueueJobInformer provides access to a shared informer and lister for
 // QueueJobs.
 type XQueueJobInformer interface {
 	Informer() cache.SharedIndexInformer
@@ -40,7 +40,7 @@ type xqueueJobInformer struct {
 	factory internalinterfaces.SharedInformerFactory
 }
 
-// NewQueueJobInformer constructs a new informer for QueueJob type.
+//NewXQueueJobInformer constructs a new informer for QueueJob type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewXQueueJobInformer(client *rest.RESTClient, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
@@ -62,10 +62,12 @@ func defaultXQueueJobInformer(client *rest.RESTClient, resyncPeriod time.Duratio
 	return NewXQueueJobInformer(client, meta_v1.NamespaceAll, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 }
 
+//Informer
 func (f *xqueueJobInformer) Informer() cache.SharedIndexInformer {
 	return f.factory.InformerFor(&arbv1.XQueueJob{}, defaultXQueueJobInformer)
 }
 
+//Lister
 func (f *xqueueJobInformer) Lister() v1.XQueueJobLister {
 	return v1.NewXQueueJobLister(f.Informer().GetIndexer())
 }

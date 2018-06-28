@@ -47,7 +47,7 @@ const (
 // controllerKind contains the schema.GroupVersionKind for this controller type.
 var controllerKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
 
-// Controller the XQueueJob Controller type
+//XController the XQueueJob Controller type
 type XController struct {
 	config           *rest.Config
 	queueJobInformer informersv1.XQueueJobInformer
@@ -79,7 +79,7 @@ func queueJobKey(obj interface{}) (string, error) {
 	return fmt.Sprintf("%s/%s", qj.Namespace, qj.Name), nil
 }
 
-// NewController create new XQueueJob Controller
+//NewXQueueJobController create new XQueueJob Controller
 func NewXQueueJobController(config *rest.Config) *XController {
 	cc := &XController{
 		config:      config,
@@ -233,6 +233,7 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 	return err
 }
 
+//Cleanup : clean job resources
 func (cc *XController) Cleanup(queuejob *arbv1.XQueueJob) error {
 
 	return nil
