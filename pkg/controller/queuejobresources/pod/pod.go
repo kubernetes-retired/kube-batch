@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-	uuid "github.com/satori/uuid"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -452,7 +452,7 @@ func (qjrPod *QueueJobResPod) getPodsForQueueJobRes(qjobRes *arbv1.XQueueJobReso
 }
 
 func generateUUID() string {
-	id := uuid.NewV1()
+	id := uuid.NewUUID()
 
 	return fmt.Sprintf("%s", id)
 }
