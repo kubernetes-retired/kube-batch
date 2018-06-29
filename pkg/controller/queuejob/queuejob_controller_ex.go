@@ -19,7 +19,6 @@ package queuejob
 import (
 	"fmt"
 	"github.com/golang/glog"
-	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
