@@ -105,38 +105,38 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 	queueJobName := "xqueuejob.k8s.io"
 
 	podTemplate := v1.PodTemplateSpec{
-                                ObjectMeta: metav1.ObjectMeta{
-                                        Labels: map[string]string{queueJobName: name},
-                                },
-                                Spec: v1.PodSpec{
-                                        SchedulerName: "kar-scheduler",
-                                        RestartPolicy: v1.RestartPolicyNever,
-                                        Containers: []v1.Container{
-                                                {
-                                                        Image:           img,
-                                                        Name:            name,
-                                                        ImagePullPolicy: v1.PullIfNotPresent,
-                                                        Resources: v1.ResourceRequirements{
-                                                                Requests: req,
-                                                        },
-                                                },
-                                        },
-                                },
-        },
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{queueJobName: name},
+		},
+		Spec: v1.PodSpec{
+			SchedulerName: "kar-scheduler",
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Image:           img,
+					Name:            name,
+					ImagePullPolicy: v1.PullIfNotPresent,
+					Resources: v1.ResourceRequirements{
+						Requests: req,
+					},
+				},
+			},
+		},
+	}
 
-	pods := make([]XQueueJobResource,0)
+	pods := make([]XQueueJobResource, 0)
 	podResource := &XQueueJobResource{
 		ObjectMeta: metav1.ObjectMeta{
-                        Name:      name,
-                        Namespace: context.namespace,
-			Labels: map[string]string{queueJobName: name},
-                },
-		Replicas: rep,
-		MinAvailable: &min,
+			Name:      name,
+			Namespace: context.namespace,
+			Labels:    map[string]string{queueJobName: name},
+		},
+		Replicas:          rep,
+		MinAvailable:      &min,
 		AllocatedReplicas: 0,
-		Priority: 0.0,
-		Type: ResourceTypePod,
-		Template: podTemplate,
+		Priority:          0.0,
+		Type:              ResourceTypePod,
+		Template:          podTemplate,
 	}
 
 	queueJob := &arbv1.XQueueJob{
