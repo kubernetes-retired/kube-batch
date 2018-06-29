@@ -44,6 +44,9 @@ func Run(opt *options.ServerOption) error {
 	queuejobctrl := queuejob.NewQueueJobController(config)
 	queuejobctrl.Run(neverStop)
 
+	xqueuejobctrl := queuejob.NewXQueueJobController(config)
+	xqueuejobctrl.Run(neverStop)
+
 	<-neverStop
 
 	return nil

@@ -27,9 +27,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"strconv"
+	"time"
 
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
+	resdeployment "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/deployment"
 	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/pod"
+	resservice "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/service"
+	resstatefulset "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/statefulset"
 
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
@@ -83,7 +88,9 @@ type XController struct {
 //RegisterAllQueueJobResourceTypes - gegisters all resources
 func RegisterAllQueueJobResourceTypes(regs *queuejobresources.RegisteredResources) {
 	respod.Register(regs)
-
+	resservice.Register(regs)
+	resdeployment.Register(regs)
+	resstatefulset.Register(regs)
 }
 
 func queueJobKey(obj interface{}) (string, error) {
@@ -125,6 +132,42 @@ func NewXQueueJobController(config *rest.Config) *XController {
 	}
 	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
 
+	// initialize service sub-resource control
+	resControlService, found, err := cc.qjobRegisteredResources.InitQueueJobResource(arbv1.ResourceTypeService, config)
+	if err != nil {
+		glog.Errorf("fail to create queuejob resource control")
+		return nil
+	}
+	if !found {
+		glog.Errorf("queuejob resource type Service not found")
+		return nil
+	}
+	cc.qjobResControls[arbv1.ResourceTypeService] = resControlService
+
+	// initialize deployment sub-resource control
+	resControlDeployment, found, err := cc.qjobRegisteredResources.InitQueueJobResource(arbv1.ResourceTypeDeployment, config)
+	if err != nil {
+		glog.Errorf("fail to create queuejob resource control")
+		return nil
+	}
+	if !found {
+		glog.Errorf("queuejob resource type Service not found")
+		return nil
+	}
+	cc.qjobResControls[arbv1.ResourceTypeDeployment] = resControlDeployment
+
+	// initialize SS sub-resource
+	resControlSS, found, err := cc.qjobRegisteredResources.InitQueueJobResource(arbv1.ResourceTypeStatefulSet, config)
+	if err != nil {
+		glog.Errorf("fail to create queuejob resource control")
+		return nil
+	}
+	if !found {
+		glog.Errorf("queuejob resource type StatefulSet not found")
+		return nil
+	}
+	cc.qjobResControls[arbv1.ResourceTypeStatefulSet] = resControlSS
+
 	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).XQueueJob().XQueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
@@ -161,6 +204,9 @@ func (cc *XController) Run(stopCh chan struct{}) {
 	go cc.queueJobInformer.Informer().Run(stopCh)
 
 	go cc.qjobResControls[arbv1.ResourceTypePod].Run(stopCh)
+	go cc.qjobResControls[arbv1.ResourceTypeService].Run(stopCh)
+	go cc.qjobResControls[arbv1.ResourceTypeDeployment].Run(stopCh)
+	go cc.qjobResControls[arbv1.ResourceTypeStatefulSet].Run(stopCh)
 
 	cache.WaitForCacheSync(stopCh, cc.queueJobSynced)
 
@@ -280,14 +326,24 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 		//	Namespace(qj.Namespace).Resource(arbv1.QueueJobPlural).
 		//	Name(qj.Name).Body(qj).Do().Into(&result)
 	}
+	if qj.Spec.AggrResources.Items != nil {
+		for i := range qj.Spec.AggrResources.Items {
+			err := cc.refManager.AddTag(&qj.Spec.AggrResources.Items[i], func() string {
+				return strconv.Itoa(i)
+			})
+			if err != nil {
+				return err
+			}
 
+		}
+	}
 	// we call sync for each controller
 	for _, ar := range qj.Spec.AggrResources.Items {
 		cc.qjobResControls[ar.Type].SyncQueueJob(qj, &ar)
 	}
 
 	// TODO(k82cn): replaced it with `UpdateStatus`
-	if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).UpdateStatus(qj); err != nil {
+	if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).Update(qj); err != nil {
 		glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
 			qj.Namespace, qj.Name, err)
 		return err

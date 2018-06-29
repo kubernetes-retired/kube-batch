@@ -18,6 +18,7 @@ package pod
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
