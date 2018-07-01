@@ -146,7 +146,7 @@ func createQueueJob(context *context, name string, min, rep int32, img string, r
 	return queueJob
 }
 
-func NewStatefulSet(name, ns, governingSvcName string, replicas int32, statefulPodMounts []v1.VolumeMount, podMounts []v1.VolumeMount, labels map[string]string) *apps.StatefulSetTemplateSpec{ {
+func NewStatefulSet(name, ns, governingSvcName string, replicas int32, statefulPodMounts []v1.VolumeMount, podMounts []v1.VolumeMount, labels map[string]string) *apps.StatefulSetTemplateSpec {
 	mounts := append(statefulPodMounts, podMounts...)
 	claims := []v1.PersistentVolumeClaim{}
 	for _, m := range statefulPodMounts {
