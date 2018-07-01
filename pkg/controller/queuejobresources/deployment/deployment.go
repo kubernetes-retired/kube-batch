@@ -49,6 +49,7 @@ const (
 	ControllerUIDLabel string = "controller-uid"
 )
 
+//QueueJobResDeployment contains the resources of this queuejob
 type QueueJobResDeployment struct {
 	clients    *kubernetes.Clientset
 	arbclients *clientset.Clientset
@@ -61,13 +62,14 @@ type QueueJobResDeployment struct {
 	refManager queuejobresources.RefManager
 }
 
-// Register registers a queue job resource type
+//Register registers a queue job resource type
 func Register(regs *queuejobresources.RegisteredResources) {
 	regs.Register(arbv1.ResourceTypeDeployment, func(config *rest.Config) queuejobresources.Interface {
 		return NewQueueJobResDeployment(config)
 	})
 }
 
+//NewQueueJobResDeployment returns a new deployment controller
 func NewQueueJobResDeployment(config *rest.Config) queuejobresources.Interface {
 	qjrd := &QueueJobResDeployment{
 		clients:    kubernetes.NewForConfigOrDie(config),
@@ -102,7 +104,7 @@ func NewQueueJobResDeployment(config *rest.Config) queuejobresources.Interface {
 	return qjrd
 }
 
-// Run the main goroutine responsible for watching and services.
+//Run the main goroutine responsible for watching and services.
 func (qjrService *QueueJobResDeployment) Run(stopCh <-chan struct{}) {
 
 	qjrService.deployInformer.Informer().Run(stopCh)
@@ -163,6 +165,7 @@ func (qjrService *QueueJobResDeployment) delDeployment(namespace string, name st
 	return nil
 }
 
+//SyncQueueJob syncs the resources of this queuejob
 func (qjrService *QueueJobResDeployment) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 
 	startTime := time.Now()
@@ -175,12 +178,12 @@ func (qjrService *QueueJobResDeployment) SyncQueueJob(queuejob *arbv1.XQueueJob,
 		return err
 	}
 
-	service_len := len(services)
+	serviceLen := len(services)
 	replicas := qjobRes.Replicas
 
-	diff := int(replicas) - int(service_len)
+	diff := int(replicas) - int(serviceLen)
 
-	glog.V(4).Infof("QJob: %s had %d services and %d desired services", queuejob.Name, replicas, service_len)
+	glog.V(4).Infof("QJob: %s had %d services and %d desired services", queuejob.Name, replicas, serviceLen)
 
 	if diff > 0 {
 		template, err := qjrService.getDeploymentTemplate(qjobRes)
@@ -230,12 +233,12 @@ func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJob(j *arbv1.XQue
 
 	services := []*v1beta1.Deployment{}
 	for i, service := range servicelist.Items {
-		meta_service, err := meta.Accessor(&service)
+		metaService, err := meta.Accessor(&service)
 		if err != nil {
 			return nil, err
 		}
 
-		controllerRef := metav1.GetControllerOf(meta_service)
+		controllerRef := metav1.GetControllerOf(metaService)
 		if controllerRef != nil {
 			if controllerRef.UID == j.UID {
 				services = append(services, &servicelist.Items[i])
@@ -290,6 +293,7 @@ func (qjrService *QueueJobResDeployment) deleteQueueJobResDeployments(qjobRes *a
 	return nil
 }
 
+//Cleanup deletes all resources with this contorller
 func (qjrService *QueueJobResDeployment) Cleanup(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 	return qjrService.deleteQueueJobResDeployments(qjobRes, queuejob)
 }

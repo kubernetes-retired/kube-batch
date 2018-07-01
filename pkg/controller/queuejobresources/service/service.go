@@ -48,6 +48,7 @@ const (
 	ControllerUIDLabel string = "controller-uid"
 )
 
+//QueueJobResService contains service info
 type QueueJobResService struct {
 	clients    *kubernetes.Clientset
 	arbclients *clientset.Clientset
@@ -60,13 +61,14 @@ type QueueJobResService struct {
 	refManager queuejobresources.RefManager
 }
 
-// Register registers a queue job resource type
+//Register registers a queue job resource type
 func Register(regs *queuejobresources.RegisteredResources) {
 	regs.Register(arbv1.ResourceTypeService, func(config *rest.Config) queuejobresources.Interface {
 		return NewQueueJobResService(config)
 	})
 }
 
+//NewQueueJobResService creates a service controller
 func NewQueueJobResService(config *rest.Config) queuejobresources.Interface {
 	qjrService := &QueueJobResService{
 		clients:    kubernetes.NewForConfigOrDie(config),
@@ -165,6 +167,7 @@ func (qjrService *QueueJobResService) delService(namespace string, name string) 
 	return nil
 }
 
+//SyncQueueJob syncs the services
 func (qjrService *QueueJobResService) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 
 	startTime := time.Now()
@@ -177,12 +180,12 @@ func (qjrService *QueueJobResService) SyncQueueJob(queuejob *arbv1.XQueueJob, qj
 		return err
 	}
 
-	service_len := len(services)
+	serviceLen := len(services)
 	replicas := qjobRes.Replicas
 
-	diff := int(replicas) - int(service_len)
+	diff := int(replicas) - int(serviceLen)
 
-	glog.V(4).Infof("QJob: %s had %d services and %d desired services", queuejob.Name, replicas, service_len)
+	glog.V(4).Infof("QJob: %s had %d services and %d desired services", queuejob.Name, replicas, serviceLen)
 
 	if diff > 0 {
 		template, err := qjrService.getServiceTemplate(qjobRes)
@@ -232,12 +235,12 @@ func (qjrService *QueueJobResService) getServicesForQueueJob(j *arbv1.XQueueJob)
 
 	services := []*v1.Service{}
 	for i, service := range servicelist.Items {
-		meta_service, err := meta.Accessor(&service)
+		metaService, err := meta.Accessor(&service)
 		if err != nil {
 			return nil, err
 		}
 
-		controllerRef := metav1.GetControllerOf(meta_service)
+		controllerRef := metav1.GetControllerOf(metaService)
 		if controllerRef != nil {
 			if controllerRef.UID == j.UID {
 				services = append(services, &servicelist.Items[i])
@@ -293,6 +296,7 @@ func (qjrService *QueueJobResService) deleteQueueJobResServices(qjobRes *arbv1.X
 	return nil
 }
 
+//Cleanup deletes all services
 func (qjrService *QueueJobResService) Cleanup(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 
 	return qjrService.deleteQueueJobResServices(qjobRes, queuejob)

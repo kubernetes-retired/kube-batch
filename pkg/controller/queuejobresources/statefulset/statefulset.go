@@ -52,6 +52,7 @@ const (
 	ControllerUIDLabel string = "controller-uid"
 )
 
+//QueueJobResSS - stateful sets
 type QueueJobResSS struct {
 	clients    *kubernetes.Clientset
 	arbclients *clientset.Clientset
@@ -71,6 +72,7 @@ func Register(regs *queuejobresources.RegisteredResources) {
 	})
 }
 
+//NewQueueJobResStatefulSet - creates a controller for SS
 func NewQueueJobResStatefulSet(config *rest.Config) queuejobresources.Interface {
 	qjrd := &QueueJobResSS{
 		clients:    kubernetes.NewForConfigOrDie(config),
@@ -167,6 +169,7 @@ func (qjrService *QueueJobResSS) delStatefulSet(namespace string, name string) e
 	return nil
 }
 
+//SyncQueueJob - syncs the resources of the queuejob
 func (qjrService *QueueJobResSS) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 
 	startTime := time.Now()
@@ -179,12 +182,12 @@ func (qjrService *QueueJobResSS) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes
 		return err
 	}
 
-	service_len := len(services)
+	serviceLen := len(services)
 	replicas := qjobRes.Replicas
 
-	diff := int(replicas) - int(service_len)
+	diff := int(replicas) - int(serviceLen)
 
-	glog.V(4).Infof("QJob: %s had %d services and %d desired services", queuejob.Name, replicas, service_len)
+	glog.V(4).Infof("QJob: %s had %d services and %d desired services", queuejob.Name, replicas, serviceLen)
 
 	if diff > 0 {
 		template, err := qjrService.getStatefulSetTemplate(qjobRes)
@@ -234,12 +237,12 @@ func (qjrService *QueueJobResSS) getStatefulSetsForQueueJob(j *arbv1.XQueueJob) 
 
 	services := []*apps.StatefulSet{}
 	for i, service := range servicelist.Items {
-		meta_service, err := meta.Accessor(&service)
+		metaService, err := meta.Accessor(&service)
 		if err != nil {
 			return nil, err
 		}
 
-		controllerRef := metav1.GetControllerOf(meta_service)
+		controllerRef := metav1.GetControllerOf(metaService)
 		if controllerRef != nil {
 			if controllerRef.UID == j.UID {
 				services = append(services, &servicelist.Items[i])
@@ -294,6 +297,7 @@ func (qjrService *QueueJobResSS) deleteQueueJobResStatefulSet(qjobRes *arbv1.XQu
 	return nil
 }
 
+//Cleanup - cleans the resources
 func (qjrService *QueueJobResSS) Cleanup(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 	return qjrService.deleteQueueJobResStatefulSet(qjobRes, queuejob)
 }

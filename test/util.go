@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	appv1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -140,6 +141,113 @@ func createQueueJob(context *context, name string, min, rep int32, img string, r
 	}
 
 	queueJob, err := context.karclient.ArbV1().QueueJobs(context.namespace).Create(queueJob)
+	Expect(err).NotTo(HaveOccurred())
+
+	return queueJob
+}
+
+func NewStatefulSet(name, ns, governingSvcName string, replicas int32, statefulPodMounts []v1.VolumeMount, podMounts []v1.VolumeMount, labels map[string]string) *apps.StatefulSetTemplateSpec{ {
+	mounts := append(statefulPodMounts, podMounts...)
+	claims := []v1.PersistentVolumeClaim{}
+	for _, m := range statefulPodMounts {
+		claims = append(claims, NewStatefulSetPVC(m.Name))
+	}
+
+	vols := []v1.Volume{}
+	for _, m := range podMounts {
+		vols = append(vols, v1.Volume{
+			Name: m.Name,
+			VolumeSource: v1.VolumeSource{
+				HostPath: &v1.HostPathVolumeSource{
+					Path: fmt.Sprintf("/tmp/%v", m.Name),
+				},
+			},
+		})
+	}
+
+	return &apps.StatefulSetTemplateSpec{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "StatefulSet",
+			APIVersion: "apps/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: apps.StatefulSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Replicas: func(i int32) *int32 { return &i }(replicas),
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      labels,
+					Annotations: map[string]string{},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:         "nginx",
+							Image:        imageutils.GetE2EImage(imageutils.NginxSlim),
+							VolumeMounts: mounts,
+						},
+					},
+					Volumes: vols,
+				},
+			},
+			UpdateStrategy:       apps.StatefulSetUpdateStrategy{Type: apps.RollingUpdateStatefulSetStrategyType},
+			VolumeClaimTemplates: claims,
+			ServiceName:          governingSvcName,
+		},
+	}
+}
+
+func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
+	queueJobName := "xqueuejob.k8s.io"
+	headlessSvcName := "test"
+	labels := make([string]string)
+
+	labels["app"] = name
+	labels["size"] = min
+
+	statefulSetT := NewStatefulSet("ss2", "default", headlessSvcName, rep, nil, nil, labels)
+
+	ss := make([]XQueueJobResource, 0)
+	ssResource := &XQueueJobResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: context.namespace,
+			Labels:    map[string]string{queueJobName: name},
+		},
+		Replicas:          rep,
+		MinAvailable:      &min,
+		AllocatedReplicas: 0,
+		Priority:          0.0,
+		Type:              ResourceTypeStatefulSet,
+		Template:          statefulSetT,
+	}
+
+	queueJob := &arbv1.XQueueJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: context.namespace,
+		},
+		Spec: arbv1.XQueueJobSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					queueJobName: name,
+				},
+			},
+			SchedSpec: arbv1.SchedulingSpecTemplate{
+				MinAvailable: int(min),
+			},
+			AggrResources: &arbv1.XQueueJobResourceList{
+				Items: ss,
+			},
+		},
+	}
+
+	queueJob, err := context.karclient.ArbV1().XQueueJobs(context.namespace).Create(queueJob)
 	Expect(err).NotTo(HaveOccurred())
 
 	return queueJob

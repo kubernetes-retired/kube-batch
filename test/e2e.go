@@ -31,6 +31,15 @@ var _ = Describe("E2E Test", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("Schedule XQueueJob", func() {
+		context := initTestContext()
+		defer cleanupTestContext(context)
+		rep := clusterSize(context, oneCPU)
+		xqueueJob := createXQueueJob(context, "xqj-1", 2, rep, "busybox", oneCPU)
+		err := waitJobReady(context, xqueueJob.Name)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("Gang scheduling", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
