@@ -29,6 +29,26 @@ func New() framework.Plugin {
 }
 
 func (gp *priorityPlugin) OnSessionOpen(ssn *framework.Session) {
+
+	// Add Job priority preemptableFn as Force
+	ssn.AddPreemptableFn(framework.Force, func(l interface{}, r interface{}) int {
+		lv := l.(*api.TaskInfo)
+		rv := r.(*api.TaskInfo)
+
+		lj := ssn.JobIndex[lv.Job]
+		rj := ssn.JobIndex[rv.Job]
+
+		if lj.Priority == rj.Priority {
+			return 0
+		}
+
+		if lj.Priority > rj.Priority {
+			return 1
+		}
+
+		return -1
+	})
+
 	// Add Task Order function
 	ssn.AddTaskOrderFn(func(l interface{}, r interface{}) int {
 		lv := l.(*api.TaskInfo)
