@@ -112,7 +112,6 @@ type XQueueJobStatus struct {
 	// +optional
 	Pending int32 `json:"pending,omitempty" protobuf:"bytes,1,opt,name=pending"`
 
-	// The number of actively running pods (compute resources).
 	// +optional
 	Running int32 `json:"running,omitempty" protobuf:"bytes,1,opt,name=running"`
 

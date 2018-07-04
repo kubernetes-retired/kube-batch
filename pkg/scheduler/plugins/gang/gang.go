@@ -33,7 +33,7 @@ func New() framework.Plugin {
 func readyTaskNum(job *api.JobInfo) int {
 	occupid := 0
 	for status, tasks := range job.TaskStatusIndex {
-		if api.OccupiedResources(status) || status == api.Succeeded {
+		if api.AllocatedStatus(status) || status == api.Succeeded {
 			occupid = occupid + len(tasks)
 		}
 	}
@@ -60,8 +60,8 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 		preemptable := job.MinAvailable <= occupid-1
 
 		if !preemptable {
-			glog.V(3).Infof("Can not preempt task <%v:%v/%v> because of gang-scheduling",
-				preemptee.UID, preemptee.Namespace, preemptee.Name)
+			glog.V(3).Infof("Can not preempt task <%v/%v> because of gang-scheduling",
+				preemptee.Namespace, preemptee.Name)
 		}
 
 		return preemptable
