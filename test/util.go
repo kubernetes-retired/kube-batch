@@ -1,4 +1,4 @@
-/*
+ /*
 Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +20,12 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
+	"fmt"
+	json2 "encoding/json"
 	. "github.com/onsi/gomega"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"k8s.io/api/core/v1"
 	appv1 "k8s.io/api/extensions/v1beta1"
@@ -42,6 +46,9 @@ var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
 var twoCPU = v1.ResourceList{"cpu": resource.MustParse("2000m")}
 var threeCPU = v1.ResourceList{"cpu": resource.MustParse("3000m")}
 
+var rtScheme = runtime.NewScheme()
+var jsonSerializer  *json.Serializer 
+
 func homeDir() string {
 	if h := os.Getenv("HOME"); h != "" {
 		return h
@@ -60,6 +67,9 @@ func initTestContext() *context {
 	cxt := &context{
 		namespace: "test",
 	}
+
+	v1.AddToScheme(rtScheme)
+	jsonSerializer = json.NewYAMLSerializer(json.DefaultMetaFactory, rtScheme, rtScheme)
 
 	home := homeDir()
 	Expect(home).NotTo(Equal(""))
@@ -104,10 +114,12 @@ func cleanupTestContext(cxt *context) {
 func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
 	queueJobName := "xqueuejob.k8s.io"
 
-	podTemplate := v1.PodTemplateSpec{
+	podTemplate := v1.PodTemplate{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{queueJobName: name},
 		},
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PodTemplate"},
+		Template: v1.PodTemplateSpec{
 		Spec: v1.PodSpec{
 			SchedulerName: "kar-scheduler",
 			RestartPolicy: v1.RestartPolicyNever,
@@ -121,11 +133,19 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 					},
 				},
 			},
-		},
+		}},
 	}
 
-	pods := make([]XQueueJobResource, 0)
-	podResource := &XQueueJobResource{
+	pods := make([]arbv1.XQueueJobResource, 0)
+
+	data, err := json2.Marshal(podTemplate)
+	if err != nil {
+		fmt.Errorf("I encode podTemplate %+v %+v", podTemplate, err)
+	}
+
+	rawExtension := runtime.RawExtension{Raw: json2.RawMessage(data)}
+
+	podResource := arbv1.XQueueJobResource{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: context.namespace,
@@ -135,9 +155,11 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 		MinAvailable:      &min,
 		AllocatedReplicas: 0,
 		Priority:          0.0,
-		Type:              ResourceTypePod,
-		Template:          podTemplate,
+		Type:              arbv1.ResourceTypePod,
+		Template:          rawExtension,
 	}
+
+	pods = append(pods, podResource)
 
 	queueJob := &arbv1.XQueueJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -153,14 +175,14 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 			SchedSpec: arbv1.SchedulingSpecTemplate{
 				MinAvailable: int(min),
 			},
-			AggrResources: &arbv1.XQueueJobResourceList{
+			AggrResources: arbv1.XQueueJobResourceList{
 				Items: pods,
 			},
 		},
 	}
 
-	queueJob, err := context.karclient.ArbV1().XQueueJobs(context.namespace).Create(queueJob)
-	Expect(err).NotTo(HaveOccurred())
+	queueJob, err2 := context.karclient.ArbV1().XQueueJobs(context.namespace).Create(queueJob)
+	Expect(err2).NotTo(HaveOccurred())
 
 	return queueJob
 }
