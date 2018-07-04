@@ -24,14 +24,14 @@ limitations under the License.
 // FIFO is here for flag-gating purposes and allows us to use the traditional
 // scheduling queue when util.PodPriorityEnabled() returns false.
 
-package controller
+package queuejob
 
 import (
 	"fmt"
 	"sync"
 
 	"k8s.io/client-go/tools/cache"
-	qjobv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1"
+	qjobv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/golang/glog"
 	"reflect"
 )
@@ -40,12 +40,12 @@ import (
 // The interface follows a pattern similar to cache.FIFO and cache.Heap and
 // makes it easy to use those data structures as a SchedulingQueue.
 type SchedulingQueue interface {
-	Add(qj *qjobv1.QueueJob) error
-	AddIfNotPresent(qj *qjobv1.QueueJob) error
-	AddUnschedulableIfNotPresent(qj *qjobv1.QueueJob) error
-	Pop() (*qjobv1.QueueJob, error)
-	Update(oldQJ, newQJ *qjobv1.QueueJob) error
-	Delete(QJ *qjobv1.QueueJob) error
+	Add(qj *qjobv1.XQueueJob) error
+	AddIfNotPresent(qj *qjobv1.XQueueJob) error
+	AddUnschedulableIfNotPresent(qj *qjobv1.XQueueJob) error
+	Pop() (*qjobv1.XQueueJob, error)
+	Update(oldQJ, newQJ *qjobv1.XQueueJob) error
+	Delete(QJ *qjobv1.XQueueJob) error
 	MoveAllToActiveQueue()
 }
 
@@ -60,10 +60,10 @@ func NewSchedulingQueue() SchedulingQueue {
 // to the active scheduling queue on certain events, such as termination of a pod
 // in the cluster, addition of nodes, etc.
 type UnschedulableQJs interface {
-	Add(p *qjobv1.QueueJob)
-	Delete(p *qjobv1.QueueJob)
-	Update(p *qjobv1.QueueJob)
-	Get(p *qjobv1.QueueJob) *qjobv1.QueueJob
+	Add(p *qjobv1.XQueueJob)
+	Delete(p *qjobv1.XQueueJob)
+	Update(p *qjobv1.XQueueJob)
+	Get(p *qjobv1.XQueueJob) *qjobv1.XQueueJob
 	Clear()
 }
 
@@ -101,7 +101,7 @@ func NewPriorityQueue() *PriorityQueue {
 
 // Add adds a QJ to the active queue. It should be called only when a new QJ
 // is added so there is no chance the QJ is already in either queue.
-func (p *PriorityQueue) Add(qj *qjobv1.QueueJob) error {
+func (p *PriorityQueue) Add(qj *qjobv1.XQueueJob) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	err := p.activeQ.Add(qj)
@@ -119,7 +119,7 @@ func (p *PriorityQueue) Add(qj *qjobv1.QueueJob) error {
 
 // AddIfNotPresent adds a pod to the active queue if it is not present in any of
 // the two queues. If it is present in any, it doesn't do any thing.
-func (p *PriorityQueue) AddIfNotPresent(qj *qjobv1.QueueJob) error {
+func (p *PriorityQueue) AddIfNotPresent(qj *qjobv1.XQueueJob) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	if p.unschedulableQ.Get(qj) != nil {
@@ -137,7 +137,7 @@ func (p *PriorityQueue) AddIfNotPresent(qj *qjobv1.QueueJob) error {
 	return err
 }
 
-func isPodUnschedulable(qj *qjobv1.QueueJob) bool {
+func isPodUnschedulable(qj *qjobv1.XQueueJob) bool {
 	//_, cond := podutil.GetPodCondition(&pod.Status, v1.PodScheduled)
 	//return cond != nil && cond.Status == v1.ConditionFalse && cond.Reason == v1.PodReasonUnschedulable
 	//TODO
@@ -147,7 +147,7 @@ func isPodUnschedulable(qj *qjobv1.QueueJob) bool {
 // AddUnschedulableIfNotPresent does nothing if the pod is present in either
 // queue. Otherwise it adds the pod to the unschedulable queue if
 // p.receivedMoveRequest is false, and to the activeQ if p.receivedMoveRequest is true.
-func (p *PriorityQueue) AddUnschedulableIfNotPresent(qj *qjobv1.QueueJob) error {
+func (p *PriorityQueue) AddUnschedulableIfNotPresent(qj *qjobv1.XQueueJob) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	if p.unschedulableQ.Get(qj) != nil {
@@ -170,7 +170,7 @@ func (p *PriorityQueue) AddUnschedulableIfNotPresent(qj *qjobv1.QueueJob) error 
 // Pop removes the head of the active queue and returns it. It blocks if the
 // activeQ is empty and waits until a new item is added to the queue. It also
 // clears receivedMoveRequest to mark the beginning of a new scheduling cycle.
-func (p *PriorityQueue) Pop() (*qjobv1.QueueJob, error) {
+func (p *PriorityQueue) Pop() (*qjobv1.XQueueJob, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	for len(p.activeQ.data.queue) == 0 {
@@ -180,15 +180,15 @@ func (p *PriorityQueue) Pop() (*qjobv1.QueueJob, error) {
 	if err != nil {
 		return nil, err
 	}
-	qj := obj.(*qjobv1.QueueJob)
+	qj := obj.(*qjobv1.XQueueJob)
 	p.receivedMoveRequest = false
 	return qj, err
 }
 
 // isPodUpdated checks if the pod is updated in a way that it may have become
 // schedulable. It drops status of the pod and compares it with old version.
-func (p *PriorityQueue) isQJUpdated(oldQJ, newQJ *qjobv1.QueueJob) bool {
-	strip := func(qj *qjobv1.QueueJob) *qjobv1.QueueJob {
+func (p *PriorityQueue) isQJUpdated(oldQJ, newQJ *qjobv1.XQueueJob) bool {
+	strip := func(qj *qjobv1.XQueueJob) *qjobv1.XQueueJob {
 		p := qj.DeepCopy()
 		p.ResourceVersion = ""
 		p.Generation = 0
@@ -200,7 +200,7 @@ func (p *PriorityQueue) isQJUpdated(oldQJ, newQJ *qjobv1.QueueJob) bool {
 // Update updates a pod in the active queue if present. Otherwise, it removes
 // the item from the unschedulable queue and adds the updated one to the active
 // queue.
-func (p *PriorityQueue) Update(oldQJ, newQJ *qjobv1.QueueJob) error {
+func (p *PriorityQueue) Update(oldQJ, newQJ *qjobv1.XQueueJob) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	// If the pod is already in the active queue, just update it there.
@@ -231,7 +231,7 @@ func (p *PriorityQueue) Update(oldQJ, newQJ *qjobv1.QueueJob) error {
 
 // Delete deletes the item from either of the two queues. It assumes the pod is
 // only in one queue.
-func (p *PriorityQueue) Delete(qj *qjobv1.QueueJob) error {
+func (p *PriorityQueue) Delete(qj *qjobv1.XQueueJob) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	if _, exists, _ := p.activeQ.Get(qj); exists {
@@ -262,7 +262,7 @@ func (p *PriorityQueue) MoveAllToActiveQueue() {
 	p.cond.Broadcast()
 }
 
-func (p *PriorityQueue) movePodsToActiveQueue(pods []*qjobv1.QueueJob) {
+func (p *PriorityQueue) movePodsToActiveQueue(pods []*qjobv1.XQueueJob) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	for _, pod := range pods {
@@ -277,39 +277,39 @@ func (p *PriorityQueue) movePodsToActiveQueue(pods []*qjobv1.QueueJob) {
 // is used to implement unschedulableQ.
 type UnschedulableQJMap struct {
 	// pods is a map key by a pod's full-name and the value is a pointer to the pod.
-	pods    map[string]*qjobv1.QueueJob
-	keyFunc func(*qjobv1.QueueJob) string
+	pods    map[string]*qjobv1.XQueueJob
+	keyFunc func(*qjobv1.XQueueJob) string
 }
 
 type UnschedulableQueueJobs interface {
-	Add(pod *qjobv1.QueueJob)
-	Delete(pod *qjobv1.QueueJob)
-	Update(pod *qjobv1.QueueJob)
-	Get(pod *qjobv1.QueueJob) *qjobv1.QueueJob
+	Add(pod *qjobv1.XQueueJob)
+	Delete(pod *qjobv1.XQueueJob)
+	Update(pod *qjobv1.XQueueJob)
+	Get(pod *qjobv1.XQueueJob) *qjobv1.XQueueJob
 	Clear()
 }
 
 var _ = UnschedulableQueueJobs(&UnschedulableQJMap{})
 
 // Add adds a pod to the unschedulable pods.
-func (u *UnschedulableQJMap) Add(pod *qjobv1.QueueJob) {
-	podjkey := GetQJFullName(pod)
+func (u *UnschedulableQJMap) Add(pod *qjobv1.XQueueJob) {
+	podjkey := GetXQJFullName(pod)
 	if _, exists := u.pods[podjkey]; !exists {
 		u.pods[podjkey] = pod
 	}
 }
 
 // Delete deletes a pod from the unschedulable pods.
-func (u *UnschedulableQJMap) Delete(pod *qjobv1.QueueJob) {
-	podKey := GetQJFullName(pod)
+func (u *UnschedulableQJMap) Delete(pod *qjobv1.XQueueJob) {
+	podKey := GetXQJFullName(pod)
 	if _, exists := u.pods[podKey]; exists {
 		delete(u.pods, podKey)
 	}
 }
 
 // Update updates a pod in the unschedulable pods.
-func (u *UnschedulableQJMap) Update(pod *qjobv1.QueueJob) {
-	podKey := GetQJFullName(pod)
+func (u *UnschedulableQJMap) Update(pod *qjobv1.XQueueJob) {
+	podKey := GetXQJFullName(pod)
 	_, exists := u.pods[podKey]
 	if !exists {
 		u.Add(pod)
@@ -320,8 +320,8 @@ func (u *UnschedulableQJMap) Update(pod *qjobv1.QueueJob) {
 
 // Get returns the pod if a pod with the same key as the key of the given "pod"
 // is found in the map. It returns nil otherwise.
-func (u *UnschedulableQJMap) Get(pod *qjobv1.QueueJob) *qjobv1.QueueJob {
-	podKey := GetQJFullName(pod)
+func (u *UnschedulableQJMap) Get(pod *qjobv1.XQueueJob) *qjobv1.XQueueJob {
+	podKey := GetXQJFullName(pod)
 	if p, exists := u.pods[podKey]; exists {
 		return p
 	}
@@ -330,14 +330,14 @@ func (u *UnschedulableQJMap) Get(pod *qjobv1.QueueJob) *qjobv1.QueueJob {
 
 // Clear removes all the entries from the unschedulable maps.
 func (u *UnschedulableQJMap) Clear() {
-	u.pods = make(map[string]*qjobv1.QueueJob)
+	u.pods = make(map[string]*qjobv1.XQueueJob)
 }
 
 // newUnschedulablePodsMap initializes a new object of UnschedulablePodsMap.
 func newUnschedulableQJMap() *UnschedulableQJMap {
 	return &UnschedulableQJMap{
-		pods:    make(map[string]*qjobv1.QueueJob),
-		keyFunc: GetQJFullName,
+		pods:    make(map[string]*qjobv1.XQueueJob),
+		keyFunc: GetXQJFullName,
 	}
 }
 

@@ -29,11 +29,16 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
 	resdeployment "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/deployment"
 	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/pod"
 	resservice "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/service"
 	resstatefulset "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/statefulset"
+
+	schedulercache "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/cache"
+
+	schedulerapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
 
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
@@ -49,6 +54,9 @@ const (
 
 	// ControllerUIDLabel label string for queuejob controller uid
 	ControllerUIDLabel string = "controller-uid"
+
+	initialGetBackoff = 10 * time.Second	
+
 )
 
 // controllerKind contains the schema.GroupVersionKind for this controller type.
@@ -108,7 +116,7 @@ func queueJobKey(obj interface{}) (string, error) {
 }
 
 //NewXQueueJobController create new XQueueJob Controller
-func NewXQueueJobController(config *rest.Config) *XController {
+func NewXQueueJobController(config *rest.Config, schedulerName string) *XController {
 	cc := &XController{
 		config:      config,
 		clients:     kubernetes.NewForConfigOrDie(config),
@@ -117,7 +125,7 @@ func NewXQueueJobController(config *rest.Config) *XController {
 		initQueue:   cache.NewFIFO(queueJobKey),
 		updateQueue: cache.NewFIFO(queueJobKey),
 		qjqueue:	  NewSchedulingQueue(),
-		cache:		  schedulercache.New(config),
+		cache:		  schedulercache.New(config, schedulerName),
 	}
 
 	queueJobClient, _, err := client.NewClient(cc.config)
@@ -200,39 +208,48 @@ func NewXQueueJobController(config *rest.Config) *XController {
 	//create sub-resource reference manager
 	cc.refManager = queuejobresources.NewLabelRefManager()
 	
-	// TODO - scheduleNext...Job....
-	go wait.Until(qjm.ScheduleNext, 2*time.Second, stopCh)
-	// start preempt thread based on preemption of pods
-	go wait.Until(qjm.PreemptQueueJobs, 80*time.Second, stopCh)
-
 	return cc
 }
 
-func (qjm *QueueJobController) PreemptQueueJobs() {
+func (qjm *XController) PreemptQueueJobs() {
 	qjobs := qjm.GetQueueJobsEligibleForPreemption()
 	for _, q := range qjobs {
 		q.Status.CanRun = false
-		_, err := qjobclient.QueueJobUpdateStatus(qjm.qjobClient, q)
-		if err != nil {
-			return
+		if _, err := qjm.arbclients.ArbV1().XQueueJobs(q.Namespace).UpdateStatus(q); err != nil {
+			glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
+				q.Namespace, q.Name, err)
 		}
 	}
 }
 
-func (qjm *QueueJobController) getAggregatedAvailableResourcesPriority(targetpr int) *Resource {
-	cluster := cache.Snapshot()
-	r := EmptyResource()
-	total := EmptyResource()
-	allocated := EmptyResource()
+func (qjm *XController) GetQueueJobsEligibleForPreemption() []*arbv1.XQueueJob {
+	qjobs := make([]*arbv1.XQueueJob, 0)
+
+	queueJobs, err := qjm.queueJobLister.XQueueJobs("").List(labels.Everything())
+	if err != nil {
+		glog.Errorf("I return list of queueJobs %+v", qjobs)
+		return qjobs
+	}
+
+	for _, value := range queueJobs {
+		if value.Status.Running < value.Status.MinAvailable {
+			qjobs = append(qjobs, value)
+		}
+	}
+	return qjobs
+}
+
+func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int) *schedulerapi.Resource {
+	cluster := qjm.cache.Snapshot()
+	r := schedulerapi.EmptyResource()
+	total := schedulerapi.EmptyResource()
+	allocated := schedulerapi.EmptyResource()
 	
-	sc.Mutex.Lock()
-	defer sc.Mutex.Unlock()
-	
-	for _, value := range sc.Nodes {
+	for _, value := range cluster.Nodes {
 		total = total.Add(value.Allocatable)
 	}
 	
-	for _, value := range sc.Jobs {
+	for _, value := range cluster.Jobs {
 		if value.Priority < targetpr {
 			allocated = allocated.Add(value.Allocated)
 		}
@@ -242,28 +259,8 @@ func (qjm *QueueJobController) getAggregatedAvailableResourcesPriority(targetpr 
 	return r
 }
 
-func (qjm *QueueJobController) queueGetTotalAggregatedResources(job *apiv1.QueueJob) *Resource {
-	total := EmptyResource()
-    if job.Spec.AggrResources.Items != nil {
-            //calculate scaling
-            for _, ar := range job.Spec.AggrResources.Items {
-				if ar.Type == apiv1.ResourceTypePod {
-					t, err := getPodTemplate(&ar)
-					template := t.Template
-					req := EmptyResource()
-					for i := 0;i < int(ar.DesiredReplicas); i=i + 1 {
-						for _, c := range template.Spec.Containers {
-							req.Add(NewResource(c.Resources.Requests))
-						}
-					}
-					total = total.Add(req)
-                }
-             }
-    }
-	return total
-}
 
-func (qjm *QueueJobController) ScheduleNext() {
+func (qjm *XController) ScheduleNext() {
 	// get next QJ from the queue
 	// check if we have enough compute resources for it 
 	// if we have enough compute resources then we set the AllocatedReplicas to the total
@@ -277,7 +274,7 @@ func (qjm *QueueJobController) ScheduleNext() {
 	// start thread that backs-off and puts back the QJ in the queue
 	resources := qjm.getAggregatedAvailableResourcesPriority(qj.Spec.Priority)
 	// get agg resources for the current qj
-	aggqj := qjm.queueGetTotalAggregatedResources(qj)
+	aggqj := qjm.qjobResControls[arbv1.ResourceTypePod].GetAggregatedResources(qj)
 
 	glog.Infof("I have QueueJob with resources %v to be scheduled on aggregated idle resources %v", aggqj, resources)
 	
@@ -286,21 +283,19 @@ func (qjm *QueueJobController) ScheduleNext() {
 		desired := int32(0)
 		job := qj
 		for i, ar := range job.Spec.AggrResources.Items {
-			desired += ar.DesiredReplicas
-			job.Spec.AggrResources.Items[i].AllocatedReplicas = ar.DesiredReplicas
+			desired += ar.Replicas
+			job.Spec.AggrResources.Items[i].AllocatedReplicas = ar.Replicas
 		}
 		fmt.Printf("I can update and schedule this job!!!!")
-		_, err := qjobclient.QueueJobUpdate(qjm.qjobClient, job)
-		if err != nil {
-			fmt.Printf("I have error: %+v", err)
-			return
+		if _, err := qjm.arbclients.ArbV1().XQueueJobs(job.Namespace).Update(job); err != nil {
+			glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
+				qj.Namespace, qj.Name, err)
 		}
 		job.Status.CanRun = true
-		_, err = qjobclient.QueueJobUpdateStatus(qjm.qjobClient, job)
-		if err != nil {
-			fmt.Printf("I have error: %+v", err)
-			return
-		}
+		if _, err := qjm.arbclients.ArbV1().XQueueJobs(job.Namespace).UpdateStatus(job); err != nil {
+                        glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
+                                qj.Namespace, qj.Name, err)
+                }
 	} else {
 		// start thread to backoff
 		go qjm.backoff(qj)
@@ -308,7 +303,7 @@ func (qjm *QueueJobController) ScheduleNext() {
 	
 }
 
-func (qjm *QueueJobController) backoff(q *qjobv1.QueueJob) {
+func (qjm *XController) backoff(q *arbv1.XQueueJob) {
 	time.Sleep(initialGetBackoff)
 	qjm.qjqueue.AddIfNotPresent(q)
 }
@@ -329,9 +324,14 @@ func (cc *XController) Run(stopCh chan struct{}) {
 
 	cache.WaitForCacheSync(stopCh, cc.queueJobSynced)
 	
-	go wait.Until(qjm.ScheduleNext, 2*time.Second, stopCh)
+	go wait.Until(cc.ScheduleNext, 2*time.Second, stopCh)
 	// start preempt thread based on preemption of pods
-	go wait.Until(qjm.PreemptQueueJobs, 80*time.Second, stopCh)
+	go wait.Until(cc.PreemptQueueJobs, 80*time.Second, stopCh)
+
+	// TODO - scheduleNext...Job....
+        go wait.Until(cc.ScheduleNext, 2*time.Second, stopCh)
+        // start preempt thread based on preemption of pods
+        go wait.Until(cc.PreemptQueueJobs, 80*time.Second, stopCh)
 
 	go wait.Until(cc.worker, time.Second, stopCh)
 
@@ -444,7 +444,7 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 		accessor.SetFinalizers(nil)
 		
 		// we delete the job from the queue if it is there
-		qjm.qjqueue.Delete(sharedJob)
+		cc.qjqueue.Delete(qj)
 
 		return nil
 		//var result arbv1.XQueueJob
@@ -461,7 +461,7 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 			return err
 		}
 		
-		qj.Status.State = qjobv1.QueueJobStateEnqueued
+		qj.Status.State = arbv1.QueueJobStateEnqueued
 		_, err = cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).UpdateStatus(qj)
 		if err != nil {
 			return err
@@ -474,7 +474,7 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 	}
 	
 	if qj.Status.CanRun && qj.Status.State == arbv1.QueueJobStateEnqueued {
-		qj.Status.State =  qjobv1.QueueJobStateActive
+		qj.Status.State =  arbv1.QueueJobStateActive
 	}
 	
 	if qj.Spec.AggrResources.Items != nil {

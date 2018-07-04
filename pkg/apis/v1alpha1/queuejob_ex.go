@@ -141,9 +141,9 @@ type XQueueJobState string
 
 //enqueued, active, deleting, succeeded, failed
 const (
-	QueueJobStateEnqueued QueueJobState = "Pending"
-	QueueJobStateActive   QueueJobState = "Running"
-	QueueJobStateDeleted  QueueJobState = "Deleted"
-	QueueJobStateFailed   QueueJobState = "Failed"
+	QueueJobStateEnqueued XQueueJobState = "Pending"
+	QueueJobStateActive   XQueueJobState = "Running"
+	QueueJobStateDeleted  XQueueJobState = "Deleted"
+	QueueJobStateFailed   XQueueJobState = "Failed"
 )
 

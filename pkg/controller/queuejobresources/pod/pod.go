@@ -24,6 +24,7 @@ import (
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/maputils"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
+	schedulerapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
 	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,24 +171,6 @@ func (qjrPod *QueueJobResPod) deletePod(obj interface{}) {
 	}
 }
 
-// Parse queue job api object to get Pod template
-func (qjrPod *QueueJobResPod) getPodTemplate(qjobRes *arbv1.XQueueJobResource) (*v1.PodTemplateSpec, error) {
-
-	podGVK := schema.GroupVersion{Group: v1.GroupName, Version: "v1"}.WithKind("PodTemplate")
-
-	obj, _, err := qjrPod.jsonSerializer.Decode(qjobRes.Template.Raw, &podGVK, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	template, ok := obj.(*v1.PodTemplate)
-	if !ok {
-		return nil, fmt.Errorf("Queuejob resource template not define a Pod")
-	}
-
-	return &template.Template, nil
-
-}
 
 // filterActivePods returns pods that have not terminated.
 func filterActivePods(pods []*v1.Pod) []*v1.Pod {
@@ -498,8 +481,49 @@ func createQueueJobSchedulingSpec(qj *arbv1.XQueueJob) *arbv1.SchedulingSpec {
 	}
 }
 
+
+//GetPodTemplate Parse queue job api object to get Pod template
+func (qjrPod *QueueJobResPod) GetPodTemplate(qjobRes *arbv1.XQueueJobResource) (*v1.PodTemplateSpec, error) {
+
+	podGVK := schema.GroupVersion{Group: v1.GroupName, Version: "v1"}.WithKind("PodTemplate")
+
+	obj, _, err := qjrPod.jsonSerializer.Decode(qjobRes.Template.Raw, &podGVK, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	template, ok := obj.(*v1.PodTemplate)
+	if !ok {
+		return nil, fmt.Errorf("Queuejob resource template not define a Pod")
+	}
+
+	return &template.Template, nil
+
+}
+
+
+func (qjrPod *QueueJobResPod) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
+        total := schedulerapi.EmptyResource()
+    	if job.Spec.AggrResources.Items != nil {
+            //calculate scaling
+            for _, ar := range job.Spec.AggrResources.Items {
+                  if ar.Type == arbv1.ResourceTypePod {
+                         template, _ := qjrPod.GetPodTemplate(&ar)
+                         req := schedulerapi.EmptyResource()
+                         for i := 0; i < int(ar.Replicas); i=i + 1 {
+                                  for _, c := range template.Spec.Containers {
+                                        req.Add(schedulerapi.NewResource(c.Resources.Requests))
+                                  }
+                         }
+                         total = total.Add(req)
+                }
+            }
+        }
+        return total
+}
+
 func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.XQueueJob, ix int32, qjobRes *arbv1.XQueueJobResource) *corev1.Pod {
-	templateCopy, err := qjrPod.getPodTemplate(qjobRes)
+	templateCopy, err := qjrPod.GetPodTemplate(qjobRes)
 
 	if err != nil {
 		glog.Errorf("Cannot parse pod template for QJ")

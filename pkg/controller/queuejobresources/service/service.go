@@ -19,6 +19,7 @@ import (
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
+	schedulerapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -107,6 +108,10 @@ func NewQueueJobResService(config *rest.Config) queuejobresources.Interface {
 func (qjrService *QueueJobResService) Run(stopCh <-chan struct{}) {
 
 	qjrService.serviceInformer.Informer().Run(stopCh)
+}
+
+func (qjrPod *QueueJobResService) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
+	return schedulerapi.EmptyResource()
 }
 
 func (qjrService *QueueJobResService) addService(obj interface{}) {

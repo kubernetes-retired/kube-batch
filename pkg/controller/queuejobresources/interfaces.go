@@ -18,11 +18,14 @@ package queuejobresources
 
 import (
 	qjobv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
+	schedulerapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
+
 )
 
 // Interface is an abstract interface for queue job resource management.
 type Interface interface {
 	SyncQueueJob(queuejob *qjobv1.XQueueJob, qjobRes *qjobv1.XQueueJobResource) error
+	GetAggregatedResources(queuejob *qjobv1.XQueueJob) *schedulerapi.Resource
 	Cleanup(queuejob *qjobv1.XQueueJob, qjobRes *qjobv1.XQueueJobResource) error
 	Run(stopCh <-chan struct{})
 }

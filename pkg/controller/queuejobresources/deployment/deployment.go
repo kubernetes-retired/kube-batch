@@ -19,6 +19,7 @@ import (
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
+	schedulerapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -104,6 +105,10 @@ func NewQueueJobResDeployment(config *rest.Config) queuejobresources.Interface {
 	return qjrd
 }
 
+func (qjrPod *QueueJobResDeployment) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
+        return schedulerapi.EmptyResource()
+}
+
 //Run the main goroutine responsible for watching and services.
 func (qjrService *QueueJobResDeployment) Run(stopCh <-chan struct{}) {
 
@@ -124,6 +129,7 @@ func (qjrService *QueueJobResDeployment) deleteDeployment(obj interface{}) {
 
 	return
 }
+
 
 // Parse queue job api object to get Service template
 func (qjrService *QueueJobResDeployment) getDeploymentTemplate(qjobRes *arbv1.XQueueJobResource) (*v1beta1.Deployment, error) {

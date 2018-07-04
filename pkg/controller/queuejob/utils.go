@@ -1,37 +1,39 @@
-/*
-Copyright 2017 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package queuejob
 
 import (
 	"fmt"
+        corev1 "k8s.io/api/core/v1"
+        apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+        apierrors "k8s.io/apimachinery/pkg/api/errors"
+        "k8s.io/apimachinery/pkg/api/meta"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        "k8s.io/apimachinery/pkg/util/uuid"
+        "k8s.io/client-go/rest"
 
-	corev1 "k8s.io/api/core/v1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/rest"
-
-	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
+        arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
+        "github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 )
 
 var queueJobKind = arbv1.SchemeGroupVersion.WithKind("QueueJob")
+
+var xqueueJobKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
+
+// GetPodFullName returns a name that uniquely identifies a qj.
+func GetQJFullName(qj *arbv1.QueueJob) string {
+	// Use underscore as the delimiter because it is not allowed in qj name
+	// (DNS subdomain format).
+	return qj.Name + "_" + qj.Namespace
+}
+
+func GetXQJFullName(qj *arbv1.XQueueJob) string {
+        // Use underscore as the delimiter because it is not allowed in qj name
+        // (DNS subdomain format).
+        return qj.Name + "_" + qj.Namespace
+}
+
+func HigherPriorityQJ(qj1, qj2 interface{} ) bool {
+	return (qj1.(*arbv1.XQueueJob).Spec.Priority > qj2.(*arbv1.XQueueJob).Spec.Priority)
+}
 
 func generateUUID() string {
 	id := uuid.NewUUID()
@@ -79,6 +81,19 @@ func createQueueJobSchedulingSpec(qj *arbv1.QueueJob) *arbv1.SchedulingSpec {
 	}
 }
 
+func createXQueueJobSchedulingSpec(qj *arbv1.XQueueJob) *arbv1.SchedulingSpec {
+        return &arbv1.SchedulingSpec{
+                ObjectMeta: metav1.ObjectMeta{
+                        Name:      qj.Name,
+                        Namespace: qj.Namespace,
+                        OwnerReferences: []metav1.OwnerReference{
+                                *metav1.NewControllerRef(qj, queueJobKind),
+                        },
+                },
+                Spec: qj.Spec.SchedSpec,
+        }
+}
+
 func createQueueJobPod(qj *arbv1.QueueJob, ix int32) *corev1.Pod {
 	templateCopy := qj.Spec.Template.DeepCopy()
 
@@ -120,3 +135,5 @@ func createXQueueJobKind(config *rest.Config) error {
 	}
 	return nil
 }
+
+

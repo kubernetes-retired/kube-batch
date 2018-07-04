@@ -18,6 +18,7 @@ import (
 	"github.com/golang/glog"
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
+	schedulerapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -114,6 +115,11 @@ func (qjrService *QueueJobResSS) Run(stopCh <-chan struct{}) {
 	qjrService.deployInformer.Informer().Run(stopCh)
 }
 
+func (qjrPod *QueueJobResSS) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
+        return schedulerapi.EmptyResource()
+}
+
+
 func (qjrService *QueueJobResSS) addStatefulSet(obj interface{}) {
 
 	return
@@ -168,6 +174,7 @@ func (qjrService *QueueJobResSS) delStatefulSet(namespace string, name string) e
 
 	return nil
 }
+
 
 //SyncQueueJob - syncs the resources of the queuejob
 func (qjrService *QueueJobResSS) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
