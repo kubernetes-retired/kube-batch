@@ -49,6 +49,9 @@ var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
 var twoCPU = v1.ResourceList{"cpu": resource.MustParse("2000m")}
 var threeCPU = v1.ResourceList{"cpu": resource.MustParse("3000m")}
 
+var rtScheme = runtime.NewScheme()
+var jsonSerializer *json.Serializer
+
 const (
 	workerPriority = "worker-pri"
 	masterPriority = "master-pri"
@@ -425,7 +428,10 @@ func taskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 func xtaskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 	return func() (bool, error) {
 		queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
-    labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
+    		labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
+
+		pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
 		readyTaskNum := 0
 		for _, pod := range pods.Items {
