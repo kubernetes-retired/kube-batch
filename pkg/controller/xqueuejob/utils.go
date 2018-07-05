@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package queuejob_ex
+package xqueuejob
 
 import (
 	"fmt"
+	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,8 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/rest"
-	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 )
 
 var queueJobKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
@@ -75,7 +75,6 @@ func createQueueJobSchedulingSpec(qj *arbv1.QueueJob) *arbv1.SchedulingSpec {
 		Spec: qj.Spec.SchedSpec,
 	}
 }
-
 
 func createXQueueJobKind(config *rest.Config) error {
 	extensionscs, err := apiextensionsclient.NewForConfig(config)

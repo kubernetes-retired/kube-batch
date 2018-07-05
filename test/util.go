@@ -147,7 +147,6 @@ func cleanupTestContext(cxt *context) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-
 func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
 	queueJobName := "xqueuejob.k8s.io"
 
@@ -228,7 +227,6 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 	return queueJob
 }
 
-
 type taskSpec struct {
 	name string
 	pri  string
@@ -236,7 +234,6 @@ type taskSpec struct {
 	img  string
 	req  v1.ResourceList
 }
-
 
 func createQueueJobEx(context *context, name string, min int32, tss []taskSpec) *arbv1.QueueJob {
 	taskName := "task.queuejob.k8s.io"
@@ -428,7 +425,7 @@ func taskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 func xtaskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 	return func() (bool, error) {
 		queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
-    		labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
+		labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
@@ -455,8 +452,9 @@ func xtaskCreated(ctx *context, jobName string, taskNum int) wait.ConditionFunc 
 	return func() (bool, error) {
 		_, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-    return true, nil
-  }}
+		return true, nil
+	}
+}
 
 func taskReadyEx(ctx *context, jobName string, tss map[string]int32) wait.ConditionFunc {
 	return func() (bool, error) {
