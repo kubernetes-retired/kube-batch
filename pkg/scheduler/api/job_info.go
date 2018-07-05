@@ -139,6 +139,10 @@ func NewJobInfo(uid JobID) *JobInfo {
 	}
 }
 
+func (ps *JobInfo) UnsetSchedulingSpec() {
+	ps.SchedSpec = nil
+}
+
 func (ps *JobInfo) SetSchedulingSpec(spec *arbv1.SchedulingSpec) {
 	ps.Name = spec.Name
 	ps.Namespace = spec.Namespace
@@ -206,17 +210,17 @@ func (ps *JobInfo) UpdateTaskStatus(task *TaskInfo, status TaskStatus) error {
 	return nil
 }
 
-func (ps *JobInfo) deleteTaskIndex(pi *TaskInfo) {
-	if ts, found := ps.TaskStatusIndex[pi.Status]; found {
-		delete(ts, pi.UID)
+func (ps *JobInfo) deleteTaskIndex(ti *TaskInfo) {
+	if tasks, found := ps.TaskStatusIndex[ti.Status]; found {
+		delete(tasks, ti.UID)
 
-		if len(ts) == 0 {
-			delete(ps.TaskStatusIndex, pi.Status)
+		if len(tasks) == 0 {
+			delete(ps.TaskStatusIndex, ti.Status)
 		}
 	}
 }
 
-func (ps *JobInfo) DeleteTaskInfo(pi *TaskInfo) {
+func (ps *JobInfo) DeleteTaskInfo(pi *TaskInfo) error {
 	if task, found := ps.Tasks[pi.UID]; found {
 		ps.TotalRequest.Sub(task.Resreq)
 
@@ -224,10 +228,14 @@ func (ps *JobInfo) DeleteTaskInfo(pi *TaskInfo) {
 			ps.Allocated.Sub(task.Resreq)
 		}
 
-		delete(ps.Tasks, pi.UID)
+		delete(ps.Tasks, task.UID)
+
+		ps.deleteTaskIndex(task)
+		return nil
 	}
 
-	ps.deleteTaskIndex(pi)
+	return fmt.Errorf("failed to find task <%v/%v> in job <%v/%v>",
+		pi.Namespace, pi.Name, ps.Namespace, ps.Name)
 }
 
 func (ps *JobInfo) Clone() *JobInfo {
