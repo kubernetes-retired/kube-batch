@@ -49,7 +49,6 @@ var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
 var twoCPU = v1.ResourceList{"cpu": resource.MustParse("2000m")}
 var threeCPU = v1.ResourceList{"cpu": resource.MustParse("3000m")}
 
-
 var rtScheme = runtime.NewScheme()
 var jsonSerializer *json.Serializer
 
@@ -57,7 +56,6 @@ const (
 	workerPriority = "worker-pri"
 	masterPriority = "master-pri"
 )
-
 
 func homeDir() string {
 	if h := os.Getenv("HOME"); h != "" {
@@ -149,7 +147,6 @@ func cleanupTestContext(cxt *context) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-
 func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
 	queueJobName := "xqueuejob.k8s.io"
 
@@ -226,7 +223,6 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 	return queueJob
 }
 
-
 type taskSpec struct {
 	name string
 	pri  string
@@ -234,7 +230,6 @@ type taskSpec struct {
 	img  string
 	req  v1.ResourceList
 }
-
 
 func createQueueJobEx(context *context, name string, min int32, tss []taskSpec) *arbv1.QueueJob {
 	taskName := "task.queuejob.k8s.io"
@@ -421,7 +416,6 @@ func taskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 	}
 }
 
-
 func xtaskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 	return func() (bool, error) {
 		queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
@@ -457,9 +451,9 @@ func xtaskCreated(ctx *context, jobName string, taskNum int) wait.ConditionFunc 
 }
 
 func taskReadyEx(ctx *context, jobName string, tss map[string]int32) wait.ConditionFunc {
-        return func() (bool, error) {
-                queueJob, err := ctx.karclient.ArbV1().QueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
-                Expect(err).NotTo(HaveOccurred())
+	return func() (bool, error) {
+		queueJob, err := ctx.karclient.ArbV1().QueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
 		var taskSpecs []arbv1.TaskSpec
 		for _, ts := range queueJob.Spec.TaskSpecs {
 			if _, found := tss[ts.Template.Name]; found {
@@ -490,7 +484,7 @@ func taskReadyEx(ctx *context, jobName string, tss map[string]int32) wait.Condit
 				return false, nil
 			}
 		}
-    	return true, nil
+		return true, nil
 	}
 }
 
