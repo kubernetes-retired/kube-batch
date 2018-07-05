@@ -30,14 +30,16 @@ var _ = Describe("E2E Test", func() {
 		err := waitJobReady(context, queueJob.Name)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
 	It("Schedule XQueueJob", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
 		rep := clusterSize(context, oneCPU)
 		xqueueJob := createXQueueJob(context, "xqj-1", 2, rep, "busybox", oneCPU)
-		err := waitJobReady(context, xqueueJob.Name)
+		err := waitXJobReady(context, xqueueJob.Name)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
 	It("Gang scheduling", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
@@ -47,7 +49,7 @@ var _ = Describe("E2E Test", func() {
 		err := waitReplicaSetReady(context, replicaset.Name)
 		Expect(err).NotTo(HaveOccurred())
 
-		queueJob := createQueueJob(context, "qj-1", rep, rep, "busybox", oneCPU)
+		queueJob := createQueueJob(context, "gang-qj", rep, rep, "busybox", oneCPU)
 		err = waitJobNotReady(context, queueJob.Name)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -65,11 +67,11 @@ var _ = Describe("E2E Test", func() {
 		slot := oneCPU
 		rep := clusterSize(context, slot)
 
-		qj1 := createQueueJob(context, "qj-1", 1, rep, "nginx", slot)
+		qj1 := createQueueJob(context, "preemptee-qj", 1, rep, "nginx", slot)
 		err := waitTasksReady(context, qj1.Name, int(rep))
 		Expect(err).NotTo(HaveOccurred())
 
-		qj2 := createQueueJob(context, "qj-2", 1, rep, "nginx", slot)
+		qj2 := createQueueJob(context, "preemptor-qj", 1, rep, "nginx", slot)
 		err = waitTasksReady(context, qj2.Name, int(rep)/2)
 		Expect(err).NotTo(HaveOccurred())
 

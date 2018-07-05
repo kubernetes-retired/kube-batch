@@ -1,4 +1,4 @@
-/*
+ /*
 Copyright 2017 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +20,12 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
+	"fmt"
+	json2 "encoding/json"
 	. "github.com/onsi/gomega"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	"k8s.io/api/core/v1"
 	appv1 "k8s.io/api/extensions/v1beta1"
@@ -38,9 +42,14 @@ import (
 	arbapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
 )
 
+var oneMinute = 1 * time.Minute
+
 var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
 var twoCPU = v1.ResourceList{"cpu": resource.MustParse("2000m")}
 var threeCPU = v1.ResourceList{"cpu": resource.MustParse("3000m")}
+
+var rtScheme = runtime.NewScheme()
+var jsonSerializer  *json.Serializer 
 
 func homeDir() string {
 	if h := os.Getenv("HOME"); h != "" {
@@ -60,6 +69,9 @@ func initTestContext() *context {
 	cxt := &context{
 		namespace: "test",
 	}
+
+	v1.AddToScheme(rtScheme)
+	jsonSerializer = json.NewYAMLSerializer(json.DefaultMetaFactory, rtScheme, rtScheme)
 
 	home := homeDir()
 	Expect(home).NotTo(Equal(""))
@@ -97,8 +109,84 @@ func cleanupTestContext(cxt *context) {
 	Expect(err).NotTo(HaveOccurred())
 
 	// Wait for namespace deleted.
-	err = wait.Poll(100*time.Millisecond, 30*time.Second, namespaceNotExist(cxt))
+	err = wait.Poll(100*time.Millisecond, oneMinute, namespaceNotExist(cxt))
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
+	queueJobName := "xqueuejob.k8s.io"
+
+	podTemplate := v1.PodTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{queueJobName: name},
+		},
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PodTemplate"},
+		Template: v1.PodTemplateSpec{
+		Spec: v1.PodSpec{
+			SchedulerName: "kar-scheduler",
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Image:           img,
+					Name:            name,
+					ImagePullPolicy: v1.PullIfNotPresent,
+					Resources: v1.ResourceRequirements{
+						Requests: req,
+					},
+				},
+			},
+		}},
+	}
+
+	pods := make([]arbv1.XQueueJobResource, 0)
+
+	data, err := json2.Marshal(podTemplate)
+	if err != nil {
+		fmt.Errorf("I encode podTemplate %+v %+v", podTemplate, err)
+	}
+
+	rawExtension := runtime.RawExtension{Raw: json2.RawMessage(data)}
+
+	podResource := arbv1.XQueueJobResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: context.namespace,
+			Labels:    map[string]string{queueJobName: name},
+		},
+		Replicas:          rep,
+		MinAvailable:      &min,
+		AllocatedReplicas: 0,
+		Priority:          0.0,
+		Type:              arbv1.ResourceTypePod,
+		Template:          rawExtension,
+	}
+
+	pods = append(pods, podResource)
+
+	queueJob := &arbv1.XQueueJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: context.namespace,
+		},
+		Spec: arbv1.XQueueJobSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					queueJobName: name,
+				},
+			},
+			SchedSpec: arbv1.SchedulingSpecTemplate{
+				MinAvailable: int(min),
+			},
+			AggrResources: arbv1.XQueueJobResourceList{
+				Items: pods,
+			},
+		},
+	}
+
+	queueJob, err2 := context.karclient.ArbV1().XQueueJobs(context.namespace).Create(queueJob)
+	Expect(err2).NotTo(HaveOccurred())
+
+	return queueJob
 }
 
 func createQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.QueueJob {
@@ -146,70 +234,6 @@ func createQueueJob(context *context, name string, min, rep int32, img string, r
 
 	return queueJob
 }
-
-func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
-        queueJobName := "xqueuejob.k8s.io"
-
-        podTemplate := v1.PodTemplateSpec{
-                ObjectMeta: metav1.ObjectMeta{
-                        Labels: map[string]string{queueJobName: name},
-                },
-                Spec: v1.PodSpec{
-                        SchedulerName: "kar-scheduler",
-                        RestartPolicy: v1.RestartPolicyNever,
-                        Containers: []v1.Container{
-                                {
-                                        Image:           img,
-                                        Name:            name,
-                                        ImagePullPolicy: v1.PullIfNotPresent,
-                                        Resources: v1.ResourceRequirements{
-                                                Requests: req,
-                                        },
-                                },
-                        },
-                },
-        }
-
-        pods := make([]arbv1.XQueueJobResource, 0)
-        podResource := &arbv1.XQueueJobResource{
-                ObjectMeta: metav1.ObjectMeta{
-                        Name:      name,
-                        Namespace: context.namespace,
-                        Labels:    map[string]string{queueJobName: name},
-                },
-                Replicas:          rep,
-                MinAvailable:      &min,
-                AllocatedReplicas: 0,
-                Priority:          0.0,
-                Type:              arbv1.ResourceTypePod,
-                Template:          podTemplate,
-        }
-	queueJob := &arbv1.XQueueJob{
-                ObjectMeta: metav1.ObjectMeta{
-                        Name:      name,
-                        Namespace: context.namespace,
-                },
-                Spec: arbv1.XQueueJobSpec{
-                        Selector: &metav1.LabelSelector{
-                                MatchLabels: map[string]string{
-                                        queueJobName: name,
-                                },
-                        },
-                        SchedSpec: arbv1.SchedulingSpecTemplate{
-                                MinAvailable: int(min),
-                        },
-                        AggrResources: arbv1.XQueueJobResourceList{
-                                Items: pods,
-                        },
-                },
-        }
-
-        queueJob, err := context.karclient.ArbV1().XQueueJobs(context.namespace).Create(queueJob)
-        Expect(err).NotTo(HaveOccurred())
-
-        return queueJob
-}
-
 
 func createReplicaSet(context *context, name string, rep int32, img string, req v1.ResourceList) *appv1.ReplicaSet {
 	deploymentName := "deployment.k8s.io"
@@ -287,12 +311,57 @@ func taskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 	}
 }
 
+func xtaskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
+        return func() (bool, error) {
+                queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
+
+                readyTaskNum := 0
+                for _, pod := range pods.Items {
+                        if !labelSelector.Matches(labels.Set(pod.Labels)) {
+                                continue
+                        }
+                        if pod.Status.Phase == v1.PodRunning || pod.Status.Phase == v1.PodSucceeded {
+                                readyTaskNum++
+                        }
+                }
+
+                if taskNum < 0 {
+                        taskNum = queueJob.Spec.SchedSpec.MinAvailable
+                }
+
+                return taskNum <= readyTaskNum, nil
+        }
+}
+
+func xtaskCreated(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
+        return func() (bool, error) {
+                _, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
+                Expect(err).NotTo(HaveOccurred())
+                return true, nil
+        }
+}
+
 func waitJobReady(ctx *context, name string) error {
-	return wait.Poll(100*time.Millisecond, 30*time.Second, taskReady(ctx, name, -1))
+	return wait.Poll(100*time.Millisecond, oneMinute, taskReady(ctx, name, -1))
+}
+
+func waitXJobReady(ctx *context, name string) error {
+        return wait.Poll(100*time.Millisecond, oneMinute, xtaskReady(ctx, name, -1))
+}
+
+
+func waitXJobCreated(ctx *context, name string) error {
+	return  wait.Poll(100*time.Millisecond, oneMinute, xtaskCreated(ctx, name, -1))
 }
 
 func waitTasksReady(ctx *context, name string, taskNum int) error {
-	return wait.Poll(100*time.Millisecond, 30*time.Second, taskReady(ctx, name, taskNum))
+	return wait.Poll(100*time.Millisecond, oneMinute, taskReady(ctx, name, taskNum))
 }
 
 func jobNotReady(ctx *context, jobName string) wait.ConditionFunc {
@@ -319,8 +388,36 @@ func jobNotReady(ctx *context, jobName string) wait.ConditionFunc {
 	}
 }
 
+func xjobNotReady(ctx *context, jobName string) wait.ConditionFunc {
+        return func() (bool, error) {
+                queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
+
+                pendingTaskNum := int32(0)
+                for _, pod := range pods.Items {
+                        if !labelSelector.Matches(labels.Set(pod.Labels)) {
+                                continue
+                        }
+                        if pod.Status.Phase == v1.PodPending && len(pod.Spec.NodeName) == 0 {
+                                pendingTaskNum++
+                        }
+                }
+
+                return int(pendingTaskNum) >= int(queueJob.Spec.SchedSpec.MinAvailable), nil
+        }
+}
+
 func waitJobNotReady(ctx *context, name string) error {
-	return wait.Poll(2*time.Second, 30*time.Second, jobNotReady(ctx, name))
+	return wait.Poll(10*time.Second, oneMinute, jobNotReady(ctx, name))
+}
+
+func waitXJobNotReady(ctx *context, name string) error {
+        return wait.Poll(10*time.Second, oneMinute, xjobNotReady(ctx, name))
 }
 
 func replicaSetReady(ctx *context, name string) wait.ConditionFunc {
@@ -348,7 +445,7 @@ func replicaSetReady(ctx *context, name string) wait.ConditionFunc {
 }
 
 func waitReplicaSetReady(ctx *context, name string) error {
-	return wait.Poll(100*time.Millisecond, 30*time.Second, replicaSetReady(ctx, name))
+	return wait.Poll(100*time.Millisecond, oneMinute, replicaSetReady(ctx, name))
 }
 
 func clusterSize(ctx *context, req v1.ResourceList) int32 {
