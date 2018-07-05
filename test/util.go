@@ -311,8 +311,53 @@ func taskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 	}
 }
 
+func xtaskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
+        return func() (bool, error) {
+                queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
+
+                readyTaskNum := 0
+                for _, pod := range pods.Items {
+                        if !labelSelector.Matches(labels.Set(pod.Labels)) {
+                                continue
+                        }
+                        if pod.Status.Phase == v1.PodRunning || pod.Status.Phase == v1.PodSucceeded {
+                                readyTaskNum++
+                        }
+                }
+
+                if taskNum < 0 {
+                        taskNum = queueJob.Spec.SchedSpec.MinAvailable
+                }
+
+                return taskNum <= readyTaskNum, nil
+        }
+}
+
+func xtaskCreated(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
+        return func() (bool, error) {
+                _, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
+                Expect(err).NotTo(HaveOccurred())
+                return true, nil
+        }
+}
+
 func waitJobReady(ctx *context, name string) error {
 	return wait.Poll(100*time.Millisecond, oneMinute, taskReady(ctx, name, -1))
+}
+
+func waitXJobReady(ctx *context, name string) error {
+        return wait.Poll(100*time.Millisecond, oneMinute, xtaskReady(ctx, name, -1))
+}
+
+
+func waitXJobCreated(ctx *context, name string) error {
+	return  wait.Poll(100*time.Millisecond, oneMinute, xtaskCreated(ctx, name, -1))
 }
 
 func waitTasksReady(ctx *context, name string, taskNum int) error {
@@ -343,8 +388,36 @@ func jobNotReady(ctx *context, jobName string) wait.ConditionFunc {
 	}
 }
 
+func xjobNotReady(ctx *context, jobName string) wait.ConditionFunc {
+        return func() (bool, error) {
+                queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
+                Expect(err).NotTo(HaveOccurred())
+
+                labelSelector := labels.SelectorFromSet(queueJob.Spec.Selector.MatchLabels)
+
+                pendingTaskNum := int32(0)
+                for _, pod := range pods.Items {
+                        if !labelSelector.Matches(labels.Set(pod.Labels)) {
+                                continue
+                        }
+                        if pod.Status.Phase == v1.PodPending && len(pod.Spec.NodeName) == 0 {
+                                pendingTaskNum++
+                        }
+                }
+
+                return int(pendingTaskNum) >= int(queueJob.Spec.SchedSpec.MinAvailable), nil
+        }
+}
+
 func waitJobNotReady(ctx *context, name string) error {
 	return wait.Poll(10*time.Second, oneMinute, jobNotReady(ctx, name))
+}
+
+func waitXJobNotReady(ctx *context, name string) error {
+        return wait.Poll(10*time.Second, oneMinute, xjobNotReady(ctx, name))
 }
 
 func replicaSetReady(ctx *context, name string) wait.ConditionFunc {

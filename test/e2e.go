@@ -36,7 +36,7 @@ var _ = Describe("E2E Test", func() {
 		defer cleanupTestContext(context)
 		rep := clusterSize(context, oneCPU)
 		xqueueJob := createXQueueJob(context, "xqj-1", 2, rep, "busybox", oneCPU)
-		err := waitJobReady(context, xqueueJob.Name)
+		err := waitXJobCreated(context, xqueueJob.Name)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

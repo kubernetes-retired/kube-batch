@@ -56,7 +56,7 @@ func (c *xqueuejobs) Create(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err e
 	result = &v1.XQueueJob{}
 	err = c.client.Post().
 		Namespace(c.ns).
-		Resource(v1.QueueJobPlural).
+		Resource(v1.XQueueJobPlural).
 		Body(queuejob).
 		Do().
 		Into(result)
@@ -68,7 +68,7 @@ func (c *xqueuejobs) Update(queuejob *v1.XQueueJob) (result *v1.XQueueJob, err e
 	result = &v1.XQueueJob{}
 	err = c.client.Put().
 		Namespace(c.ns).
-		Resource(v1.QueueJobPlural).
+		Resource(v1.XQueueJobPlural).
 		Name(queuejob.Name).
 		Body(queuejob).
 		Do().
