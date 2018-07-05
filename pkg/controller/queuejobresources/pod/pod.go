@@ -506,7 +506,12 @@ func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.XQueueJob, ix int32, q
 	}
 	podName := fmt.Sprintf("%s-%d-%s", qj.Name, ix, generateUUID())
 
+	fmt.Printf("pod Template: %+v", templateCopy)
+
 	tmpl := templateCopy.Labels
+	if tmpl == nil {
+		tmpl = make(map[string]string)
+	}
 	tmpl[queueJobName] = qj.Name
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

@@ -118,12 +118,16 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 
 	podTemplate := v1.PodTemplate{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{queueJobName: name},
+			Labels:    map[string]string{queueJobName: name},
+			Namespace: context.namespace,
 		},
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PodTemplate"},
 		Template: v1.PodTemplateSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:    map[string]string{queueJobName: name},
+				Namespace: context.namespace,
+			},
 			Spec: v1.PodSpec{
-				SchedulerName: "kar-scheduler",
 				RestartPolicy: v1.RestartPolicyNever,
 				Containers: []v1.Container{
 					{
@@ -212,7 +216,6 @@ func createQueueJob(context *context, name string, min, rep int32, img string, r
 					Labels: map[string]string{queueJobName: name},
 				},
 				Spec: v1.PodSpec{
-					SchedulerName: "kar-scheduler",
 					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
 						{

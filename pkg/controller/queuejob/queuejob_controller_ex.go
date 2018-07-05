@@ -226,7 +226,7 @@ func (cc *XController) worker() {
 
 		// sync XQueueJob
 		if err := cc.syncQueueJob(queuejob); err != nil {
-			glog.Errorf("Failed to sync XQueueJob %s, err %#v", queuejob.Name, err)
+			glog.Errorf("Failed to sync XQueueJob %s %s, err %#v", queuejob.Name, queuejob.Namespace, err)
 			// If any error, requeue it.
 			return err
 		}
@@ -239,6 +239,7 @@ func (cc *XController) worker() {
 }
 
 func (cc *XController) syncQueueJob(qj *arbv1.XQueueJob) error {
+	glog.Infof("Sync QJ %s %s", qj.Name, qj.Namespace)
 	queueJob, err := cc.queueJobLister.XQueueJobs(qj.Namespace).Get(qj.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
