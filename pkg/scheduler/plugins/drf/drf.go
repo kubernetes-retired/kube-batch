@@ -76,7 +76,7 @@ func (drf *drfPlugin) OnSessionOpen(ssn *framework.Session) {
 	}
 
 	// Add Preemptable function.
-	ssn.AddPreemptableFn(func(l interface{}, r interface{}) bool {
+	ssn.AddPreemptableFn(framework.Required, func(l interface{}, r interface{}) int {
 		// Re-calculate the share of lv when run one task
 		// Re-calculate the share of rv when evict on task
 		lv := l.(*api.TaskInfo)
@@ -92,10 +92,15 @@ func (drf *drfPlugin) OnSessionOpen(ssn *framework.Session) {
 		ls := drf.calculateShare(lalloc, drf.totalResource)
 		rs := drf.calculateShare(ralloc, drf.totalResource)
 
-		glog.V(3).Infof("DRF PreemptableFn: preemptor <%v/%v>, alloc <%v>, share <%v>; preemptee <%v/%v>, alloc <%v>, share <%v>",
-			lv.Namespace, lv.Name, lalloc, ls, rv.Namespace, rv.Name, ralloc, rs)
+		preemptable := ls < rs || math.Abs(ls-rs) <= shareDelta
+		if !preemptable {
+			glog.V(3).Infof("DRF PreemptableFn: preemptor <%v/%v>, alloc <%v>, share <%v>; preemptee <%v/%v>, alloc <%v>, share <%v>",
+				lv.Namespace, lv.Name, lalloc, ls, rv.Namespace, rv.Name, ralloc, rs)
 
-		return ls < rs || math.Abs(ls-rs) <= shareDelta
+			return -1
+		}
+
+		return 1
 	})
 
 	// Add Job Order function.

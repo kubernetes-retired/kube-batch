@@ -50,7 +50,7 @@ func jobReady(obj interface{}) bool {
 }
 
 func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
-	ssn.AddPreemptableFn(func(l, v interface{}) bool {
+	ssn.AddPreemptableFn(framework.Required, func(l, v interface{}) int {
 		preemptee := v.(*api.TaskInfo)
 
 		job := ssn.JobIndex[preemptee.Job]
@@ -62,9 +62,10 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 		if !preemptable {
 			glog.V(3).Infof("Can not preempt task <%v/%v> because of gang-scheduling",
 				preemptee.Namespace, preemptee.Name)
+			return -1
 		}
 
-		return preemptable
+		return 1
 	})
 
 	ssn.AddJobOrderFn(func(l, r interface{}) int {

@@ -35,3 +35,10 @@ type Plugin interface {
 	OnSessionOpen(ssn *Session)
 	OnSessionClose(ssn *Session)
 }
+
+type PreemptableFnType string
+
+const (
+	Force    PreemptableFnType = "force"
+	Required PreemptableFnType = "required"
+)

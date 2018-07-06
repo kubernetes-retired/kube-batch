@@ -43,16 +43,17 @@ type Session struct {
 	eventHandlers  []*EventHandler
 	jobOrderFns    []api.CompareFn
 	taskOrderFns   []api.CompareFn
-	preemptableFns []api.LessFn
+	preemptableFns map[PreemptableFnType][]api.CompareFn
 	jobReadyFns    []api.ValidateFn
 }
 
 func openSession(cache cache.Cache) *Session {
 	ssn := &Session{
-		UID:       uuid.NewUUID(),
-		cache:     cache,
-		JobIndex:  map[api.JobID]*api.JobInfo{},
-		NodeIndex: map[string]*api.NodeInfo{},
+		UID:            uuid.NewUUID(),
+		cache:          cache,
+		JobIndex:       map[api.JobID]*api.JobInfo{},
+		NodeIndex:      map[string]*api.NodeInfo{},
+		preemptableFns: map[PreemptableFnType][]api.CompareFn{},
 	}
 
 	glog.V(3).Infof("Open Session %v", ssn.UID)
@@ -177,13 +178,26 @@ func (ssn *Session) Preemptable(preemptor, preemptee *api.TaskInfo) bool {
 		return false
 	}
 
-	for _, preemptable := range ssn.preemptableFns {
-		if !preemptable(preemptor, preemptee) {
-			return false
+	for _, preemptable := range ssn.preemptableFns[Force] {
+		if preemptable(preemptor, preemptee) > 0 {
+			return true
 		}
 	}
 
-	return true
+	// If preemptableFn return 0, ignore it
+	// If preemptableFn return -1, return false
+	// If any preemptableFn return 1 (at least one), return true
+	preemptable := false
+	for _, preemptableFn := range ssn.preemptableFns[Required] {
+		p := preemptableFn(preemptor, preemptee)
+		if p < 0 {
+			return false
+		} else if p > 0 {
+			preemptable = true
+		}
+	}
+
+	return preemptable
 }
 
 func (ssn *Session) Preempt(preemptor, preemptee *api.TaskInfo) error {
@@ -234,8 +248,8 @@ func (ssn *Session) AddTaskOrderFn(cf api.CompareFn) {
 	ssn.taskOrderFns = append(ssn.taskOrderFns, cf)
 }
 
-func (ssn *Session) AddPreemptableFn(cf api.LessFn) {
-	ssn.preemptableFns = append(ssn.preemptableFns, cf)
+func (ssn *Session) AddPreemptableFn(pt PreemptableFnType, cf api.CompareFn) {
+	ssn.preemptableFns[pt] = append(ssn.preemptableFns[pt], cf)
 }
 
 func (ssn *Session) AddJobReadyFn(vf api.ValidateFn) {
