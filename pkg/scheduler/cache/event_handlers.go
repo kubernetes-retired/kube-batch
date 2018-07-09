@@ -131,7 +131,15 @@ func (sc *SchedulerCache) deleteTask(pi *arbapi.TaskInfo) error {
 // Assumes that lock is already acquired.
 func (sc *SchedulerCache) deletePod(pod *v1.Pod) error {
 	pi := arbapi.NewTaskInfo(pod)
-	if err := sc.deleteTask(pi); err != nil {
+
+	// Delete the Task in cache to handle Binding status.
+	task := pi
+	if job, found := sc.Jobs[pi.Job]; found {
+		if t, found := job.Tasks[pi.UID]; found {
+			task = t
+		}
+	}
+	if err := sc.deleteTask(task); err != nil {
 		return err
 	}
 
@@ -354,7 +362,6 @@ func (sc *SchedulerCache) deleteSchedulingSpec(ss *arbv1.SchedulingSpec) error {
 	// Unset SchedulingSpec
 	job.UnsetSchedulingSpec()
 
-	// TODO (k82cn): find another way to clean up Job.
 	sc.deleteJob(job)
 
 	return nil
@@ -435,7 +442,7 @@ func (sc *SchedulerCache) setPDB(pdb *policyv1.PodDisruptionBudget) error {
 	job := arbapi.JobID(utils.GetController(pdb))
 
 	if len(job) == 0 {
-		return fmt.Errorf("the controller of SchedulingSpec is empty")
+		return fmt.Errorf("the controller of PodDisruptionBudget is empty")
 	}
 
 	if _, found := sc.Jobs[job]; !found {
@@ -448,12 +455,24 @@ func (sc *SchedulerCache) setPDB(pdb *policyv1.PodDisruptionBudget) error {
 }
 
 // Assumes that lock is already acquired.
-func (sc *SchedulerCache) updatePDB(oldQueue, newQueue *policyv1.PodDisruptionBudget) error {
-	return sc.setPDB(newQueue)
+func (sc *SchedulerCache) updatePDB(oldPDB, newPDB *policyv1.PodDisruptionBudget) error {
+	return sc.setPDB(newPDB)
 }
 
 // Assumes that lock is already acquired.
-func (sc *SchedulerCache) deletePDB(queue *policyv1.PodDisruptionBudget) error {
+func (sc *SchedulerCache) deletePDB(pdb *policyv1.PodDisruptionBudget) error {
+	jobID := arbapi.JobID(utils.GetController(pdb))
+
+	job, found := sc.Jobs[jobID]
+	if !found {
+		return fmt.Errorf("can not found job %v:%v/%v", jobID, pdb.Namespace, pdb.Name)
+	}
+
+	// Unset SchedulingSpec
+	job.UnsetPDB()
+
+	sc.deleteJob(job)
+
 	return nil
 }
 
