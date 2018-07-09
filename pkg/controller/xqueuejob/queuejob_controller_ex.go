@@ -95,7 +95,7 @@ func NewXQueueJobController(config *rest.Config) *XController {
 		panic(err)
 	}
 
-	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).XQueueJob().XQueueJobs()
+	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).Batch().XQueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: func(obj interface{}) bool {

@@ -65,7 +65,7 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case arbv1.SchemeGroupVersion.WithResource("xqueuejobs"):
 		return &genericInformer{
 			resource: resource.GroupResource(),
-			informer: f.XQueueJob().XQueueJobs().Informer(),
+			informer: f.Batch().XQueueJobs().Informer(),
 		}, nil
 	}
 
