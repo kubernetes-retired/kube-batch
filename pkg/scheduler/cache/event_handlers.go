@@ -42,10 +42,6 @@ func (sc *SchedulerCache) addTask(pi *arbapi.TaskInfo) error {
 			sc.Jobs[pi.Job] = arbapi.NewJobInfo(pi.Job)
 		}
 
-		// TODO(k82cn): it's found that the Add event will be sent
-		// multiple times without update/delete. That should be a
-		// client-go issue, we need to dig deeper for that.
-		sc.Jobs[pi.Job].DeleteTaskInfo(pi)
 		sc.Jobs[pi.Job].AddTaskInfo(pi)
 	}
 
@@ -55,8 +51,6 @@ func (sc *SchedulerCache) addTask(pi *arbapi.TaskInfo) error {
 		}
 
 		node := sc.Nodes[pi.NodeName]
-		node.RemoveTask(pi)
-
 		if !isTerminated(pi.Status) {
 			return node.AddTask(pi)
 		}
@@ -137,7 +131,16 @@ func (sc *SchedulerCache) deleteTask(pi *arbapi.TaskInfo) error {
 // Assumes that lock is already acquired.
 func (sc *SchedulerCache) deletePod(pod *v1.Pod) error {
 	pi := arbapi.NewTaskInfo(pod)
-	return sc.deleteTask(pi)
+	if err := sc.deleteTask(pi); err != nil {
+		return err
+	}
+
+	// If job was terminated, delete it.
+	if job, found := sc.Jobs[pi.Job]; found && arbapi.JobTerminated(job) {
+		sc.deleteJob(job)
+	}
+
+	return nil
 }
 
 func (sc *SchedulerCache) AddPod(obj interface{}) {
