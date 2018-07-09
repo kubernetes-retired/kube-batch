@@ -363,8 +363,23 @@ func (cc *Controller) manageQueueJob(qj *arbv1.QueueJob, pods map[string][]*v1.P
 		glog.V(3).Infof("There are %d pods of QueueJob %s (%s): replicas %d, pending %d, running %d, succeeded %d, failed %d",
 			len(pods), qj.Name, name, replicas, pending, running, succeeded, failed)
 
+		diff := replicas - pending - running - succeeded
+		if (running + pending + succeeded) != 0 {
+			switch ts.RestartPolicy {
+			case arbv1.RestartPolicyAlways:
+				diff = replicas - pending - running
+			case arbv1.RestartPolicyNever:
+				diff = 0
+			case arbv1.RestartPolicyOnFailure:
+				diff = failed
+			// If no match defaut policy is restart OnFailure
+			default:
+				diff = failed
+			}
+		}
+
 		// Create pod if necessary
-		if diff := replicas - pending - running - succeeded; diff > 0 {
+		if diff > 0 {
 			glog.V(3).Infof("Try to create %v Pods for QueueJob %v/%v", diff, qj.Namespace, qj.Name)
 
 			var errs []error

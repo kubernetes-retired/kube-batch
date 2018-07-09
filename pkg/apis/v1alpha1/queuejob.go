@@ -55,10 +55,25 @@ type TaskSpec struct {
 	// Replicas specifies the replicas of this TaskSpec in QueueJob.
 	Replicas int32 `json:"replicas,omitempty" protobuf:"bytes,2,opt,name=replicas"`
 
+	// RestartPolicy specifies the Task restart policy in QueueJob
+	RestartPolicy RestartPolicy `json:"restartPolicy,omitempty" protobuf:"bytes,3,opt,name=restartPolicy"`
+
 	// Specifies the pod that will be created for this TaskSpec
 	// when executing a QueueJob
-	Template v1.PodTemplateSpec `json:"template,omitempty" protobuf:"bytes,3,opt,name=template"`
+	Template v1.PodTemplateSpec `json:"template,omitempty" protobuf:"bytes,4,opt,name=template"`
 }
+
+// RestartPolicy describe how the QueueJob controller will restart the Task
+// Only one of the following restart policies may be specified.
+// If none of the following policies is specified, the default one
+// is RestartPolicyOnFailure.
+type RestartPolicy string
+
+const (
+	RestartPolicyAlways    RestartPolicy = "Always"
+	RestartPolicyOnFailure RestartPolicy = "OnFailure"
+	RestartPolicyNever     RestartPolicy = "Never"
+)
 
 // QueueJobStatus represents the current state of a QueueJob
 type QueueJobStatus struct {
