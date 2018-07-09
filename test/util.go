@@ -145,7 +145,6 @@ func cleanupTestContext(cxt *context) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-
 type taskSpec struct {
 	name string
 	pri  string
@@ -338,7 +337,6 @@ func taskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 		return taskNum <= readyTaskNum, nil
 	}
 }
-
 
 func taskReadyEx(ctx *context, jobName string, tss map[string]int32) wait.ConditionFunc {
 	return func() (bool, error) {
