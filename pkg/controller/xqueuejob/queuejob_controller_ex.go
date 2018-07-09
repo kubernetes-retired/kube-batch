@@ -122,7 +122,7 @@ func NewXQueueJobController(config *rest.Config) *XController {
 	}
 	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
 
-	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).XQueueJob().XQueueJobs()
+	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).Batch().XQueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: func(obj interface{}) bool {
