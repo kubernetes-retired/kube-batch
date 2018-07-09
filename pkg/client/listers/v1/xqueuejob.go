@@ -70,7 +70,7 @@ type xqueueJobNamespaceLister struct {
 	namespace string
 }
 
-// List lists all QueueJobs in the indexer for a given namespace.
+//List lists all QueueJobs in the indexer for a given namespace.
 func (s xqueueJobNamespaceLister) List(selector labels.Selector) (ret []*arbv1.XQueueJob, err error) {
 	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
 		ret = append(ret, m.(*arbv1.XQueueJob))
@@ -78,7 +78,7 @@ func (s xqueueJobNamespaceLister) List(selector labels.Selector) (ret []*arbv1.X
 	return ret, err
 }
 
-// Get retrieves the QueueJob from the indexer for a given namespace and name.
+//Get retrieves the QueueJob from the indexer for a given namespace and name.
 func (s xqueueJobNamespaceLister) Get(name string) (*arbv1.XQueueJob, error) {
 	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
 	if err != nil {
