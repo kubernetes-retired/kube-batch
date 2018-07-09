@@ -19,15 +19,18 @@ package xqueuejob
 import (
 	"fmt"
 
+	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
+
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/rest"
 
-	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 )
 
 var queueJobKind = arbv1.SchemeGroupVersion.WithKind("XQueueJob")
@@ -64,6 +67,21 @@ func eventKey(obj interface{}) (string, error) {
 
 	return string(accessor.GetUID()), nil
 }
+
+
+func createQueueJobSchedulingSpec(qj *arbv1.QueueJob) *arbv1.SchedulingSpec {
+	return &arbv1.SchedulingSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      qj.Name,
+			Namespace: qj.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(qj, queueJobKind),
+			},
+		},
+		Spec: qj.Spec.SchedSpec,
+	}
+}
+
 
 func createXQueueJobKind(config *rest.Config) error {
 	extensionscs, err := apiextensionsclient.NewForConfig(config)

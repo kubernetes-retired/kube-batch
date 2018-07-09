@@ -117,3 +117,7 @@ func (f *sharedInformerFactory) Batch() arbclient.Interface {
 	return arbclient.New(f)
 }
 
+func (f *sharedInformerFactory) XQueueJob() arbclient.Interface {
+	return arbclient.New(f)
+}
+

@@ -21,19 +21,20 @@ import (
 	"github.com/golang/glog"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
 	arbinformers "github.com/kubernetes-incubator/kube-arbitrator/pkg/client/informers"
 	informersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/client/informers/v1"
 	listersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/client/listers/v1"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/xqueuejob/queuejobresources"
+	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/xqueuejob/queuejobresources/pod"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -52,6 +53,11 @@ type XController struct {
 	config           *rest.Config
 	queueJobInformer informersv1.XQueueJobInformer
 
+	// resources registered for the XQueueJob
+	qjobRegisteredResources queuejobresources.RegisteredResources
+	// controllers for these resources
+	qjobResControls map[arbv1.ResourceType]queuejobresources.Interface
+
 	clients    *kubernetes.Clientset
 	arbclients *clientset.Clientset
 
@@ -68,6 +74,15 @@ type XController struct {
 
 	// eventQueue that need to sync up
 	eventQueue *cache.FIFO
+
+	// Reference manager to manage membership of queuejob resource and its members
+	refManager queuejobresources.RefManager
+}
+
+//RegisterAllQueueJobResourceTypes - gegisters all resources
+func RegisterAllQueueJobResourceTypes(regs *queuejobresources.RegisteredResources) {
+	respod.Register(regs)
+
 }
 
 func queueJobKey(obj interface{}) (string, error) {
@@ -96,6 +111,21 @@ func NewXQueueJobController(config *rest.Config) *XController {
 	}
 
 	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).Batch().XQueueJobs()
+	cc.qjobResControls = map[arbv1.ResourceType]queuejobresources.Interface{}
+	RegisterAllQueueJobResourceTypes(&cc.qjobRegisteredResources)
+
+	//initialize pod sub-resource control
+	resControlPod, found, err := cc.qjobRegisteredResources.InitQueueJobResource(arbv1.ResourceTypePod, config)
+	if err != nil {
+		glog.Errorf("fail to create queuejob resource control")
+		return nil
+	}
+	if !found {
+		glog.Errorf("queuejob resource type Pod not found")
+		return nil
+	}
+	cc.qjobResControls[arbv1.ResourceTypePod] = resControlPod
+
 	cc.queueJobInformer.Informer().AddEventHandler(
 		cache.FilteringResourceEventHandler{
 			FilterFunc: func(obj interface{}) bool {
@@ -117,6 +147,9 @@ func NewXQueueJobController(config *rest.Config) *XController {
 
 	cc.queueJobSynced = cc.queueJobInformer.Informer().HasSynced
 
+	//create sub-resource reference manager
+	cc.refManager = queuejobresources.NewLabelRefManager()
+
 	return cc
 }
 
@@ -126,6 +159,8 @@ func (cc *XController) Run(stopCh chan struct{}) {
 	createXQueueJobKind(cc.config)
 
 	go cc.queueJobInformer.Informer().Run(stopCh)
+
+	go cc.qjobResControls[arbv1.ResourceTypePod].Run(stopCh)
 
 	cache.WaitForCacheSync(stopCh, cc.queueJobSynced)
 
@@ -191,7 +226,9 @@ func (cc *XController) worker() {
 
 		// sync XQueueJob
 		if err := cc.syncQueueJob(queuejob); err != nil {
-			glog.Errorf("Failed to sync XQueueJob %s, err %#v", queuejob.Name, err)
+
+			glog.Errorf("Failed to sync XQueueJob %s %s, err %#v", queuejob.Name, queuejob.Namespace, err)
+
 			// If any error, requeue it.
 			return err
 		}
@@ -204,6 +241,7 @@ func (cc *XController) worker() {
 }
 
 func (cc *XController) syncQueueJob(qj *arbv1.XQueueJob) error {
+	glog.Infof("Sync QJ %s %s", qj.Name, qj.Namespace)
 	queueJob, err := cc.queueJobLister.XQueueJobs(qj.Namespace).Get(qj.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -216,7 +254,6 @@ func (cc *XController) syncQueueJob(qj *arbv1.XQueueJob) error {
 	return cc.manageQueueJob(queueJob)
 }
 
-// dummy function for managing a queuejob
 func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 	var err error
 	startTime := time.Now()
@@ -224,6 +261,32 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 		glog.Infof("Finished syncing queue job %q (%v)", qj.Name, time.Now().Sub(startTime))
 	}()
 
+	if qj.DeletionTimestamp != nil {
+		// cleanup resources for running job
+		glog.Infof("Cleaning up resources for the QueueJob................ %s", qj.Name)
+		for _, ar := range qj.Spec.AggrResources.Items {
+			ar.Replicas = 0
+		}
+		qj.Status.MinAvailable = -1
+		if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).Update(qj); err != nil {
+			glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
+				qj.Namespace, qj.Name, err)
+			return err
+		}
+
+		err = cc.Cleanup(qj)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// we call sync for each controller
+	for _, ar := range qj.Spec.AggrResources.Items {
+		cc.qjobResControls[ar.Type].EnqueueSyncQueueJob(qj, &ar)
+	}
+
+	// TODO(k82cn): replaced it with `UpdateStatus`
 	if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).Update(qj); err != nil {
 		glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
 			qj.Namespace, qj.Name, err)
@@ -233,8 +296,14 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 	return err
 }
 
-//Cleanup : clean job resources
+//Cleanup function
 func (cc *XController) Cleanup(queuejob *arbv1.XQueueJob) error {
+	if queuejob.Spec.AggrResources.Items != nil {
+		// we call clean-up for each controller
+		for _, ar := range queuejob.Spec.AggrResources.Items {
+			cc.qjobResControls[ar.Type].Cleanup(queuejob, &ar)
+		}
+	}
 
 	return nil
 }

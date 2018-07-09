@@ -31,8 +31,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
-	queueJobName := "xqueuejob.k8s.io"
+
+func createXQueueJob(context *context, name string, min, rep int32, priority string, img string, req v1.ResourceList) *arbv1.XQueueJob {
+	queueJobName := "xqueuejob.arbitrator.k8s.io"
 
 	podTemplate := v1.PodTemplate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -41,8 +42,10 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PodTemplate"},
 		Template: v1.PodTemplateSpec{
 			Spec: v1.PodSpec{
-				SchedulerName: "kar-scheduler",
-				RestartPolicy: v1.RestartPolicyNever,
+
+				PriorityClassName: priority,
+				RestartPolicy:     v1.RestartPolicyNever,
+
 				Containers: []v1.Container{
 					{
 						Image:           img,
@@ -85,6 +88,7 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: context.namespace,
+			Labels:    map[string]string{queueJobName: name},
 		},
 		Spec: arbv1.XQueueJobSpec{
 			Selector: &metav1.LabelSelector{
@@ -168,8 +172,8 @@ func deleteXQueueJob(ctx *context, jobName string) error {
 	})
 }
 
-func waitXJobReady(ctx *context, name string) error {
-	return wait.Poll(100*time.Millisecond, oneMinute, xtaskReady(ctx, name, -1))
+func waitXJobReady(ctx *context, name string, taskNum int) error {
+	return wait.Poll(100*time.Millisecond, oneMinute, xtaskReady(ctx, name, taskNum))
 }
 
 func waitXJobCreated(ctx *context, name string) error {
