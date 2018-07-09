@@ -24,11 +24,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
+	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
-	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 )
 
 func createXQueueJob(context *context, name string, min, rep int32, img string, req v1.ResourceList) *arbv1.XQueueJob {
@@ -107,7 +107,6 @@ func createXQueueJob(context *context, name string, min, rep int32, img string, 
 	return queueJob
 }
 
-
 func xtaskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
 	return func() (bool, error) {
 		queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
@@ -142,7 +141,7 @@ func listXQueueJob(ctx *context, jobName string) error {
 func listXTasks(ctx *context, nJobs int) wait.ConditionFunc {
 	return func() (bool, error) {
 		jobs, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).List(metav1.ListOptions{})
-        	Expect(err).NotTo(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		nJobs0 := len(jobs.Items)
 
@@ -177,7 +176,6 @@ func waitXJobCreated(ctx *context, name string) error {
 	return wait.Poll(100*time.Millisecond, oneMinute, xtaskCreated(ctx, name, -1))
 }
 
-
 func xjobNotReady(ctx *context, jobName string) wait.ConditionFunc {
 	return func() (bool, error) {
 		queueJob, err := ctx.karclient.ArbV1().XQueueJobs(ctx.namespace).Get(jobName, metav1.GetOptions{})
@@ -205,4 +203,3 @@ func xjobNotReady(ctx *context, jobName string) wait.ConditionFunc {
 func waitXJobNotReady(ctx *context, name string) error {
 	return wait.Poll(10*time.Second, oneMinute, xjobNotReady(ctx, name))
 }
-
