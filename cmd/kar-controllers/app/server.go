@@ -22,7 +22,6 @@ import (
 
 	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kar-controllers/app/options"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejob"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/xqueuejob"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
@@ -44,9 +43,6 @@ func Run(opt *options.ServerOption) error {
 
 	queuejobctrl := queuejob.NewQueueJobController(config)
 	queuejobctrl.Run(neverStop)
-
-	xqueuejobctrl := xqueuejob.NewXQueueJobController(config)
-	xqueuejobctrl.Run(neverStop)
 
 	<-neverStop
 
