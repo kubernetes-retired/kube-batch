@@ -116,4 +116,3 @@ type SharedInformerFactory interface {
 func (f *sharedInformerFactory) Batch() arbclient.Interface {
 	return arbclient.New(f)
 }
-
