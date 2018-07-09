@@ -21,28 +21,25 @@ import (
 	"github.com/golang/glog"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
-
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources"
-	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/queuejobresources/pod"
-
 	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/v1alpha1"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client"
 	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset"
 	arbinformers "github.com/kubernetes-incubator/kube-arbitrator/pkg/client/informers"
 	informersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/client/informers/v1"
 	listersv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/client/listers/v1"
+	"github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/xqueuejob/queuejobresources"
+	respod "github.com/kubernetes-incubator/kube-arbitrator/pkg/controller/xqueuejob/queuejobresources/pod"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
 	// QueueJobNameLabel label string for queuejob name
 	QueueJobNameLabel string = "xqueuejob-name"
-
 	// ControllerUIDLabel label string for queuejob controller uid
 	ControllerUIDLabel string = "controller-uid"
 )
@@ -264,31 +261,31 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 
 	if qj.DeletionTimestamp != nil {
 		// cleanup resources for running job
+		glog.Infof("Cleaning up resources for the QueueJob................ %s", qj.Name)
+		for _, ar := range qj.Spec.AggrResources.Items {
+			ar.Replicas = 0
+		}
+		qj.Status.MinAvailable = -1
+		if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).Update(qj); err != nil {
+			glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
+				qj.Namespace, qj.Name, err)
+			return err
+		}
+
 		err = cc.Cleanup(qj)
 		if err != nil {
 			return err
 		}
-		//empty finalizers and delete the queuejob again
-		accessor, err := meta.Accessor(qj)
-		if err != nil {
-			return err
-		}
-		accessor.SetFinalizers(nil)
-
 		return nil
-		//var result arbv1.XQueueJob
-		//return cc.arbclients.Put().
-		//	Namespace(qj.Namespace).Resource(arbv1.QueueJobPlural).
-		//	Name(qj.Name).Body(qj).Do().Into(&result)
 	}
 
 	// we call sync for each controller
 	for _, ar := range qj.Spec.AggrResources.Items {
-		cc.qjobResControls[ar.Type].SyncQueueJob(qj, &ar)
+		cc.qjobResControls[ar.Type].EnqueueSyncQueueJob(qj, &ar)
 	}
 
 	// TODO(k82cn): replaced it with `UpdateStatus`
-	if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).UpdateStatus(qj); err != nil {
+	if _, err := cc.arbclients.ArbV1().XQueueJobs(qj.Namespace).Update(qj); err != nil {
 		glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
 			qj.Namespace, qj.Name, err)
 		return err
