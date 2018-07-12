@@ -84,7 +84,7 @@ func NewQueueJobController(config *rest.Config) *Controller {
 		panic(err)
 	}
 
-	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).Batch().QueueJobs()
+	cc.queueJobInformer = arbinformers.NewSharedInformerFactory(queueJobClient, 0).QueueJob().QueueJobs()
 	cc.queueJobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    cc.addQueueJob,
 		UpdateFunc: cc.updateQueueJob,

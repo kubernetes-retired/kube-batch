@@ -303,6 +303,7 @@ func createQueueJobWithScheduler(context *context, scheduler string, name string
 	return queueJob
 }
 
+
 func createReplicaSet(context *context, name string, rep int32, img string, req v1.ResourceList) *appv1.ReplicaSet {
 	deploymentName := "deployment.k8s.io"
 	deployment := &appv1.ReplicaSet{

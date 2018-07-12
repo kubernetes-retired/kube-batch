@@ -196,7 +196,7 @@ func newSchedulerCache(config *rest.Config, schedulerName string) *SchedulerCach
 
 	schedulingSpecInformerFactory := informerfactory.NewSharedInformerFactory(queueClient, 0)
 	// create informer for Queue information
-	sc.schedulingSpecInformer = schedulingSpecInformerFactory.Batch().SchedulingSpecs()
+	sc.schedulingSpecInformer = schedulingSpecInformerFactory.SchedulingSpec().SchedulingSpecs()
 	sc.schedulingSpecInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    sc.AddSchedulingSpec,
 		UpdateFunc: sc.UpdateSchedulingSpec,

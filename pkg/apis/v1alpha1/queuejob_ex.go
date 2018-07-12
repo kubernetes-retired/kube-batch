@@ -112,7 +112,6 @@ type XQueueJobStatus struct {
 	// +optional
 	Pending int32 `json:"pending,omitempty" protobuf:"bytes,1,opt,name=pending"`
 
-	// The number of actively running resources.
 	// +optional
 	Running int32 `json:"running,omitempty" protobuf:"bytes,1,opt,name=running"`
 
@@ -127,8 +126,23 @@ type XQueueJobStatus struct {
 	// The minimal available resources to run for this QueueJob (is this different from the MinAvailable from JobStatus)
 	// +optional
 	MinAvailable int32 `json:"template,omitempty" protobuf:"bytes,4,opt,name=template"`
+	
+	//Can run?
+	CanRun bool `json:"canrun,omitempty" protobuf:"bytes,1,opt,name=canrun"`
+	
+	//State - Running, Queued, Deleted ?
+	State             XQueueJobState `json:"state,omitempty"`
 
 	Message string `json:"message,omitempty"`
 }
 
 type XQueueJobState string
+
+//enqueued, active, deleting, succeeded, failed
+const (
+	QueueJobStateEnqueued XQueueJobState = "Pending"
+	QueueJobStateActive   XQueueJobState = "Running"
+	QueueJobStateDeleted  XQueueJobState = "Deleted"
+	QueueJobStateFailed   XQueueJobState = "Failed"
+)
+
