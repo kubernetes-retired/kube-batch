@@ -1,0 +1,12 @@
+FROM  ppc64le/centos:7
+RUN yum -y update && yum clean all
+RUN  yum -y  install python-setuptools
+RUN easy_install supervisor
+
+ADD kar-scheduler /usr/local/bin
+ADD kar-controllers /usr/local/bin
+ADD karcli /usr/local/bin
+
+ADD supervisord.conf /etc/supervisor/
+
+CMD ["/usr/bin/supervisord", "-n"]
