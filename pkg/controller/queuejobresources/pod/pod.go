@@ -195,10 +195,10 @@ func isPodActive(p *v1.Pod) bool {
 //SyncQueueJob : method to sync the resources of this job
 func (qjrPod *QueueJobResPod) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 	// check if there are still terminating pods for this QueueJob
-	counter, ok := qjrPod.deletedPodsCounter.Get(fmt.Sprintf("%s/%s", queuejob.Namespace, queuejob.Name))
-	if ok && counter >= 0 {
-		return fmt.Errorf("There are still teminating pods for QueueJob %s/%s, can not sync it now", queuejob.Namespace, queuejob.Name)
-	}
+	//counter, ok := qjrPod.deletedPodsCounter.Get(fmt.Sprintf("%s/%s", queuejob.Namespace, queuejob.Name))
+	//if ok && counter >= 0 {
+	//	return fmt.Errorf("There are still teminating pods for QueueJob %s/%s, can not sync it now", queuejob.Namespace, queuejob.Name)
+	//}
 
 	pods, err := qjrPod.getPodsForQueueJob(queuejob)
 	if err != nil {
@@ -448,10 +448,12 @@ func (qjrPod *QueueJobResPod) deleteQueueJobResPods(qjobRes *arbv1.XQueueJobReso
 
 	job := *queuejob
 
-	pods, err := qjrPod.getPodsForQueueJobRes(qjobRes, queuejob)
+	pods, err := qjrPod.getPodsForQueueJob(queuejob)
 	if err != nil {
 		return err
 	}
+
+	glog.Infof("I have found pods for QueueJob: %v \n", len(pods))
 
 	activePods := filterActivePods(pods)
 	active := int32(len(activePods))
@@ -557,5 +559,5 @@ func (qjrPod *QueueJobResPod) createQueueJobPod(qj *arbv1.XQueueJob, ix int32, q
 // Cleanup : deletes all resources from the queuejob
 func (qjrPod *QueueJobResPod) Cleanup(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
 
-	return qjrPod.deleteQueueJobResPods(qjobRes, queuejob)
+	return qjrPod.terminatePodsForQueueJob(queuejob)
 }

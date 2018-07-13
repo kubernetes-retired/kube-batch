@@ -320,7 +320,8 @@ func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int) *s
         }
 
 	for _, value := range queueJobs {
-		if value.Spec.Priority < targetpr {
+		glog.Infof("Job with priority: %s %v", value.Name, value.Spec.Priority)
+		if value.Spec.Priority >= targetpr {
 			qjv	:= GetAggregatedResources(value)
 			allocated = allocated.Add(qjv)
 		}
@@ -414,7 +415,7 @@ func (cc *XController) Run(stopCh chan struct{}) {
 	// TODO - scheduleNext...Job....
         go wait.Until(cc.ScheduleNext, 2*time.Second, stopCh)
         // start preempt thread based on preemption of pods
-        go wait.Until(cc.PreemptQueueJobs, 80*time.Second, stopCh)
+        go wait.Until(cc.PreemptQueueJobs, 60*time.Second, stopCh)
 
 	go wait.Until(cc.worker, time.Second, stopCh)
 
@@ -578,7 +579,10 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 	}
 	// we call sync for each controller
 	for _, ar := range qj.Spec.AggrResources.Items {
-		cc.qjobResControls[ar.Type].SyncQueueJob(qj, &ar)
+		err00 := cc.qjobResControls[ar.Type].SyncQueueJob(qj, &ar)
+		if err00 != nil {
+			glog.Infof("I have error from sync job: %v", err00)
+		}
 	}
 
 	// TODO(k82cn): replaced it with `UpdateStatus`
@@ -594,11 +598,24 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 
 //Cleanup function
 func (cc *XController) Cleanup(queuejob *arbv1.XQueueJob) error {
+
+	glog.Infof("Calling cleanup for XQueueJob %s \n", queuejob.Name)
 	if queuejob.Spec.AggrResources.Items != nil {
 		// we call clean-up for each controller
 		for _, ar := range queuejob.Spec.AggrResources.Items {
 			cc.qjobResControls[ar.Type].Cleanup(queuejob, &ar)
 		}
 	}
+
+	old_flag := queuejob.Status.CanRun
+        queuejob.Status = arbv1.XQueueJobStatus{
+                Pending:      0,
+                Running:      0,
+                Succeeded:    0,
+                Failed:       0,
+                MinAvailable: int32(queuejob.Spec.SchedSpec.MinAvailable),
+        }
+	queuejob.Status.CanRun = old_flag
+
 	return nil
 }
