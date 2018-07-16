@@ -120,7 +120,6 @@ func (ni *NodeInfo) UpdateNode(oldNode, newNode *v1.Node) {
 	ni.Capability = NewResource(newNode.Status.Capacity)
 }
 
-
 func (ni *NodeInfo) AddPod(p *PodInfo) {
 	if ni.Node != nil {
 		ni.Idle.Sub(p.Request)
