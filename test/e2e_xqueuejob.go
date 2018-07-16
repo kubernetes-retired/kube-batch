@@ -38,11 +38,11 @@ var _ = Describe("XQueueJob Plugin E2E Test", func() {
 		defer cleanupTestContext(context)
 		rep := clusterSize(context, oneCPU)
 
-		xqueueJob := createXQueueJob(context, "xqj-1", 2, rep, workerPriority, "busybox", oneCPU)
+		xqueueJob := createXQueueJob(context, "xqj-1", 2, int32(rep/2)-1, workerPriority, "busybox", oneCPU)
 		err := waitXJobCreated(context, xqueueJob.Name)
 		Expect(err).NotTo(HaveOccurred())
 
-		xqueueJob2 := createXQueueJob(context, "xqj-2", 2, rep, workerPriority, "busybox", oneCPU)
+		xqueueJob2 := createXQueueJob(context, "xqj-2", 2, int32(rep/2)-1, workerPriority, "busybox", oneCPU)
 		err = waitXJobCreated(context, xqueueJob2.Name)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -69,12 +69,12 @@ var _ = Describe("XQueueJob Plugin E2E Test", func() {
 		slot := oneCPU
 		rep := clusterSize(context, slot)
 
-		qj1 := createXQueueJob(context, "preemptee-qj", 1, rep, workerPriority, "nginx", slot)
-		err := waitXJobReady(context, qj1.Name, int(rep/2))
+		qj1 := createXQueueJob(context, "preemptee-qj", 1, int32(rep/2)-1, workerPriority, "nginx", slot)
+		err := waitXJobReady(context, qj1.Name, int(rep/2)-1)
 		Expect(err).NotTo(HaveOccurred())
 
-		qj2 := createXQueueJob(context, "preemptor-qj", 1, rep, masterPriority, "nginx", slot)
-		err = waitXJobReady(context, qj2.Name, int(rep/2))
+		qj2 := createXQueueJob(context, "preemptor-qj", 1, int32(rep/2)-1, masterPriority, "nginx", slot)
+		err = waitXJobReady(context, qj2.Name, int(rep/2)-1)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -85,19 +85,19 @@ var _ = Describe("XQueueJob Plugin E2E Test", func() {
 		slot := oneCPU
 		rep := clusterSize(context, slot)
 
-		qj1 := createXQueueJob(context, "preemptee-qj", 1, rep, workerPriority, "nginx", slot)
-		err := waitXJobReady(context, qj1.Name, int(rep/2))
+		qj1 := createXQueueJob(context, "preemptee-qj", 1, int32(rep/2)-1, workerPriority, "nginx", slot)
+		err := waitXJobReady(context, qj1.Name, int(rep/2)-1)
 		Expect(err).NotTo(HaveOccurred())
 
-		qj2 := createXQueueJob(context, "preemptor-qj", 1, rep, masterPriority, "nginx", slot)
+		qj2 := createXQueueJob(context, "preemptor-qj", 1, int32(rep/2)-1, masterPriority, "nginx", slot)
 
-		err = waitXJobReady(context, qj2.Name, int(rep/2))
+		err = waitXJobReady(context, qj2.Name, int(rep/2)-1)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = deleteXQueueJob(context, "preemptor-qj")
 		Expect(err).NotTo(HaveOccurred())
 
-		err = waitXJobReady(context, qj1.Name, int(rep/2))
+		err = waitXJobReady(context, qj1.Name, int(rep/2)-1)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
