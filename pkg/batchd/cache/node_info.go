@@ -18,6 +18,7 @@ package cache
 
 import (
 	"k8s.io/api/core/v1"
+	"reflect"		
 )
 
 // NodeInfo is node level aggregated information.
@@ -102,6 +103,21 @@ func (ni *NodeInfo) SetNode(node *v1.Node) {
 	ni.Node = node
 	ni.Allocatable = NewResource(node.Status.Allocatable)
 	ni.Capability = NewResource(node.Status.Capacity)
+}
+
+func (ni *NodeInfo) UpdateNode(oldNode, newNode *v1.Node) {
+	if !reflect.DeepEqual(oldNode.Status.Allocatable, newNode.Status.Allocatable) {
+		ni.Idle = NewResource(newNode.Status.Allocatable)
+		ni.Allocatable = NewResource(newNode.Status.Allocatable)
+
+		for _, p := range ni.Pods {
+			ni.Idle.Sub(p.Request)
+			ni.Used.Add(p.Request)
+		}
+	}
+	ni.Name = newNode.Name
+	ni.Node = newNode
+	ni.Capability = NewResource(newNode.Status.Capacity)
 }
 
 func (ni *NodeInfo) AddPod(p *PodInfo) {
