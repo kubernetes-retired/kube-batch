@@ -380,7 +380,7 @@ func (sc *SchedulerCache) addNode(node *v1.Node) error {
 func (sc *SchedulerCache) updateNode(oldNode, newNode *v1.Node) error {
 	// Did not delete the old node, just update related info, e.g. allocatable.
 	if sc.Nodes[newNode.Name] != nil {
-		sc.Nodes[newNode.Name].SetNode(newNode)
+		sc.Nodes[newNode.Name].UpdateNode(oldNode, newNode)
 		return nil
 	}
 
