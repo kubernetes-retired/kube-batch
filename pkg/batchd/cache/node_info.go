@@ -100,6 +100,7 @@ func (ni *NodeInfo) SetNode(node *v1.Node) {
 
 	ni.Name = node.Name
 	ni.Node = node
+	ni.Idle = NewResource(node.Status.Allocatable)
 	ni.Allocatable = NewResource(node.Status.Allocatable)
 	ni.Capability = NewResource(node.Status.Capacity)
 }
