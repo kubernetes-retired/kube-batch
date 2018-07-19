@@ -515,13 +515,24 @@ func (qjrPod *QueueJobResPod) GetAggregatedResources(job *arbv1.XQueueJob) *sche
             for _, ar := range job.Spec.AggrResources.Items {
                   if ar.Type == arbv1.ResourceTypePod {
                          template, _ := qjrPod.GetPodTemplate(&ar)
-                         req := schedulerapi.EmptyResource()
+			 req := schedulerapi.EmptyResource()
+                         limit := schedulerapi.EmptyResource()
                          for i := 0; i < int(ar.Replicas); i=i + 1 {
-                                  for _, c := range template.Spec.Containers {
+                             for _, c := range template.Spec.Containers {
                                         req.Add(schedulerapi.NewResource(c.Resources.Requests))
-                                  }
-                         }
-                         total = total.Add(req)
+                                        limit.Add(schedulerapi.NewResource(c.Resources.Limits))
+                             }
+                        }
+                        if req.MilliCPU < limit.MilliCPU {
+                                req.MilliCPU = limit.MilliCPU
+                        }
+                        if req.Memory < limit.Memory {
+                                req.Memory = limit.Memory
+                        }
+                        if req.GPU < limit.GPU {
+                                req.GPU = limit.GPU
+                        }
+                        total = total.Add(req)
                 }
             }
         }

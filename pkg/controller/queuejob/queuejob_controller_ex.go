@@ -291,11 +291,22 @@ func GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
                   if ar.Type == arbv1.ResourceTypePod {
                          template, _ := GetPodTemplate(&ar)
                          req := schedulerapi.EmptyResource()
+			 limit := schedulerapi.EmptyResource()
                          for i := 0; i < int(ar.Replicas); i=i + 1 {
-                                  for _, c := range template.Spec.Containers {
+                             for _, c := range template.Spec.Containers {
                                         req.Add(schedulerapi.NewResource(c.Resources.Requests))
-                                  }
-                         }
+					limit.Add(schedulerapi.NewResource(c.Resources.Limits))
+                             }
+			}
+			if req.MilliCPU < limit.MilliCPU {
+				req.MilliCPU = limit.MilliCPU
+			}
+			if req.Memory < limit.Memory {
+                                req.Memory = limit.Memory
+                        }
+			if req.GPU < limit.GPU {
+                                req.GPU = limit.GPU
+                        }
                          total = total.Add(req)
                 }
             }
@@ -303,7 +314,7 @@ func GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
         return total
 }
 
-func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int) *schedulerapi.Resource {
+func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int, cqj string) *schedulerapi.Resource {
 	cluster := qjm.cache.Snapshot()
 	r := schedulerapi.EmptyResource()
 	total := schedulerapi.EmptyResource()
@@ -320,12 +331,18 @@ func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int) *s
         }
 
 	for _, value := range queueJobs {
+		if value.Name == cqj {
+			continue
+		}
 		glog.Infof("Job with priority: %s %v", value.Name, value.Spec.Priority)
 		if value.Spec.Priority >= targetpr {
 			qjv	:= GetAggregatedResources(value)
 			allocated = allocated.Add(qjv)
 		}
 	}
+
+
+	
 	
 	//for _, value := range cluster.Jobs {
 	//	if value.Priority < targetpr {
@@ -352,7 +369,7 @@ func (qjm *XController) ScheduleNext() {
 	glog.Infof("I have queuejob %+v", qj)
 	// if scheduling error:
 	// start thread that backs-off and puts back the QJ in the queue
-	resources := qjm.getAggregatedAvailableResourcesPriority(qj.Spec.Priority)
+	resources := qjm.getAggregatedAvailableResourcesPriority(qj.Spec.Priority, qj.Name)
 	// get agg resources for the current qj
 	aggqj := qjm.qjobResControls[arbv1.ResourceTypePod].GetAggregatedResources(qj)
 
@@ -413,12 +430,28 @@ func (cc *XController) Run(stopCh chan struct{}) {
 	// start preempt thread based on preemption of pods
 
 	// TODO - scheduleNext...Job....
-        go wait.Until(cc.ScheduleNext, 2*time.Second, stopCh)
         // start preempt thread based on preemption of pods
         go wait.Until(cc.PreemptQueueJobs, 60*time.Second, stopCh)
 
 	go wait.Until(cc.worker, time.Second, stopCh)
 
+	go wait.Until(cc.UpdateQueueJobs, 2*time.Second, stopCh)
+}
+
+func (qjm *XController) UpdateQueueJobs() {
+        queueJobs, err := qjm.queueJobLister.XQueueJobs("").List(labels.Everything())
+        if err != nil {
+                glog.Errorf("I return list of queueJobs %+v", err)
+                return 
+        }
+
+        for _, newjob := range queueJobs {
+		qjm.enqueue(newjob)
+                //if _, err := qjm.arbclients.ArbV1().XQueueJobs(newjob.Namespace).Update(newjob); err != nil {
+                //        glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
+                //                newjob.Namespace, newjob.Name, err)
+                //}
+        }
 }
 
 func (cc *XController) addQueueJob(obj interface{}) {
