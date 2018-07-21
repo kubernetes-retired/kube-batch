@@ -232,6 +232,21 @@ func (qjm *XController) PreemptQueueJobs() {
 	}
 }
 
+func (qjm *XController) UpdateQueueJobs() {
+	queueJobs, err := qjm.queueJobLister.XQueueJobs("").List(labels.Everything())
+        if err != nil {
+                return 
+        }
+
+	for _, newjob := range queueJobs {
+        	if _, err := qjm.arbclients.ArbV1().XQueueJobs(newjob.Namespace).Update(newjob); err != nil {
+                        glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
+                                newjob.Namespace, newjob.Name, err)
+        	}
+        }
+}
+
+
 func (qjm *XController) GetQueueJobsEligibleForPreemption() []*arbv1.XQueueJob {
 	qjobs := make([]*arbv1.XQueueJob, 0)
 
@@ -413,9 +428,11 @@ func (cc *XController) Run(stopCh chan struct{}) {
 	// start preempt thread based on preemption of pods
 
 	// TODO - scheduleNext...Job....
-        go wait.Until(cc.ScheduleNext, 2*time.Second, stopCh)
+        //go wait.Until(cc.ScheduleNext, 2*time.Second, stopCh)
         // start preempt thread based on preemption of pods
         go wait.Until(cc.PreemptQueueJobs, 60*time.Second, stopCh)
+
+	go wait.Until(cc.UpdateQueueJobs, 2*time.Second, stopCh)
 
 	go wait.Until(cc.worker, time.Second, stopCh)
 

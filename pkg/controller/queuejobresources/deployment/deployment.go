@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	apps "k8s.io/api/apps/v1beta1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	extinformer "k8s.io/client-go/informers/apps/v1beta1"
@@ -98,6 +99,7 @@ func NewQueueJobResDeployment(config *rest.Config) queuejobresources.Interface {
 	qjrd.rtScheme = runtime.NewScheme()
 	v1.AddToScheme(qjrd.rtScheme)
 	v1beta1.AddToScheme(qjrd.rtScheme)
+	apps.AddToScheme(qjrd.rtScheme)
 	qjrd.jsonSerializer = json.NewYAMLSerializer(json.DefaultMetaFactory, qjrd.rtScheme, qjrd.rtScheme)
 
 	qjrd.refManager = queuejobresources.NewLabelRefManager()
@@ -132,29 +134,29 @@ func (qjrService *QueueJobResDeployment) deleteDeployment(obj interface{}) {
 
 
 // Parse queue job api object to get Service template
-func (qjrService *QueueJobResDeployment) getDeploymentTemplate(qjobRes *arbv1.XQueueJobResource) (*v1beta1.Deployment, error) {
-	serviceGVK := schema.GroupVersion{Group: v1beta1.GroupName, Version: "v1beta1"}.WithKind("Deployment")
+func (qjrService *QueueJobResDeployment) getDeploymentTemplate(qjobRes *arbv1.XQueueJobResource) (*apps.Deployment, error) {
+	serviceGVK := schema.GroupVersion{Group: apps.GroupName, Version: "v1beta1"}.WithKind("Deployment")
 	obj, _, err := qjrService.jsonSerializer.Decode(qjobRes.Template.Raw, &serviceGVK, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	service, ok := obj.(*v1beta1.Deployment)
+	service, ok := obj.(*apps.Deployment)
 	if !ok {
-		return nil, fmt.Errorf("Queuejob resource not defined as a Service")
+		return nil, fmt.Errorf("Queuejob resource not defined as a Deployment")
 	}
 
 	return service, nil
 
 }
 
-func (qjrService *QueueJobResDeployment) createDeploymentWithControllerRef(namespace string, service *v1beta1.Deployment, controllerRef *metav1.OwnerReference) error {
+func (qjrService *QueueJobResDeployment) createDeploymentWithControllerRef(namespace string, service *apps.Deployment, controllerRef *metav1.OwnerReference) error {
 	glog.V(4).Infof("==========create service: %s,  %+v \n", namespace, service)
 	if controllerRef != nil {
 		service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
 	}
 
-	if _, err := qjrService.clients.ExtensionsV1beta1().Deployments(namespace).Create(service); err != nil {
+	if _, err := qjrService.clients.AppsV1beta1().Deployments(namespace).Create(service); err != nil {
 		return err
 	}
 
@@ -164,7 +166,7 @@ func (qjrService *QueueJobResDeployment) createDeploymentWithControllerRef(names
 func (qjrService *QueueJobResDeployment) delDeployment(namespace string, name string) error {
 
 	glog.V(4).Infof("==========delete service: %s,  %s \n", namespace, name)
-	if err := qjrService.clients.ExtensionsV1beta1().Deployments(namespace).Delete(name, nil); err != nil {
+	if err := qjrService.clients.AppsV1beta1().Deployments(namespace).Delete(name, nil); err != nil {
 		return err
 	}
 
@@ -231,13 +233,13 @@ func (qjrService *QueueJobResDeployment) SyncQueueJob(queuejob *arbv1.XQueueJob,
 	return nil
 }
 
-func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJob(j *arbv1.XQueueJob) ([]*v1beta1.Deployment, error) {
-	servicelist, err := qjrService.clients.ExtensionsV1beta1().Deployments(j.Namespace).List(metav1.ListOptions{})
+func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJob(j *arbv1.XQueueJob) ([]*apps.Deployment, error) {
+	servicelist, err := qjrService.clients.AppsV1beta1().Deployments(j.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	services := []*v1beta1.Deployment{}
+	services := []*apps.Deployment{}
 	for i, service := range servicelist.Items {
 		metaService, err := meta.Accessor(&service)
 		if err != nil {
@@ -255,14 +257,14 @@ func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJob(j *arbv1.XQue
 
 }
 
-func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJobRes(qjobRes *arbv1.XQueueJobResource, j *arbv1.XQueueJob) ([]*v1beta1.Deployment, error) {
+func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJobRes(qjobRes *arbv1.XQueueJobResource, j *arbv1.XQueueJob) ([]*apps.Deployment, error) {
 
 	services, err := qjrService.getDeploymentsForQueueJob(j)
 	if err != nil {
 		return nil, err
 	}
 
-	myServices := []*v1beta1.Deployment{}
+	myServices := []*apps.Deployment{}
 	for i, service := range services {
 		if qjrService.refManager.BelongTo(qjobRes, service) {
 			myServices = append(myServices, services[i])
