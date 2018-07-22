@@ -111,13 +111,57 @@ func NewQueueJobResStatefulSet(config *rest.Config) queuejobresources.Interface 
 
 // Run the main goroutine responsible for watching and services.
 func (qjrService *QueueJobResSS) Run(stopCh <-chan struct{}) {
-
 	qjrService.deployInformer.Informer().Run(stopCh)
 }
 
-func (qjrPod *QueueJobResSS) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
-        return schedulerapi.EmptyResource()
+//GetPodTemplate Parse queue job api object to get Pod template
+func (qjrPod *QueueJobResSS) GetPodTemplate(qjobRes *arbv1.XQueueJobResource) (*v1.PodTemplateSpec, int32, error) {
+	res, err := qjrPod.getStatefulSetTemplate(qjobRes)
+	if err != nil {
+		return nil, -1, err
+	}
+        return &res.Spec.Template, *res.Spec.Replicas, nil
 }
+
+func (qjrPod *QueueJobResSS) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
+        total := schedulerapi.EmptyResource()
+        if job.Spec.AggrResources.Items != nil {
+            //calculate scaling
+            for _, ar := range job.Spec.AggrResources.Items {
+                if ar.Type == arbv1.ResourceTypeStatefulSet {
+                        template, replicas, _ := qjrPod.GetPodTemplate(&ar)
+			myres := queuejobresources.GetPodResources(template)
+			myres.MilliCPU = float64(replicas) * myres.MilliCPU
+			myres.Memory = float64(replicas) * myres.Memory
+			myres.GPU = int64(replicas) * myres.GPU
+			total = total.Add(myres)
+                }
+            }
+        }
+        return total
+}
+
+func (qjrPod *QueueJobResSS) GetAggregatedResourcesByPriority(priority int, job *arbv1.XQueueJob) *schedulerapi.Resource {
+        total := schedulerapi.EmptyResource()
+        if job.Spec.AggrResources.Items != nil {
+            //calculate scaling
+            for _, ar := range job.Spec.AggrResources.Items {
+                  if ar.Priority < float64(priority) {
+                        continue
+                  }
+                  if ar.Type == arbv1.ResourceTypeStatefulSet {
+                        template, replicas, _ := qjrPod.GetPodTemplate(&ar)
+                	myres := queuejobresources.GetPodResources(template)
+                        myres.MilliCPU = float64(replicas) * myres.MilliCPU
+                        myres.Memory = float64(replicas) * myres.Memory
+                        myres.GPU = int64(replicas) * myres.GPU
+                        total = total.Add(myres)
+		}
+            }
+        }
+        return total
+}
+
 
 
 func (qjrService *QueueJobResSS) addStatefulSet(obj interface{}) {
@@ -175,6 +219,9 @@ func (qjrService *QueueJobResSS) delStatefulSet(namespace string, name string) e
 	return nil
 }
 
+func (qjrPod *QueueJobResSS) UpdateQueueJobStatus(queuejob *arbv1.XQueueJob) error {
+	return nil
+}
 
 //SyncQueueJob - syncs the resources of the queuejob
 func (qjrService *QueueJobResSS) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *arbv1.XQueueJobResource) error {
@@ -216,6 +263,13 @@ func (qjrService *QueueJobResSS) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes
 		for k, v := range tmpService.Labels {
 			template.Labels[k] = v
 		}
+
+		template.Labels[queueJobName] = queuejob.Name
+                if template.Spec.Template.Labels == nil {
+                        template.Labels = map[string]string{}
+                }
+                template.Spec.Template.Labels[queueJobName] = queuejob.Name
+
 		wait := sync.WaitGroup{}
 		wait.Add(int(diff))
 		for i := 0; i < diff; i++ {

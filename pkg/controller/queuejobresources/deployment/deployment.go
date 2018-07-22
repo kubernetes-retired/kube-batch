@@ -23,7 +23,6 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -107,9 +106,54 @@ func NewQueueJobResDeployment(config *rest.Config) queuejobresources.Interface {
 	return qjrd
 }
 
-func (qjrPod *QueueJobResDeployment) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
-        return schedulerapi.EmptyResource()
+
+func (qjrPod *QueueJobResDeployment) GetPodTemplate(qjobRes *arbv1.XQueueJobResource) (*v1.PodTemplateSpec, int32, error) {
+        res, err := qjrPod.getDeploymentTemplate(qjobRes)
+        if err != nil {
+                return nil, -1, err
+        }
+        return &res.Spec.Template, *res.Spec.Replicas, nil
 }
+
+func (qjrPod *QueueJobResDeployment) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
+        total := schedulerapi.EmptyResource()
+        if job.Spec.AggrResources.Items != nil {
+            //calculate scaling
+            for _, ar := range job.Spec.AggrResources.Items {
+                if ar.Type == arbv1.ResourceTypeDeployment {
+                        template, replicas, _ := qjrPod.GetPodTemplate(&ar)
+                        myres := queuejobresources.GetPodResources(template)
+                        myres.MilliCPU = float64(replicas) * myres.MilliCPU
+                        myres.Memory = float64(replicas) * myres.Memory
+                        myres.GPU = int64(replicas) * myres.GPU
+                        total = total.Add(myres)
+                }
+            }
+        }
+        return total
+}
+
+func (qjrPod *QueueJobResDeployment) GetAggregatedResourcesByPriority(priority int, job *arbv1.XQueueJob) *schedulerapi.Resource {
+        total := schedulerapi.EmptyResource()
+        if job.Spec.AggrResources.Items != nil {
+            //calculate scaling
+            for _, ar := range job.Spec.AggrResources.Items {
+                  if ar.Priority < float64(priority) {
+                        continue
+                  }
+                  if ar.Type == arbv1.ResourceTypeDeployment {
+                        template, replicas, _ := qjrPod.GetPodTemplate(&ar)
+                        myres := queuejobresources.GetPodResources(template)
+                        myres.MilliCPU = float64(replicas) * myres.MilliCPU
+                        myres.Memory = float64(replicas) * myres.Memory
+                        myres.GPU = int64(replicas) * myres.GPU
+                        total = total.Add(myres)
+                }
+            }
+        }
+        return total
+}
+
 
 //Run the main goroutine responsible for watching and services.
 func (qjrService *QueueJobResDeployment) Run(stopCh <-chan struct{}) {
@@ -154,7 +198,7 @@ func (qjrService *QueueJobResDeployment) createDeploymentWithControllerRef(names
 	glog.V(4).Infof("==========create service: %s,  %+v \n", namespace, service)
 	if controllerRef != nil {
 		service.OwnerReferences = append(service.OwnerReferences, *controllerRef)
-	}
+	}	
 
 	if _, err := qjrService.clients.AppsV1beta1().Deployments(namespace).Create(service); err != nil {
 		return err
@@ -170,6 +214,10 @@ func (qjrService *QueueJobResDeployment) delDeployment(namespace string, name st
 		return err
 	}
 
+	return nil
+}
+
+func (qjrPod *QueueJobResDeployment) UpdateQueueJobStatus(queuejob *arbv1.XQueueJob) error {
 	return nil
 }
 
@@ -210,9 +258,14 @@ func (qjrService *QueueJobResDeployment) SyncQueueJob(queuejob *arbv1.XQueueJob,
 		if template.Labels == nil {
 			template.Labels = map[string]string{}
 		}
-		for k, v := range tmpService.Labels {
+		for k, v := range queuejob.Labels {
 			template.Labels[k] = v
 		}
+		template.Labels[queueJobName] = queuejob.Name
+		if template.Spec.Template.Labels == nil {
+			template.Labels = map[string]string{}
+		}
+		template.Spec.Template.Labels[queueJobName] = queuejob.Name
 		wait := sync.WaitGroup{}
 		wait.Add(int(diff))
 		for i := 0; i < diff; i++ {
@@ -234,24 +287,17 @@ func (qjrService *QueueJobResDeployment) SyncQueueJob(queuejob *arbv1.XQueueJob,
 }
 
 func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJob(j *arbv1.XQueueJob) ([]*apps.Deployment, error) {
-	servicelist, err := qjrService.clients.AppsV1beta1().Deployments(j.Namespace).List(metav1.ListOptions{})
+
+	servicelist, err := qjrService.clients.AppsV1beta1().Deployments(j.Namespace).List(metav1.ListOptions{
+                		LabelSelector: fmt.Sprintf("%s=%s", queueJobName, j.Name),
+        	})
 	if err != nil {
 		return nil, err
 	}
 
 	services := []*apps.Deployment{}
-	for i, service := range servicelist.Items {
-		metaService, err := meta.Accessor(&service)
-		if err != nil {
-			return nil, err
-		}
-
-		controllerRef := metav1.GetControllerOf(metaService)
-		if controllerRef != nil {
-			if controllerRef.UID == j.UID {
-				services = append(services, &servicelist.Items[i])
-			}
-		}
+	for i, _ := range servicelist.Items {
+		services = append(services, &servicelist.Items[i])
 	}
 	return services, nil
 
@@ -278,12 +324,14 @@ func (qjrService *QueueJobResDeployment) getDeploymentsForQueueJobRes(qjobRes *a
 func (qjrService *QueueJobResDeployment) deleteQueueJobResDeployments(qjobRes *arbv1.XQueueJobResource, queuejob *arbv1.XQueueJob) error {
 	job := *queuejob
 
-	activeServices, err := qjrService.getDeploymentsForQueueJobRes(qjobRes, queuejob)
+	activeServices, err := qjrService.getDeploymentsForQueueJob(queuejob)
 	if err != nil {
 		return err
 	}
 
 	active := int32(len(activeServices))
+
+	glog.Infof("Deleting %v deployments for job %s\n", active, job.Name)
 
 	wait := sync.WaitGroup{}
 	wait.Add(int(active))

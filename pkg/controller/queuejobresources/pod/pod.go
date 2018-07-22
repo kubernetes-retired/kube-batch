@@ -210,16 +210,45 @@ func (qjrPod *QueueJobResPod) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes *a
 	return err
 }
 
-// filterPods returns pods based on their phase.
-func filterPods(pods []*corev1.Pod, phase corev1.PodPhase) int {
-	result := 0
-	for i := range pods {
-		if phase == pods[i].Status.Phase {
-			result++
-		}
-	}
-	return result
+func (qjrPod *QueueJobResPod) UpdateQueueJobStatus(queuejob *arbv1.XQueueJob) error {
+	sel := &metav1.LabelSelector{
+                MatchLabels: map[string]string{
+                        queueJobName: queuejob.Name,
+                },
+        }
+        selector, err := metav1.LabelSelectorAsSelector(sel)
+        if err != nil {
+                return fmt.Errorf("couldn't convert QueueJob selector: %v", err)
+        }
+        // List all pods under QueueJob
+        pods, errt := qjrPod.podStore.Pods(queuejob.Namespace).List(selector)
+        if errt != nil {
+                return  errt
+        }
+
+	running := int32(queuejobresources.FilterPods(pods, v1.PodRunning))
+        pending := int32(queuejobresources.FilterPods(pods, v1.PodPending))
+        succeeded := int32(queuejobresources.FilterPods(pods, v1.PodSucceeded))
+        failed := int32(queuejobresources.FilterPods(pods, v1.PodFailed))
+
+        glog.Infof("There are %d pods of QueueJob %s:  pending %d, running %d, succeeded %d, failed %d",
+                len(pods), queuejob.Name,  pending, running, succeeded, failed)
+
+	old_flag := queuejob.Status.CanRun
+	old_state := queuejob.Status.State
+        queuejob.Status = arbv1.XQueueJobStatus{
+                Pending:      pending,
+                Running:      running,
+                Succeeded:    succeeded,
+                Failed:       failed,
+                MinAvailable: int32(queuejob.Spec.SchedSpec.MinAvailable),
+        }
+        queuejob.Status.CanRun = old_flag
+	queuejob.Status.State = old_state
+
+	return nil
 }
+
 
 // manageQueueJob is the core method responsible for managing the number of running
 // pods according to what is specified in the job.Spec.
@@ -235,10 +264,10 @@ func (qjrPod *QueueJobResPod) manageQueueJob(qj *arbv1.XQueueJob, pods []*v1.Pod
 			}
 		}
 	}
-	running := int32(filterPods(pods, v1.PodRunning))
-	pending := int32(filterPods(pods, v1.PodPending))
-	succeeded := int32(filterPods(pods, v1.PodSucceeded))
-	failed := int32(filterPods(pods, v1.PodFailed))
+	running := int32(queuejobresources.FilterPods(pods, v1.PodRunning))
+	pending := int32(queuejobresources.FilterPods(pods, v1.PodPending))
+	succeeded := int32(queuejobresources.FilterPods(pods, v1.PodSucceeded))
+	failed := int32(queuejobresources.FilterPods(pods, v1.PodFailed))
 
 	glog.Infof("There are %d pods of QueueJob %s:  replicas: %d pending %d, running %d, succeeded %d, failed %d",
 		len(pods), qj.Name, replicas, pending, running, succeeded, failed)
@@ -508,31 +537,32 @@ func (qjrPod *QueueJobResPod) GetPodTemplate(qjobRes *arbv1.XQueueJobResource) (
 }
 
 
+
 func (qjrPod *QueueJobResPod) GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
         total := schedulerapi.EmptyResource()
     	if job.Spec.AggrResources.Items != nil {
             //calculate scaling
             for _, ar := range job.Spec.AggrResources.Items {
+                if ar.Type == arbv1.ResourceTypePod {
+			template, _ := qjrPod.GetPodTemplate(&ar)
+                	total = total.Add(queuejobresources.GetPodResources(template))
+		}
+            }
+        }
+        return total
+}
+
+func (qjrPod *QueueJobResPod) GetAggregatedResourcesByPriority(priority int, job *arbv1.XQueueJob) *schedulerapi.Resource {
+        total := schedulerapi.EmptyResource()
+        if job.Spec.AggrResources.Items != nil {
+            //calculate scaling
+            for _, ar := range job.Spec.AggrResources.Items {
+		  if ar.Priority < float64(priority) {
+		  	continue
+		  }
                   if ar.Type == arbv1.ResourceTypePod {
                          template, _ := qjrPod.GetPodTemplate(&ar)
-			 req := schedulerapi.EmptyResource()
-                         limit := schedulerapi.EmptyResource()
-                         for i := 0; i < int(ar.Replicas); i=i + 1 {
-                             for _, c := range template.Spec.Containers {
-                                        req.Add(schedulerapi.NewResource(c.Resources.Requests))
-                                        limit.Add(schedulerapi.NewResource(c.Resources.Limits))
-                             }
-                        }
-                        if req.MilliCPU < limit.MilliCPU {
-                                req.MilliCPU = limit.MilliCPU
-                        }
-                        if req.Memory < limit.Memory {
-                                req.Memory = limit.Memory
-                        }
-                        if req.GPU < limit.GPU {
-                                req.GPU = limit.GPU
-                        }
-                        total = total.Add(req)
+			 total = total.Add(queuejobresources.GetPodResources(template))
                 }
             }
         }

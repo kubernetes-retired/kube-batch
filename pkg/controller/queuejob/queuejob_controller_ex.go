@@ -61,7 +61,7 @@ const (
 	// ControllerUIDLabel label string for queuejob controller uid
 	ControllerUIDLabel string = "controller-uid"
 
-	initialGetBackoff = 10 * time.Second	
+	initialGetBackoff = 60 * time.Second	
 
 )
 
@@ -232,20 +232,6 @@ func (qjm *XController) PreemptQueueJobs() {
 	}
 }
 
-func (qjm *XController) UpdateQueueJobs() {
-	queueJobs, err := qjm.queueJobLister.XQueueJobs("").List(labels.Everything())
-        if err != nil {
-                return 
-        }
-
-	for _, newjob := range queueJobs {
-        	if _, err := qjm.arbclients.ArbV1().XQueueJobs(newjob.Namespace).Update(newjob); err != nil {
-                        glog.Errorf("Failed to update status of XQueueJob %v/%v: %v",
-                                newjob.Namespace, newjob.Name, err)
-        	}
-        }
-}
-
 
 func (qjm *XController) GetQueueJobsEligibleForPreemption() []*arbv1.XQueueJob {
 	qjobs := make([]*arbv1.XQueueJob, 0)
@@ -257,15 +243,7 @@ func (qjm *XController) GetQueueJobsEligibleForPreemption() []*arbv1.XQueueJob {
 	}
 
 	for _, value := range queueJobs {
-		replicas := 0
-	        if value.Spec.AggrResources.Items != nil {
-                // we call clean-up for each controller
-                for _, ar := range value.Spec.AggrResources.Items {
-                        if ar.Type == arbv1.ResourceTypePod {
-                                replicas = int(ar.Replicas)
-                        }
-                }
-        	}
+		replicas := value.Spec.SchedSpec.MinAvailable
 
 		glog.Infof("I have job %s eligible for preemption %v - %v !!! \n", value, value.Status.Running, replicas)
 		if int(value.Status.Running) < replicas {
@@ -298,36 +276,16 @@ func GetPodTemplate(qjobRes *arbv1.XQueueJobResource) (*v1.PodTemplateSpec, erro
 
 }
 
-func GetAggregatedResources(job *arbv1.XQueueJob) *schedulerapi.Resource {
-        total := schedulerapi.EmptyResource()
-    	if job.Spec.AggrResources.Items != nil {
-            //calculate scaling
-            for _, ar := range job.Spec.AggrResources.Items {
-                  if ar.Type == arbv1.ResourceTypePod {
-                         template, _ := GetPodTemplate(&ar)
-                         req := schedulerapi.EmptyResource()
-			 limit := schedulerapi.EmptyResource()
-                         for i := 0; i < int(ar.Replicas); i=i + 1 {
-                             for _, c := range template.Spec.Containers {
-                                        req.Add(schedulerapi.NewResource(c.Resources.Requests))
-					limit.Add(schedulerapi.NewResource(c.Resources.Limits))
-                             }
-			}
-			if req.MilliCPU < limit.MilliCPU {
-				req.MilliCPU = limit.MilliCPU
-			}
-			if req.Memory < limit.Memory {
-                                req.Memory = limit.Memory
-                        }
-			if req.GPU < limit.GPU {
-                                req.GPU = limit.GPU
-                        }
-                         total = total.Add(req)
-                }
-            }
+func (qjm *XController) GetAggregatedResources(cqj *arbv1.XQueueJob) *schedulerapi.Resource {
+	allocated := schedulerapi.EmptyResource()
+        for _, resctrl := range qjm.qjobResControls {
+                qjv     := resctrl.GetAggregatedResources(cqj)
+                allocated = allocated.Add(qjv)
         }
-        return total
+
+        return allocated
 }
+
 
 func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int, cqj string) *schedulerapi.Resource {
 	cluster := qjm.cache.Snapshot()
@@ -351,19 +309,13 @@ func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int, cq
 		}
 		glog.Infof("Job with priority: %s %v", value.Name, value.Spec.Priority)
 		if value.Spec.Priority >= targetpr {
-			qjv	:= GetAggregatedResources(value)
-			allocated = allocated.Add(qjv)
+			for _, resctrl := range qjm.qjobResControls {
+				qjv	:= resctrl.GetAggregatedResources(value)
+				allocated = allocated.Add(qjv)
+			}
 		}
 	}
 
-
-	
-	
-	//for _, value := range cluster.Jobs {
-	//	if value.Priority < targetpr {
-	//		allocated = allocated.Add(value.Allocated)
-	//	}
-	//}
 	glog.Infof("I have allocated %+v, total %+v", total, allocated)
 	
 	r = total.Sub(allocated)
@@ -386,7 +338,7 @@ func (qjm *XController) ScheduleNext() {
 	// start thread that backs-off and puts back the QJ in the queue
 	resources := qjm.getAggregatedAvailableResourcesPriority(qj.Spec.Priority, qj.Name)
 	// get agg resources for the current qj
-	aggqj := qjm.qjobResControls[arbv1.ResourceTypePod].GetAggregatedResources(qj)
+	aggqj := qjm.GetAggregatedResources(qj)
 
 	glog.Infof("I have QueueJob with resources %v to be scheduled on aggregated idle resources %v", aggqj, resources)
 
@@ -452,7 +404,6 @@ func (cc *XController) Run(stopCh chan struct{}) {
 
 	go wait.Until(cc.worker, time.Second, stopCh)
 
-	go wait.Until(cc.UpdateQueueJobs, 2*time.Second, stopCh)
 }
 
 func (qjm *XController) UpdateQueueJobs() {
@@ -551,6 +502,10 @@ func (cc *XController) syncQueueJob(qj *arbv1.XQueueJob) error {
 		return err
 	}
 
+	// we call sync for each controller
+        // update pods running, pending,...
+        cc.qjobResControls[arbv1.ResourceTypePod].UpdateQueueJobStatus(qj)
+
 	return cc.manageQueueJob(queueJob)
 }
 
@@ -592,6 +547,7 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 	if !qj.Status.CanRun && (qj.Status.State != arbv1.QueueJobStateEnqueued && qj.Status.State != arbv1.QueueJobStateDeleted) {
 		// if there are running resources for this job then delete them because the job was put in
 		// pending state...
+		glog.Infof("Deleting queuejob resources because it will be preempted! %s", qj.Name)
 		err = cc.Cleanup(qj)
 		if err != nil {
 			return err
@@ -627,7 +583,7 @@ func (cc *XController) manageQueueJob(qj *arbv1.XQueueJob) error {
 
 		}
 	}
-	// we call sync for each controller
+
 	for _, ar := range qj.Spec.AggrResources.Items {
 		err00 := cc.qjobResControls[ar.Type].SyncQueueJob(qj, &ar)
 		if err00 != nil {
