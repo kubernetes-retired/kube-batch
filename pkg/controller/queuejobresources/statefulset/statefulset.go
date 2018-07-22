@@ -23,7 +23,6 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -291,24 +290,17 @@ func (qjrService *QueueJobResSS) SyncQueueJob(queuejob *arbv1.XQueueJob, qjobRes
 }
 
 func (qjrService *QueueJobResSS) getStatefulSetsForQueueJob(j *arbv1.XQueueJob) ([]*apps.StatefulSet, error) {
-	servicelist, err := qjrService.clients.AppsV1().StatefulSets(j.Namespace).List(metav1.ListOptions{})
+	servicelist, err := qjrService.clients.AppsV1().StatefulSets(j.Namespace).List(
+									metav1.ListOptions{
+                 					               LabelSelector: fmt.Sprintf("%s=%s", queueJobName, j.Name),
+                						})
 	if err != nil {
 		return nil, err
 	}
 
 	services := []*apps.StatefulSet{}
-	for i, service := range servicelist.Items {
-		metaService, err := meta.Accessor(&service)
-		if err != nil {
-			return nil, err
-		}
-
-		controllerRef := metav1.GetControllerOf(metaService)
-		if controllerRef != nil {
-			if controllerRef.UID == j.UID {
-				services = append(services, &servicelist.Items[i])
-			}
-		}
+	for _, service := range servicelist.Items {
+				services = append(services, &service)
 	}
 	return services, nil
 
@@ -335,7 +327,7 @@ func (qjrService *QueueJobResSS) getStatefulSetsForQueueJobRes(qjobRes *arbv1.XQ
 func (qjrService *QueueJobResSS) deleteQueueJobResStatefulSet(qjobRes *arbv1.XQueueJobResource, queuejob *arbv1.XQueueJob) error {
 	job := *queuejob
 
-	activeServices, err := qjrService.getStatefulSetsForQueueJobRes(qjobRes, queuejob)
+	activeServices, err := qjrService.getStatefulSetsForQueueJob(queuejob)
 	if err != nil {
 		return err
 	}
