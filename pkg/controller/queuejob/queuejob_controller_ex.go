@@ -250,7 +250,10 @@ func (qjm *XController) GetQueueJobsEligibleForPreemption() []*arbv1.XQueueJob {
 			qjm.arbclients.ArbV1().XQueueJobs(value.Namespace).Delete(value.Name, &metav1.DeleteOptions{
 	        	})
 			continue
-		} 
+		}	
+		if value.Status.State == arbv1.QueueJobStateEnqueued {
+			continue
+		}
 		glog.Infof("I have job %s eligible for preemption %v - %v , %v !!! \n", value, value.Status.Running, replicas, value.Status.Succeeded)
 		if int(value.Status.Running) < replicas {
 			glog.Infof("I need to preempt job %s --------------------------------------", value.Name)
@@ -313,7 +316,7 @@ func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int, cq
 		if value.Name == cqj {
 			continue
 		}
-		if value.Status.State == arbv1.QueueJobStateEnqueued {
+		if value.Status.State != arbv1.QueueJobStateActive {
 			continue
 		}
 		glog.Infof("Job with priority: %s %v", value.Name, value.Spec.Priority)
