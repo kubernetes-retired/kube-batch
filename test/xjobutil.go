@@ -28,8 +28,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+var longPoll = 100*time.Minute
+
 func createXQueueJob(context *context, name string, min, rep int32, priority string, img string, req v1.ResourceList) *arbv1.XQueueJob {
 	queueJobName := "xqueuejob.arbitrator.k8s.io"
+	cmd := make([]string, 0)
+	cmd = append(cmd, "sleep")
+	cmd = append(cmd, "10")
 
 	podTemplate := v1.PodTemplate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -47,6 +52,7 @@ func createXQueueJob(context *context, name string, min, rep int32, priority str
 					{
 						Image:           img,
 						Name:            name,
+						Command:	 cmd,
 						ImagePullPolicy: v1.PullIfNotPresent,
 						Resources: v1.ResourceRequirements{
 							Requests: req,
@@ -159,7 +165,7 @@ func xtaskCreated(ctx *context, jobName string, taskNum int) wait.ConditionFunc 
 }
 
 func listXQueueJobs(ctx *context, nJobs int) error {
-	return wait.Poll(100*time.Millisecond, oneMinute, listXTasks(ctx, nJobs))
+	return wait.Poll(100*time.Millisecond, longPoll, listXTasks(ctx, nJobs))
 }
 
 func deleteXQueueJob(ctx *context, jobName string) error {

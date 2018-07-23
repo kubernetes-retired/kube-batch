@@ -545,7 +545,12 @@ func (qjrPod *QueueJobResPod) GetAggregatedResources(job *arbv1.XQueueJob) *sche
             for _, ar := range job.Spec.AggrResources.Items {
                 if ar.Type == arbv1.ResourceTypePod {
 			template, _ := qjrPod.GetPodTemplate(&ar)
-                	total = total.Add(queuejobresources.GetPodResources(template))
+			replicas := ar.Replicas
+			myres := queuejobresources.GetPodResources(template)
+                        myres.MilliCPU = float64(replicas) * myres.MilliCPU
+                        myres.Memory = float64(replicas) * myres.Memory
+                        myres.GPU = int64(replicas) * myres.GPU
+                        total = total.Add(myres)
 		}
             }
         }

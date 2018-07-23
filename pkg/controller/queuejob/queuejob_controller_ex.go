@@ -22,6 +22,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -245,7 +246,12 @@ func (qjm *XController) GetQueueJobsEligibleForPreemption() []*arbv1.XQueueJob {
 	for _, value := range queueJobs {
 		replicas := value.Spec.SchedSpec.MinAvailable
 
-		glog.Infof("I have job %s eligible for preemption %v - %v !!! \n", value, value.Status.Running, replicas)
+		if int(value.Status.Succeeded) == replicas {
+			qjm.arbclients.ArbV1().XQueueJobs(value.Namespace).Delete(value.Name, &metav1.DeleteOptions{
+	        	})
+			continue
+		} 
+		glog.Infof("I have job %s eligible for preemption %v - %v , %v !!! \n", value, value.Status.Running, replicas, value.Status.Succeeded)
 		if int(value.Status.Running) < replicas {
 			glog.Infof("I need to preempt job %s --------------------------------------", value.Name)
 			qjobs = append(qjobs, value)
@@ -307,6 +313,9 @@ func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int, cq
 		if value.Name == cqj {
 			continue
 		}
+		if value.Status.State == arbv1.QueueJobStateEnqueued {
+			continue
+		}
 		glog.Infof("Job with priority: %s %v", value.Name, value.Spec.Priority)
 		if value.Spec.Priority >= targetpr {
 			for _, resctrl := range qjm.qjobResControls {
@@ -317,6 +326,10 @@ func (qjm *XController) getAggregatedAvailableResourcesPriority(targetpr int, cq
 	}
 
 	glog.Infof("I have allocated %+v, total %+v", total, allocated)
+
+	if allocated.MilliCPU > total.MilliCPU || allocated.Memory > total.Memory || allocated.GPU > total.GPU {
+		return r
+	}
 	
 	r = total.Sub(allocated)
 	return r
