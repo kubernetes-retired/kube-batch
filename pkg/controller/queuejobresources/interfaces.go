@@ -25,7 +25,9 @@ import (
 // Interface is an abstract interface for queue job resource management.
 type Interface interface {
 	SyncQueueJob(queuejob *qjobv1.XQueueJob, qjobRes *qjobv1.XQueueJobResource) error
+	UpdateQueueJobStatus(queuejob *qjobv1.XQueueJob) error
 	GetAggregatedResources(queuejob *qjobv1.XQueueJob) *schedulerapi.Resource
+	GetAggregatedResourcesByPriority(priority int, queuejob *qjobv1.XQueueJob) *schedulerapi.Resource
 	Cleanup(queuejob *qjobv1.XQueueJob, qjobRes *qjobv1.XQueueJobResource) error
 	Run(stopCh <-chan struct{})
 }

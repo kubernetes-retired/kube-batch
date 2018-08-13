@@ -129,6 +129,13 @@ func (qjrService *QueueJobResService) deleteService(obj interface{}) {
 	return
 }
 
+
+func (qjrPod *QueueJobResService) GetAggregatedResourcesByPriority(priority int, job *arbv1.XQueueJob) *schedulerapi.Resource {
+        total := schedulerapi.EmptyResource()
+        return total
+}
+
+
 // Parse queue job api object to get Service template
 func (qjrService *QueueJobResService) getServiceTemplate(qjobRes *arbv1.XQueueJobResource) (*v1.Service, error) {
 
@@ -169,6 +176,10 @@ func (qjrService *QueueJobResService) delService(namespace string, name string) 
 		return err
 	}
 
+	return nil
+}
+
+func (qjrPod *QueueJobResService) UpdateQueueJobStatus(queuejob *arbv1.XQueueJob) error {
 	return nil
 }
 
