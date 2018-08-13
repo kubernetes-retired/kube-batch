@@ -461,6 +461,8 @@ func (cc *XController) addQueueJob(obj interface{}) {
 		return
 	}
 
+	glog.V(4).Infof("QueueJob added - info -  %+v")
+
 	cc.enqueue(qj)
 }
 
