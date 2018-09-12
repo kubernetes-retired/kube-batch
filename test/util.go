@@ -335,16 +335,16 @@ func deleteReplicaSet(ctx *context, name string) error {
 }
 
 func taskReady(ctx *context, jobName string, taskNum int) wait.ConditionFunc {
-	jns, jn := splictJobName(ctx, jobName)
+	_, jn := splictJobName(ctx, jobName)
 
 	return func() (bool, error) {
-		queueJob, err := ctx.kubeclient.BatchV1().Jobs(jns).Get(jn, metav1.GetOptions{})
+		queueJob, err := ctx.kubeclient.BatchV1().Jobs(ctx.namespace).Get(jn, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		pods, err := ctx.kubeclient.CoreV1().Pods(jns).List(metav1.ListOptions{})
+		pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		pg, err := ctx.karclient.Scheduling().PodGroups(jns).Get(jn, metav1.GetOptions{})
+		pg, err := ctx.karclient.Scheduling().PodGroups(ctx.namespace).Get(jn, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		readyTaskNum := 0
