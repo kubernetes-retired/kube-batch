@@ -22,8 +22,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/kubernetes-incubator/kube-arbitrator/cmd/kube-batchd/app/options"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler"
+
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	clientset "k8s.io/client-go/kubernetes"
@@ -36,6 +35,9 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+
+	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app/options"
+	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler"
 )
 
 const (

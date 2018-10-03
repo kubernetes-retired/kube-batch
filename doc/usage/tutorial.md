@@ -11,9 +11,13 @@ To run `kube-arbitrator`, a Kubernetes cluster must start up. Here is a document
 
 ### (1) kube-arbitrator image
 
-An official kube-arbitrator image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubesigs/kube-batchd/). The version is `v0.2` now.
+An official kube-batch image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubesigs/kube-batch/). The version is `v0.2` now.
 
-### (2) Create a Kubernetes Deployment for kube-arbitrator
+```bash
+# docker pull  kubesigs/kube-batch:v0.2
+```
+
+### (2) Create a Kubernetes Deployment for kube-batch
 
 #### Download kube-arbitrator
 
@@ -67,7 +71,7 @@ spec:
           requests:
             cpu: "1"
       restartPolicy: Never
-      schedulerName: kube-batchd
+      schedulerName: kube-batch
 ---
 apiVersion: scheduling.incubator.k8s.io/v1alpha1
 kind: PodGroup
@@ -77,7 +81,7 @@ spec:
   numMember: 6
 ```
 
-The yaml file means a Job named `qj-01` to create 6 pods(it is specified by `parallelism`), these pods will be scheduled by scheudler `kube-batchd` (it is specified by `schedulerName`). `kube-batchd` will watch `PodGroup`, and the annotation `scheduling.k8s.io/group-name` identify which group the pod belongs to. `kube-batchd` will start `.spec.numMember` pods for a Job at the same time; otherwise, such as resources are not sufficient, `kube-batchd` will not start any pods for the Job.
+The yaml file means a Job named `qj-01` to create 6 pods(it is specified by `parallelism`), these pods will be scheduled by scheduler `kube-batch` (it is specified by `schedulerName`). `kube-batch` will watch `PodGroup`, and the annotation `scheduling.k8s.io/group-name` identify which group the pod belongs to. `kube-batch` will start `.spec.numMember` pods for a Job at the same time; otherwise, such as resources are not sufficient, `kube-batch` will not start any pods for the Job.
 
 Create the Job
 

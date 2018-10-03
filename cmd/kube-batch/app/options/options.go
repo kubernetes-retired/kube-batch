@@ -43,13 +43,13 @@ func NewServerOption() *ServerOption {
 func (s *ServerOption) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&s.Master, "master", s.Master, "The address of the Kubernetes API server (overrides any value in kubeconfig)")
 	fs.StringVar(&s.Kubeconfig, "kubeconfig", s.Kubeconfig, "Path to kubeconfig file with authorization and master location information")
-	// kube-arbitrator will ignore pods with scheduler names other than specified with the option
-	fs.StringVar(&s.SchedulerName, "scheduler-name", "kube-batchd", "kube-batchd will handle pods with the scheduler-name")
+	// kube-batch will ignore pods with scheduler names other than specified with the option
+	fs.StringVar(&s.SchedulerName, "scheduler-name", "kube-batch", "kube-batch will handle pods with the scheduler-name")
 	fs.StringVar(&s.SchedulerConf, "scheduler-conf", "", "The namespace and name of ConfigMap for scheduler configuration")
 	fs.BoolVar(&s.EnableLeaderElection, "leader-elect", s.EnableLeaderElection, "Start a leader election client and gain leadership before "+
-		"executing the main loop. Enable this when running replicated kar-scheduler for high availability")
-	fs.BoolVar(&s.NamespaceAsQueue, "enable-namespace-as-queue", s.NamespaceAsQueue, "Make Namespace as Queue with weight one, "+
-		"but kube-batchd will not handle Queue CRD anymore")
+		"executing the main loop. Enable this when running replicated kube-batch for high availability")
+	fs.BoolVar(&s.NamespaceAsQueue, "enable-namespace-as-queue", true, "Make Namespace as Queue with weight one, "+
+		"but kube-batch will not handle Queue CRD anymore")
 	fs.StringVar(&s.LockObjectNamespace, "lock-object-namespace", s.LockObjectNamespace, "Define the namespace of the lock object")
 }
 
