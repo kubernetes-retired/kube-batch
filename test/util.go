@@ -19,6 +19,7 @@ package test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,10 +37,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	arbv1 "github.com/kubernetes-incubator/kube-arbitrator/pkg/apis/scheduling/v1alpha1"
-	"github.com/kubernetes-incubator/kube-arbitrator/pkg/client/clientset/versioned"
-	arbapi "github.com/kubernetes-incubator/kube-arbitrator/pkg/scheduler/api"
-	"strconv"
+	arbv1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
+	"github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
+	arbapi "github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
 
 var oneMinute = 1 * time.Minute
