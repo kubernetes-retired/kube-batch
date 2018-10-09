@@ -248,6 +248,16 @@
 			"Rev": "9be84105672ba4433a3b61f1b4d7f9ff8b022293"
 		},
 		{
+			"ImportPath": "github.com/onsi/gomega/gbytes",
+			"Comment": "v1.4.0-4-g9be8410",
+			"Rev": "9be84105672ba4433a3b61f1b4d7f9ff8b022293"
+		},
+		{
+			"ImportPath": "github.com/onsi/gomega/gexec",
+			"Comment": "v1.4.0-4-g9be8410",
+			"Rev": "9be84105672ba4433a3b61f1b4d7f9ff8b022293"
+		},
+		{
 			"ImportPath": "github.com/onsi/gomega/internal/assertion",
 			"Comment": "v1.4.0-4-g9be8410",
 			"Rev": "9be84105672ba4433a3b61f1b4d7f9ff8b022293"
@@ -985,6 +995,11 @@
 			"Rev": "e5bc2a7bbbdf78f2a331b8c23838d1bbb1c6b40a"
 		},
 		{
+			"ImportPath": "k8s.io/client-go/discovery/fake",
+			"Comment": "kubernetes-1.11.0-beta.0-53-ge5bc2a7b",
+			"Rev": "e5bc2a7bbbdf78f2a331b8c23838d1bbb1c6b40a"
+		},
+		{
 			"ImportPath": "k8s.io/client-go/informers",
 			"Comment": "kubernetes-1.11.0-beta.0-53-ge5bc2a7b",
 			"Rev": "e5bc2a7bbbdf78f2a331b8c23838d1bbb1c6b40a"
@@ -1510,6 +1525,11 @@
 			"Rev": "e5bc2a7bbbdf78f2a331b8c23838d1bbb1c6b40a"
 		},
 		{
+			"ImportPath": "k8s.io/client-go/testing",
+			"Comment": "kubernetes-1.11.0-beta.0-53-ge5bc2a7b",
+			"Rev": "e5bc2a7bbbdf78f2a331b8c23838d1bbb1c6b40a"
+		},
+		{
 			"ImportPath": "k8s.io/client-go/third_party/forked/golang/template",
 			"Comment": "kubernetes-1.11.0-beta.0-53-ge5bc2a7b",
 			"Rev": "e5bc2a7bbbdf78f2a331b8c23838d1bbb1c6b40a"
@@ -1924,6 +1944,14 @@
 		{
 			"ImportPath": "k8s.io/utils/exec",
 			"Rev": "66066c83e385e385ccc3c964b44fd7dcd413d0ed"
+		},
+		{
+			"ImportPath": "sigs.k8s.io/testing_frameworks/integration",
+			"Rev": "5818a3a284a11812aaed11d5ca0bcadec2c50e83"
+		},
+		{
+			"ImportPath": "sigs.k8s.io/testing_frameworks/integration/internal",
+			"Rev": "5818a3a284a11812aaed11d5ca0bcadec2c50e83"
 		}
 	]
 }

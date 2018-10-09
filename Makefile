@@ -27,6 +27,9 @@ run-test:
 e2e: kube-batch
 	hack/run-e2e.sh
 
+test-integration:
+	hack/run-integration.sh
+
 coverage:
 	KUBE_COVER=y hack/make-rules/test.sh $(WHAT) $(TESTS)
 

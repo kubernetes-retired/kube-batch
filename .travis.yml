@@ -23,6 +23,7 @@ script:
   - make verify
   - make
   - make run-test
+  - make test-integration
 
 notifications:
   webhooks: https://www.travisbuddy.com/
