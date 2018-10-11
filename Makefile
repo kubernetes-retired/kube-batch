@@ -17,9 +17,9 @@ generate-code:
 	${BIN_DIR}/deepcopy-gen -i ./pkg/apis/scheduling/v1alpha1/ -O zz_generated.deepcopy
 
 images: kube-batch
-	cp ./_output/bin/kube-batch ./deployment/
-	docker build ./deployment/ -f ./deployment/Dockerfile -t kubesigs/kube-batch:${RELEASE_VER}
-	rm -f ./deployment/kube-batch
+	cp ./_output/bin/kube-batch ./deployment/images/
+	docker build ./deployment/images -t kubesigs/kube-batch:${RELEASE_VER}
+	rm -f ./deployment/images/kube-batch
 
 run-test:
 	hack/make-rules/test.sh $(WHAT) $(TESTS)
