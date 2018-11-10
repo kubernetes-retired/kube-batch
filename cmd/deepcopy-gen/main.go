@@ -62,8 +62,8 @@ func main() {
 
 	// Override defaults.
 	arguments.OutputFileBaseName = "deepcopy_generated"
-	arguments.GoHeaderFilePath = filepath.Join(args.DefaultSourceTree(), "github.com/kubernetes-sigs/kube-batch/hack/boilerplate/boilerplate.go.txt")
-
+	arguments.GoHeaderFilePath = filepath.Join(args.DefaultSourceTree(), "github.com/kubernetes-sigs/kube-batch/blob/master/hack/boilerplate/boilerplate.go.txt")
+	
 	// Custom args.
 	customArgs := &generators.CustomArgs{}
 	pflag.CommandLine.StringSliceVar(&customArgs.BoundingDirs, "bounding-dirs", customArgs.BoundingDirs,
