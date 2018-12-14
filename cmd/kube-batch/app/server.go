@@ -17,6 +17,7 @@ limitations under the License.
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -64,8 +65,6 @@ func Run(opt *options.ServerOption) error {
 		return err
 	}
 
-	neverStop := make(chan struct{})
-
 	// Start policy controller to allocate resources.
 	sched, err := scheduler.NewScheduler(config, opt.SchedulerName,
 		opt.SchedulerConf, opt.SchedulePeriod, opt.NamespaceAsQueue)
@@ -73,13 +72,22 @@ func Run(opt *options.ServerOption) error {
 		panic(err)
 	}
 
-	run := func(stopCh <-chan struct{}) {
-		sched.Run(stopCh)
-		<-stopCh
+	run := func(ctx context.Context) {
+		sched.Run(ctx.Done())
+		<-ctx.Done()
 	}
 
+	ctx, cancel := context.WithCancel(context.TODO()) // TODO once Run() accepts a context, it should be used here
+	defer cancel()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+		}
+	}()
+
 	if !opt.EnableLeaderElection {
-		run(neverStop)
+		run(ctx)
 		return fmt.Errorf("finished without leader elect")
 	}
 
@@ -112,7 +120,7 @@ func Run(opt *options.ServerOption) error {
 		return fmt.Errorf("couldn't create resource lock: %v", err)
 	}
 
-	leaderelection.RunOrDie(leaderelection.LeaderElectionConfig{
+	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
 		Lock:          rl,
 		LeaseDuration: leaseDuration,
 		RenewDeadline: renewDeadline,
