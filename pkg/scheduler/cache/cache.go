@@ -385,13 +385,15 @@ func (sc *SchedulerCache) processCleanupJob() error {
 			sc.Mutex.Lock()
 			defer sc.Mutex.Unlock()
 
-			if arbapi.JobTerminated(job) {
-				delete(sc.Jobs, job.UID)
-				glog.V(3).Infof("Job <%v:%v/%v> was deleted.", job.UID, job.Namespace, job.Name)
-			} else {
-				// Retry
-				sc.deleteJob(job)
-			}
+			/*
+				if arbapi.JobTerminated(job) {
+					delete(sc.Jobs, job.UID)
+					glog.V(3).Infof("Job <%v:%v/%v> was deleted.", job.UID, job.Namespace, job.Name)
+				} else {
+					// Retry
+					sc.deleteJob(job)
+				}
+			*/
 		}()
 
 		return nil
