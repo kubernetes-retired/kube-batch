@@ -28,7 +28,9 @@ import (
 
 var defaultSchedulerConf = map[string]string{
 	"actions":                   "reclaim, allocate, backfill, preempt",
-	"plugins":                   "gang, priority, drf, predicates, proportion",
+	"plugins.tier.1":            "proportion",
+	"plugins.tier.2":            "priority",
+	"plugins.tier.3":            "gang, drf, predicates, predicates",
 	"plugin.gang.jobready":      "true",
 	"plugin.gang.joborder":      "true",
 	"plugin.gang.preemptable":   "true",
@@ -44,7 +46,7 @@ func loadSchedulerConf(conf map[string]string) ([]framework.Action, []*framework
 
 	actionsConf, found := conf["actions"]
 	if !found {
-		actionsConf = "allocate, preempt"
+		actionsConf = "allocate"
 	}
 
 	actionNames := strings.Split(actionsConf, ",")
@@ -58,6 +60,10 @@ func loadSchedulerConf(conf map[string]string) ([]framework.Action, []*framework
 
 	pluginsConf, found := conf["plugins"]
 	if !found {
+		// Try to find plugins in tier.
+		for k, v := range conf {
+
+		}
 		pluginsConf = "gang, priority, drf"
 	}
 
