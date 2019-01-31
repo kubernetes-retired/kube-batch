@@ -92,6 +92,7 @@ func buildPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, groupName st
 					},
 				},
 			},
+			Priority: new(int32),
 		},
 	}
 }

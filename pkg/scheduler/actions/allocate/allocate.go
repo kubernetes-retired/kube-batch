@@ -58,13 +58,14 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			jobsMap[job.Queue] = util.NewPriorityQueue(ssn.JobOrderFn)
 		}
 
-		glog.V(4).Infof("Added Job <%s/%s> into Queue <%s>", job.Namespace, job.Name, job.Queue)
-		jobsMap[job.Queue].Push(job)
 	}
 
 	glog.V(3).Infof("Try to allocate resource to %d Queues", len(jobsMap))
 
 	pendingTasks := map[api.JobID]*util.PriorityQueue{}
+
+	// nodeAllocatable = Idle + backfilled
+	nodeAllocatable := make(map[string]*api.Resource)
 
 	for {
 		if queues.Empty() {
@@ -123,10 +124,26 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			if len(job.NodesFitDelta) > 0 {
 				job.NodesFitDelta = make(api.NodeResourceMap)
 			}
+
 			for _, node := range ssn.Nodes {
 				glog.V(3).Infof("Considering Task <%v/%v> on node <%v>: <%v> vs. <%v>",
 					task.Namespace, task.Name, node.Name, task.Resreq, node.Idle)
 
+				// TODO: move to node
+				if _, ok := nodeAllocatable[node.Name]; !ok {
+					backfilledRes := api.EmptyResource()
+
+					// allocatable = idle + backfill
+					backfilledRes.Add(node.Idle)
+
+					for _, task := range node.Tasks {
+						if task.IsBackfill {
+							backfilledRes.Add(task.Resreq)
+							glog.Infof("Adding task %s to node Allocable", task.Name)
+						}
+					}
+					nodeAllocatable[node.Name] = backfilledRes
+				}
 				// TODO (k82cn): Enable eCache for performance improvement.
 				if err := ssn.PredicateFn(task, node); err != nil {
 					glog.V(3).Infof("Predicates failed for task <%s/%s> on node <%s>: %v",
@@ -136,6 +153,7 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 					predicateNodes = append(predicateNodes, node)
 				}
 			}
+
 			for _, node := range predicateNodes {
 				score, err := ssn.NodeOrderFn(task, node)
 				if err != nil {
@@ -144,15 +162,21 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 					nodeScores[score] = append(nodeScores[score], node)
 				}
 			}
+
 			selectedNodes := util.SelectBestNode(nodeScores)
 			for _, node := range selectedNodes {
 				// Allocate idle resource to the task.
-				if task.InitResreq.LessEqual(node.Idle) {
+				nodeAllocatableRes := nodeAllocatable[node.Name]
+				glog.Infof("task(%s): node.Idle = %v, node.Allocable = %v", task.Name, node.Idle, nodeAllocatableRes)
+				if task.InitResreq.LessEqual(nodeAllocatableRes) {
+					nodeAllocatableRes.Sub(task.Resreq)
+
 					glog.V(3).Infof("Binding Task <%v/%v> to node <%v>",
 						task.Namespace, task.Name, node.Name)
-					if err := ssn.Allocate(task, node.Name); err != nil {
-						glog.Errorf("Failed to bind Task %v on %v in Session %v, err: %v",
-							task.UID, node.Name, ssn.UID, err)
+
+					if err := ssn.Allocate(task, node.Name, !task.Resreq.LessEqual(node.Idle)); err != nil {
+						glog.Errorf("Failed to bind Task %v on %v in Session %v",
+							task.UID, node.Name, ssn.UID)
 						continue
 					}
 					assigned = true

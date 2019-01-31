@@ -90,6 +90,7 @@ func (pc *Scheduler) runOnce() {
 	ssn := framework.OpenSession(pc.cache, pc.plugins)
 	defer framework.CloseSession(ssn)
 
+	glog.V(4).Infof("Start executing ...")
 	for _, action := range pc.actions {
 		actionStartTime := time.Now()
 		action.Execute(ssn)

@@ -76,6 +76,12 @@ func (r *Resource) IsEmpty() bool {
 	return r.MilliCPU < minMilliCPU && r.Memory < minMemory && r.MilliGPU < minMilliGPU
 }
 
+func (r *Resource) IsBelowZero() bool {
+	return r.MilliCPU <= 0 ||
+	r.Memory <= 0 ||
+	r.MilliGPU <= 0
+}
+
 func (r *Resource) IsZero(rn v1.ResourceName) bool {
 	switch rn {
 	case v1.ResourceCPU:
@@ -98,15 +104,10 @@ func (r *Resource) Add(rr *Resource) *Resource {
 
 //Sub subtracts two Resource objects.
 func (r *Resource) Sub(rr *Resource) *Resource {
-	if rr.LessEqual(r) {
-		r.MilliCPU -= rr.MilliCPU
-		r.Memory -= rr.Memory
-		r.MilliGPU -= rr.MilliGPU
-		return r
-	}
-
-	panic(fmt.Errorf("Resource is not sufficient to do operation: <%v> sub <%v>",
-		r, rr))
+	r.MilliCPU -= rr.MilliCPU
+	r.Memory -= rr.Memory
+	r.MilliGPU -= rr.MilliGPU
+	return r
 }
 
 // SetMaxResource compares with ResourceList and takes max value for each Resource.

@@ -18,6 +18,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/golang/glog"
 
 	"k8s.io/api/core/v1"
 )
@@ -72,6 +73,10 @@ func NewNodeInfo(node *v1.Node) *NodeInfo {
 
 func (ni *NodeInfo) Clone() *NodeInfo {
 	res := NewNodeInfo(ni.Node)
+	glog.Infof("new node: capability %v,  allocatable %v, idle %v, used %v", ni.Capability.MilliCPU,
+		ni.Allocatable.MilliCPU,
+		ni.Idle.MilliCPU,
+		ni.Used.MilliCPU)
 
 	for _, p := range ni.Tasks {
 		res.AddTask(p)

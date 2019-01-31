@@ -89,6 +89,7 @@ func buildPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, owner []meta
 					},
 				},
 			},
+			Priority: new(int32),
 		},
 	}
 }

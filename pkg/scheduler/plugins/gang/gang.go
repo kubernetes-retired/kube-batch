@@ -81,6 +81,7 @@ func jobReady(obj interface{}) bool {
 }
 
 func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
+	glog.V(3).Infof("In OnSessionOpen of gangPlugin")
 	validJobFn := func(obj interface{}) *api.ValidateResult {
 		job, ok := obj.(*api.JobInfo)
 		if !ok {
@@ -151,6 +152,25 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 			return -1
 		}
 
+		if !lReady && !rReady {
+			if lv.CreationTimestamp.Equal(&rv.CreationTimestamp) {
+				if lv.UID < rv.UID {
+					return -1
+				}
+			} else if lv.CreationTimestamp.Before(&rv.CreationTimestamp) {
+				return -1
+			}
+			return 1
+			/*
+				r := rand.Intn(100)
+				if r%2 == 0 {
+					return 1
+				}
+
+				return -1
+			*/
+		}
+
 		return 0
 	}
 
@@ -162,6 +182,7 @@ func (gp *gangPlugin) OnSessionClose(ssn *framework.Session) {
 	var unreadyTaskCount int32
 	var unScheduleJobCount int
 	for _, job := range ssn.Jobs {
+		jc := &v1alpha1.PodGroupCondition{}
 		if !jobReady(job) {
 			unreadyTaskCount = job.MinAvailable - readyTaskNum(job)
 			msg := fmt.Sprintf("%v/%v tasks in gang unschedulable: %v",
@@ -171,7 +192,7 @@ func (gp *gangPlugin) OnSessionClose(ssn *framework.Session) {
 			metrics.UpdateUnscheduleTaskCount(job.Name, int(unreadyTaskCount))
 			metrics.RegisterJobRetries(job.Name)
 
-			jc := &v1alpha1.PodGroupCondition{
+			jc = &v1alpha1.PodGroupCondition{
 				Type:               v1alpha1.PodGroupUnschedulableType,
 				Status:             v1.ConditionTrue,
 				LastTransitionTime: metav1.Now(),
@@ -179,7 +200,22 @@ func (gp *gangPlugin) OnSessionClose(ssn *framework.Session) {
 				Reason:             v1alpha1.NotEnoughResourcesReason,
 				Message:            msg,
 			}
-
+		} else {
+			// check if the job is backfilled
+			for _, task := range job.Tasks {
+				if task.IsBackfill {
+					jc = &v1alpha1.PodGroupCondition{
+						Type:               v1alpha1.PodGroupBackfilledType,
+						Status:             v1.ConditionTrue,
+						LastTransitionTime: metav1.Now(),
+						TransitionID:       string(ssn.UID),
+					}
+					glog.Info("marked 'backfilled' condition for job %s", job.Name)
+					break
+				}
+			}
+		}
+		if jc.Status == v1.ConditionTrue {
 			if err := ssn.UpdateJobCondition(job, jc); err != nil {
 				glog.Errorf("Failed to update job <%s/%s> condition: %v",
 					job.Namespace, job.Name, err)

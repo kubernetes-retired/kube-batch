@@ -42,6 +42,7 @@ type PodGroupConditionType string
 
 const (
 	PodGroupUnschedulableType PodGroupConditionType = "Unschedulable"
+	PodGroupBackfilledType    PodGroupConditionType = "Backfilled"
 )
 
 // PodGroupCondition contains details for the current state of this pod group.

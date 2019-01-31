@@ -43,6 +43,9 @@ type Session struct {
 	Queues  map[api.QueueID]*api.QueueInfo
 	Backlog []*api.JobInfo
 	Tiers   []conf.Tier
+	// to keep track of topdog jobs that are borrowing resources and ready to run
+	TopDogReadyJobs map[api.JobID]*api.JobInfo
+	Others          []*api.TaskInfo
 
 	plugins        map[string]Plugin
 	eventHandlers  []*EventHandler
@@ -107,6 +110,8 @@ func openSession(cache cache.Cache) *Session {
 	ssn.Nodes = snapshot.Nodes
 	ssn.Queues = snapshot.Queues
 
+	ssn.TopDogReadyJobs = map[api.JobID]*api.JobInfo{}
+
 	glog.V(3).Infof("Open Session %v with <%d> Job and <%d> Queues",
 		ssn.UID, len(ssn.Jobs), len(ssn.Queues))
 
@@ -140,8 +145,12 @@ func closeSession(ssn *Session) {
 	glog.V(3).Infof("Close Session %v", ssn.UID)
 }
 
+// very confusing function name!
+// this updates the PodGroup.Status in the job
 func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
 	status := jobInfo.PodGroup.Status
+
+	glog.Infof("pod group %s status condition is %v", jobInfo.Name, status.Conditions)
 
 	unschedulable := false
 	for _, c := range status.Conditions {
@@ -154,10 +163,11 @@ func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
 		}
 	}
 
-	// If running tasks && unschedulable, unknown phase
 	if len(jobInfo.TaskStatusIndex[api.Running]) != 0 && unschedulable {
+		// If running tasks && unschedulable, unknown phase
 		status.Phase = v1alpha1.PodGroupUnknown
 	} else {
+		// mark status to running or pending
 		allocated := 0
 		for status, tasks := range jobInfo.TaskStatusIndex {
 			if api.AllocatedStatus(status) {
@@ -173,6 +183,7 @@ func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
 		}
 	}
 
+	// statistics of tasks in different status
 	status.Running = int32(len(jobInfo.TaskStatusIndex[api.Running]))
 	status.Failed = int32(len(jobInfo.TaskStatusIndex[api.Failed]))
 	status.Succeeded = int32(len(jobInfo.TaskStatusIndex[api.Succeeded]))
@@ -228,18 +239,26 @@ func (ssn *Session) Pipeline(task *api.TaskInfo, hostname string) error {
 	return nil
 }
 
-func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
+func (ssn *Session) Allocate(task *api.TaskInfo, hostname string, usingBackfillTaskRes bool) error {
 	if err := ssn.cache.AllocateVolumes(task, hostname); err != nil {
 		return err
 	}
 
+	glog.Infof("allocating job, usingBackFill: %v", usingBackfillTaskRes)
+
 	// Only update status in session
 	job, found := ssn.Jobs[task.Job]
 	if found {
-		if err := job.UpdateTaskStatus(task, api.Allocated); err != nil {
+		newStatus := api.Allocated
+		if usingBackfillTaskRes {
+			newStatus = api.AllocatedOverBackfill
+		}
+		if err := job.UpdateTaskStatus(task, newStatus); err != nil {
 			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
 				task.Namespace, task.Name, api.Allocated, ssn.UID, err)
 			return err
+		} else {
+			glog.Infof("Task %s status is set to %d", task.Name, task.Status)
 		}
 	} else {
 		glog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
@@ -272,14 +291,19 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
 		}
 	}
 
+	// do not dispatch when using backfilled task resource
 	if ssn.JobReady(job) {
-		for _, task := range job.TaskStatusIndex[api.Allocated] {
-			if err := ssn.dispatch(task); err != nil {
-				glog.Errorf("Failed to dispatch task <%v/%v>: %v",
-					task.Namespace, task.Name, err)
-				return err
+		// do not dispatch just yet when borrowing resources from backfilled jobs
+		if !usingBackfillTaskRes {
+			for _, task := range job.TaskStatusIndex[api.Allocated] {
+				if err := ssn.dispatch(task); err != nil {
+					glog.Errorf("Failed to dispatch task <%v/%v>: %v",
+						task.Namespace, task.Name, err)
+				}
 			}
 		}
+		ssn.TopDogReadyJobs[job.UID] = job
+		glog.Infof("marked job %s as TopDogReadyJobs", job.Name)
 	}
 
 	return nil

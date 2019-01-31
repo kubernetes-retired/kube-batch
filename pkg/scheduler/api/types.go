@@ -23,6 +23,9 @@ const (
 	// Pending means the task is pending in the apiserver.
 	Pending TaskStatus = 1 << iota
 
+	// Allocated using backfilled task resources
+	AllocatedOverBackfill
+
 	// Allocated means the scheduler assigns a host to it.
 	Allocated
 

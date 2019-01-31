@@ -18,6 +18,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/golang/glog"
 	"sort"
 	"strings"
 
@@ -49,6 +50,10 @@ type TaskInfo struct {
 	VolumeReady bool
 
 	Pod *v1.Pod
+
+	// Indicates whether or not the task is a backfill task. Either persist
+	// across sessions, or add this flag in pod annotation.
+	IsBackfill bool
 }
 
 func getJobID(pod *v1.Pod) JobID {
@@ -67,11 +72,9 @@ func NewTaskInfo(pod *v1.Pod) *TaskInfo {
 	req := GetPodResourceWithoutInitContainers(pod)
 	initResreq := GetPodResourceRequest(pod)
 
-	jobID := getJobID(pod)
-
 	ti := &TaskInfo{
 		UID:        TaskID(pod.UID),
-		Job:        jobID,
+		Job:        getJobID(pod),
 		Name:       pod.Name,
 		Namespace:  pod.Namespace,
 		NodeName:   pod.Spec.NodeName,
@@ -80,6 +83,7 @@ func NewTaskInfo(pod *v1.Pod) *TaskInfo {
 		Pod:        pod,
 		Resreq:     req,
 		InitResreq: initResreq,
+		IsBackfill: false,
 	}
 
 	if pod.Spec.Priority != nil {
@@ -102,12 +106,13 @@ func (ti *TaskInfo) Clone() *TaskInfo {
 		Resreq:      ti.Resreq.Clone(),
 		InitResreq:  ti.InitResreq.Clone(),
 		VolumeReady: ti.VolumeReady,
+		IsBackfill:  ti.IsBackfill,
 	}
 }
 
 func (ti TaskInfo) String() string {
-	return fmt.Sprintf("Task (%v:%v/%v): job %v, status %v, pri %v, resreq %v",
-		ti.UID, ti.Namespace, ti.Name, ti.Job, ti.Status, ti.Priority, ti.Resreq)
+	return fmt.Sprintf("Task (%v:%v/%v): job %v, status %v, pri %v, resreq %v, isBackfill %v",
+		ti.UID, ti.Namespace, ti.Name, ti.Job, ti.Status, ti.Priority, ti.Resreq, ti.IsBackfill)
 }
 
 // JobID is the type of JobInfo's ID.
@@ -219,6 +224,7 @@ func (ji *JobInfo) addTaskIndex(ti *TaskInfo) {
 func (ji *JobInfo) AddTaskInfo(ti *TaskInfo) {
 	ji.Tasks[ti.UID] = ti
 	ji.addTaskIndex(ti)
+	ji.Priority = *ti.Pod.Spec.Priority
 
 	ji.TotalRequest.Add(ti.Resreq)
 
@@ -297,8 +303,24 @@ func (ji *JobInfo) Clone() *JobInfo {
 		info.NodeSelector[k] = v
 	}
 
+	// check whether job is running as backfill
+	// propagate to task if yes
+	isJobBackfilled := false
+	for _, cond := range ji.PodGroup.Status.Conditions {
+		if cond.Type == v1alpha1.PodGroupBackfilledType {
+			isJobBackfilled = true
+			break
+		}
+	}
+
 	for _, task := range ji.Tasks {
-		info.AddTaskInfo(task.Clone())
+		clonedTask := task.Clone()
+		if isJobBackfilled {
+			clonedTask.IsBackfill = true
+			glog.Infof("marked task %s to be backfilled", clonedTask.Name)
+		}
+
+		info.AddTaskInfo(clonedTask)
 	}
 
 	return info
