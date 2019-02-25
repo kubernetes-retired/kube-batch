@@ -67,6 +67,12 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			break
 		}
 
+		// If not enough resources, break.
+		used := ssn.Used.Clone().Add(ssn.Reserved)
+		if ssn.Allocatable.Less(used) {
+			break
+		}
+
 		queue := queues.Pop().(*api.QueueInfo)
 		if ssn.Overused(queue) {
 			glog.V(3).Infof("Queue <%s> is overused, ignore it.", queue.Name)
@@ -162,9 +168,13 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			}
 
 			if assigned {
+				ssn.Used.Add(task.Resreq)
+
 				jobs.Push(job)
 				// Handle one assigned task in each loop.
 				break
+			} else {
+				ssn.Reserved.Add(task.Resreq)
 			}
 
 			// If current task is not assgined, try to fit all rest tasks.
