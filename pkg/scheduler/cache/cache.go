@@ -26,6 +26,8 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	infov1 "k8s.io/client-go/informers/core/v1"
@@ -43,15 +45,24 @@ import (
 	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	kbver "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	"github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned/scheme"
+	kbschema "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned/scheme"
 	kbinfo "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions"
 	kbinfov1 "github.com/kubernetes-sigs/kube-batch/pkg/client/informers/externalversions/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	kbapi "github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
 
+func init() {
+	schemeBuilder := runtime.SchemeBuilder{
+		v1.AddToScheme,
+	}
+
+	utilruntime.Must(schemeBuilder.AddToScheme(kbschema.Scheme))
+}
+
 // New returns a Cache implementation.
-func New(config *rest.Config, schedulerName string, nsAsQueue bool) Cache {
-	return newSchedulerCache(config, schedulerName, nsAsQueue)
+func New(config *rest.Config, schedulerName string, defaultQueue string) Cache {
+	return newSchedulerCache(config, schedulerName, defaultQueue)
 }
 
 type SchedulerCache struct {
@@ -59,6 +70,8 @@ type SchedulerCache struct {
 
 	kubeclient *kubernetes.Clientset
 	kbclient   *kbver.Clientset
+
+	defaultQueue string
 
 	podInformer      infov1.PodInformer
 	nodeInformer     infov1.NodeInformer
@@ -83,8 +96,6 @@ type SchedulerCache struct {
 
 	errTasks    workqueue.RateLimitingInterface
 	deletedJobs workqueue.RateLimitingInterface
-
-	namespaceAsQueue bool
 }
 
 type defaultBinder struct {
@@ -166,16 +177,16 @@ func (dvb *defaultVolumeBinder) BindVolumes(task *api.TaskInfo) error {
 	return dvb.volumeBinder.Binder.BindPodVolumes(task.Pod)
 }
 
-func newSchedulerCache(config *rest.Config, schedulerName string, nsAsQueue bool) *SchedulerCache {
+func newSchedulerCache(config *rest.Config, schedulerName string, defaultQueue string) *SchedulerCache {
 	sc := &SchedulerCache{
-		Jobs:             make(map[kbapi.JobID]*kbapi.JobInfo),
-		Nodes:            make(map[string]*kbapi.NodeInfo),
-		Queues:           make(map[kbapi.QueueID]*kbapi.QueueInfo),
-		errTasks:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		deletedJobs:      workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		kubeclient:       kubernetes.NewForConfigOrDie(config),
-		kbclient:         kbver.NewForConfigOrDie(config),
-		namespaceAsQueue: nsAsQueue,
+		Jobs:         make(map[kbapi.JobID]*kbapi.JobInfo),
+		Nodes:        make(map[string]*kbapi.NodeInfo),
+		Queues:       make(map[kbapi.QueueID]*kbapi.QueueInfo),
+		errTasks:     workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		deletedJobs:  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		kubeclient:   kubernetes.NewForConfigOrDie(config),
+		kbclient:     kbver.NewForConfigOrDie(config),
+		defaultQueue: defaultQueue,
 	}
 
 	// Prepare event clients.
@@ -261,23 +272,13 @@ func newSchedulerCache(config *rest.Config, schedulerName string, nsAsQueue bool
 		DeleteFunc: sc.DeletePodGroup,
 	})
 
-	if sc.namespaceAsQueue {
-		// create informer for Namespace information
-		sc.nsInformer = informerFactory.Core().V1().Namespaces()
-		sc.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    sc.AddNamespace,
-			UpdateFunc: sc.UpdateNamespace,
-			DeleteFunc: sc.DeleteNamespace,
-		})
-	} else {
-		// create informer for Queue information
-		sc.queueInformer = kbinformer.Scheduling().V1alpha1().Queues()
-		sc.queueInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    sc.AddQueue,
-			UpdateFunc: sc.UpdateQueue,
-			DeleteFunc: sc.DeleteQueue,
-		})
-	}
+	// create informer for Queue information
+	sc.queueInformer = kbinformer.Scheduling().V1alpha1().Queues()
+	sc.queueInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    sc.AddQueue,
+		UpdateFunc: sc.UpdateQueue,
+		DeleteFunc: sc.DeleteQueue,
+	})
 
 	return sc
 }
@@ -290,12 +291,7 @@ func (sc *SchedulerCache) Run(stopCh <-chan struct{}) {
 	go sc.pvInformer.Informer().Run(stopCh)
 	go sc.pvcInformer.Informer().Run(stopCh)
 	go sc.scInformer.Informer().Run(stopCh)
-
-	if sc.namespaceAsQueue {
-		go sc.nsInformer.Informer().Run(stopCh)
-	} else {
-		go sc.queueInformer.Informer().Run(stopCh)
-	}
+	go sc.queueInformer.Informer().Run(stopCh)
 
 	// Re-sync error tasks.
 	go wait.Until(sc.processResyncTask, 0, stopCh)
@@ -305,12 +301,6 @@ func (sc *SchedulerCache) Run(stopCh <-chan struct{}) {
 }
 
 func (sc *SchedulerCache) WaitForCacheSync(stopCh <-chan struct{}) bool {
-	var queueSync func() bool
-	if sc.namespaceAsQueue {
-		queueSync = sc.nsInformer.Informer().HasSynced
-	} else {
-		queueSync = sc.queueInformer.Informer().HasSynced
-	}
 
 	return cache.WaitForCacheSync(stopCh,
 		sc.pdbInformer.Informer().HasSynced,
@@ -320,7 +310,7 @@ func (sc *SchedulerCache) WaitForCacheSync(stopCh <-chan struct{}) bool {
 		sc.pvInformer.Informer().HasSynced,
 		sc.pvcInformer.Informer().HasSynced,
 		sc.scInformer.Informer().HasSynced,
-		queueSync,
+		sc.queueInformer.Informer().HasSynced,
 	)
 }
 
@@ -375,7 +365,9 @@ func (sc *SchedulerCache) Evict(taskInfo *kbapi.TaskInfo, reason string) error {
 		}
 	}()
 
-	sc.Recorder.Eventf(job.PodGroup, v1.EventTypeNormal, "Evict", reason)
+	if !shadowPodGroup(job.PodGroup) {
+		sc.Recorder.Eventf(job.PodGroup, v1.EventTypeNormal, "Evict", reason)
+	}
 
 	return nil
 }
@@ -507,20 +499,17 @@ func (sc *SchedulerCache) Snapshot() *kbapi.ClusterInfo {
 	defer sc.Mutex.Unlock()
 
 	snapshot := &kbapi.ClusterInfo{
-		Nodes:  make([]*kbapi.NodeInfo, 0, len(sc.Nodes)),
-		Jobs:   make([]*kbapi.JobInfo, 0, len(sc.Jobs)),
-		Queues: make([]*kbapi.QueueInfo, 0, len(sc.Queues)),
-		Others: make([]*kbapi.TaskInfo, 0, 10),
+		Nodes:  make(map[string]*kbapi.NodeInfo),
+		Jobs:   make(map[kbapi.JobID]*kbapi.JobInfo),
+		Queues: make(map[kbapi.QueueID]*kbapi.QueueInfo),
 	}
 
 	for _, value := range sc.Nodes {
-		snapshot.Nodes = append(snapshot.Nodes, value.Clone())
+		snapshot.Nodes[value.Name] = value.Clone()
 	}
 
-	queues := map[kbapi.QueueID]struct{}{}
 	for _, value := range sc.Queues {
-		snapshot.Queues = append(snapshot.Queues, value.Clone())
-		queues[value.UID] = struct{}{}
+		snapshot.Queues[value.UID] = value.Clone()
 	}
 
 	for _, value := range sc.Jobs {
@@ -529,25 +518,20 @@ func (sc *SchedulerCache) Snapshot() *kbapi.ClusterInfo {
 			glog.V(4).Infof("The scheduling spec of Job <%v:%s/%s> is nil, ignore it.",
 				value.UID, value.Namespace, value.Name)
 
-			// Also tracing the running task assigned by other scheduler.
-			for _, task := range value.TaskStatusIndex[kbapi.Running] {
-				snapshot.Others = append(snapshot.Others, task.Clone())
-			}
-
 			continue
 		}
 
-		if _, found := queues[value.Queue]; !found {
-			glog.V(3).Infof("The Queue <%v> of Job <%v> does not exist, ignore it.",
-				value.Queue, value.UID)
+		if _, found := snapshot.Queues[value.Queue]; !found {
+			glog.V(3).Infof("The Queue <%v> of Job <%v/%v> does not exist, ignore it.",
+				value.Queue, value.Namespace, value.Name)
 			continue
 		}
 
-		snapshot.Jobs = append(snapshot.Jobs, value.Clone())
+		snapshot.Jobs[value.UID] = value.Clone()
 	}
 
-	glog.V(3).Infof("There are <%d> Jobs and <%d> Queues in total for scheduling.",
-		len(snapshot.Jobs), len(snapshot.Queues))
+	glog.V(3).Infof("There are <%d> Jobs, <%d> Queues and <%d> Nodes in total for scheduling.",
+		len(snapshot.Jobs), len(snapshot.Queues), len(snapshot.Nodes))
 
 	return snapshot
 }
@@ -586,7 +570,7 @@ func (sc *SchedulerCache) String() string {
 func (sc *SchedulerCache) RecordJobStatusEvent(job *kbapi.JobInfo) {
 	jobErrMsg := job.FitError()
 
-	if !kbapi.ShadowPodGroup(job.PodGroup) {
+	if !shadowPodGroup(job.PodGroup) {
 		pgUnschedulable := job.PodGroup != nil &&
 			(job.PodGroup.Status.Phase == v1alpha1.PodGroupUnknown ||
 				job.PodGroup.Status.Phase == v1alpha1.PodGroupPending)
@@ -614,7 +598,7 @@ func (sc *SchedulerCache) RecordJobStatusEvent(job *kbapi.JobInfo) {
 
 // UpdateJobStatus update the status of job and its tasks.
 func (sc *SchedulerCache) UpdateJobStatus(job *kbapi.JobInfo) (*kbapi.JobInfo, error) {
-	if !kbapi.ShadowPodGroup(job.PodGroup) {
+	if !shadowPodGroup(job.PodGroup) {
 		pg, err := sc.StatusUpdater.UpdatePodGroup(job.PodGroup)
 		if err != nil {
 			return nil, err

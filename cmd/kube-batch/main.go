@@ -28,12 +28,16 @@ import (
 
 	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app"
 	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app/options"
+
+	// Import default actions/plugins.
+	_ "github.com/kubernetes-sigs/kube-batch/pkg/scheduler/actions"
+	_ "github.com/kubernetes-sigs/kube-batch/pkg/scheduler/plugins"
 )
 
 var logFlushFreq = pflag.Duration("log-flush-frequency", 5*time.Second, "Maximum number of seconds between log flushes")
 
 func main() {
-	s := options.Options()
+	s := options.NewServerOption()
 	s.AddFlags(pflag.CommandLine)
 
 	flag.InitFlags()

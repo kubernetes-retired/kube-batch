@@ -53,10 +53,6 @@ const (
 	Unknown
 )
 
-const (
-	ShadowPodGroupKey = "kube-batch/shadow-pod-group"
-)
-
 func (ts TaskStatus) String() string {
 	switch ts {
 	case Pending:
@@ -106,3 +102,6 @@ type PredicateFn func(*TaskInfo, *NodeInfo) error
 
 // EvictableFn is the func declaration used to evict tasks.
 type EvictableFn func(*TaskInfo, []*TaskInfo) []*TaskInfo
+
+// PriorityFn is the func declaration used to get priority score for a node for a particular task.
+type PriorityFn func(*TaskInfo, *NodeInfo) (int, error)

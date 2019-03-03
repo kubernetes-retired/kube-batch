@@ -20,13 +20,15 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Predicates E2E Test", func() {
 	It("Reclaim", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
+
+		createQueues(context)
+		defer deleteQueues(context)
 
 		slot := oneCPU
 		rep := clusterSize(context, slot)
@@ -46,7 +48,7 @@ var _ = Describe("Predicates E2E Test", func() {
 		job.queue = "q1"
 		_, pg1 := createJobEx(context, job)
 		err := waitPodGroupReady(context, pg1)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(context, err)
 
 		expected := int(rep) / 2
 		// Reduce one pod to tolerate decimal fraction.
@@ -54,17 +56,17 @@ var _ = Describe("Predicates E2E Test", func() {
 			expected--
 		} else {
 			err := fmt.Errorf("expected replica <%d> is too small", expected)
-			Expect(err).NotTo(HaveOccurred())
+			checkError(context, err)
 		}
 
 		job.name = "q2-qj-2"
 		job.queue = "q2"
 		_, pg2 := createJobEx(context, job)
 		err = waitTasksReady(context, pg2, expected)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(context, err)
 
 		err = waitTasksReady(context, pg1, expected)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(context, err)
 	})
 
 })

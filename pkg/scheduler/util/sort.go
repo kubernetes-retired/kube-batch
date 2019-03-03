@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,16 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package util
 
-import "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
+import (
+	"sort"
 
-func ShadowPodGroup(pg *v1alpha1.PodGroup) bool {
-	if pg == nil {
-		return true
+	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
+)
+
+func SelectBestNode(nodeScores map[int][]*api.NodeInfo) []*api.NodeInfo {
+	var nodesInorder []*api.NodeInfo
+	var keys []int
+	for key := range nodeScores {
+		keys = append(keys, key)
 	}
-
-	_, found := pg.Annotations[ShadowPodGroupKey]
-
-	return found
+	sort.Sort(sort.Reverse(sort.IntSlice(keys)))
+	for _, key := range keys {
+		nodes := nodeScores[key]
+		nodesInorder = append(nodesInorder, nodes...)
+	}
+	return nodesInorder
 }

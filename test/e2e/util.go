@@ -17,11 +17,12 @@ limitations under the License.
 package e2e
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
+	"text/template"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -67,13 +68,11 @@ type context struct {
 	kubeclient *kubernetes.Clientset
 	kbclient   *kbver.Clientset
 
-	namespace              string
-	queues                 []string
-	enableNamespaceAsQueue bool
+	namespace string
+	queues    []string
 }
 
 func initTestContext() *context {
-	enableNamespaceAsQueue, _ := strconv.ParseBool(os.Getenv("ENABLE_NAMESPACES_AS_QUEUE"))
 	cxt := &context{
 		namespace: "test",
 		queues:    []string{"q1", "q2"},
@@ -83,21 +82,17 @@ func initTestContext() *context {
 	Expect(home).NotTo(Equal(""))
 
 	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(home, ".kube", "config"))
-	Expect(err).NotTo(HaveOccurred())
+	checkError(cxt, err)
 
 	cxt.kbclient = kbver.NewForConfigOrDie(config)
 	cxt.kubeclient = kubernetes.NewForConfigOrDie(config)
-
-	cxt.enableNamespaceAsQueue = enableNamespaceAsQueue
 
 	_, err = cxt.kubeclient.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: cxt.namespace,
 		},
 	})
-	Expect(err).NotTo(HaveOccurred())
-
-	createQueues(cxt)
+	checkError(cxt, err)
 
 	_, err = cxt.kubeclient.SchedulingV1beta1().PriorityClasses().Create(&schedv1.PriorityClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -106,7 +101,7 @@ func initTestContext() *context {
 		Value:         100,
 		GlobalDefault: false,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(cxt, err)
 
 	_, err = cxt.kubeclient.SchedulingV1beta1().PriorityClasses().Create(&schedv1.PriorityClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -115,7 +110,7 @@ func initTestContext() *context {
 		Value:         1,
 		GlobalDefault: false,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(cxt, err)
 
 	return cxt
 }
@@ -133,13 +128,7 @@ func namespaceNotExist(ctx *context) wait.ConditionFunc {
 func queueNotExist(ctx *context) wait.ConditionFunc {
 	return func() (bool, error) {
 		for _, q := range ctx.queues {
-			var err error
-			if ctx.enableNamespaceAsQueue {
-				_, err = ctx.kubeclient.CoreV1().Namespaces().Get(q, metav1.GetOptions{})
-			} else {
-				_, err = ctx.kbclient.Scheduling().Queues().Get(q, metav1.GetOptions{})
-			}
-
+			_, err := ctx.kbclient.SchedulingV1alpha1().Queues().Get(q, metav1.GetOptions{})
 			if !(err != nil && errors.IsNotFound(err)) {
 				return false, err
 			}
@@ -155,64 +144,93 @@ func cleanupTestContext(cxt *context) {
 	err := cxt.kubeclient.CoreV1().Namespaces().Delete(cxt.namespace, &metav1.DeleteOptions{
 		PropagationPolicy: &foreground,
 	})
-	Expect(err).NotTo(HaveOccurred())
-
-	deleteQueues(cxt)
+	checkError(cxt, err)
 
 	err = cxt.kubeclient.SchedulingV1beta1().PriorityClasses().Delete(masterPriority, &metav1.DeleteOptions{
 		PropagationPolicy: &foreground,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(cxt, err)
 
 	err = cxt.kubeclient.SchedulingV1beta1().PriorityClasses().Delete(workerPriority, &metav1.DeleteOptions{
 		PropagationPolicy: &foreground,
 	})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(cxt, err)
 
 	// Wait for namespace deleted.
 	err = wait.Poll(100*time.Millisecond, oneMinute, namespaceNotExist(cxt))
-	Expect(err).NotTo(HaveOccurred())
+	checkError(cxt, err)
+}
 
-	// Wait for queues deleted
-	err = wait.Poll(100*time.Millisecond, oneMinute, queueNotExist(cxt))
-	Expect(err).NotTo(HaveOccurred())
+func clusterInfo(cxt *context) string {
+	// Nodes
+	nodes, err := cxt.kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Sprintf("Failed to list nodes: %v", err)
+	}
+
+	pods, err := cxt.kubeclient.CoreV1().Pods(metav1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Sprintf("Failed to list pods: %v", err)
+	}
+
+	clusterInfo := `
+Cluster Info:
+  Nodes:
+{{range .nodes}}
+    Name: {{ .Name }}
+    Allocatable:
+      Pods: {{ .Status.Allocatable.Pods }}
+      CPU: {{ .Status.Allocatable.Cpu }}
+      Memory: {{ .Status.Allocatable.Memory }}
+    Conditions: {{range .Status.Conditions }}
+      {{ .Type }}={{ .Status }}{{end}}
+    Taints: {{range .Spec.Taints }}
+      {{ .Key }} {{ .Value }} {{ .Effect }}{{end}}
+{{end}}
+
+  Pods:
+{{range .pods}}    {{printf "%-45v%-15v%-10v%-10v" .Name .Namespace .Status.Phase .Spec.NodeName}}
+{{end}}
+`
+
+	datas := map[string]interface{}{
+		"nodes": nodes.Items,
+		"pods":  pods.Items,
+	}
+
+	// Create a new template and parse the letter into it.
+	t := template.Must(template.New("clusterInfo").Parse(clusterInfo))
+
+	output := bytes.NewBuffer(nil)
+	err = t.Execute(output, datas)
+
+	if err != nil {
+		return fmt.Sprintf("Failed to exeucte template: %v", err)
+	}
+
+	return output.String()
+}
+
+func checkError(cxt *context, err error) {
+	if err != nil {
+		ExpectWithOffset(1, err).NotTo(HaveOccurred(), clusterInfo(cxt))
+	}
 }
 
 func createQueues(cxt *context) {
 	var err error
 
 	for _, q := range cxt.queues {
-		if cxt.enableNamespaceAsQueue {
-			_, err = cxt.kubeclient.CoreV1().Namespaces().Create(&v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: q,
-				},
-			})
-		} else {
-			_, err = cxt.kbclient.Scheduling().Queues().Create(&kbv1.Queue{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: q,
-				},
-				Spec: kbv1.QueueSpec{
-					Weight: 1,
-				},
-			})
-		}
-
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	if !cxt.enableNamespaceAsQueue {
-		_, err := cxt.kbclient.Scheduling().Queues().Create(&kbv1.Queue{
+		_, err = cxt.kbclient.SchedulingV1alpha1().Queues().Create(&kbv1.Queue{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: cxt.namespace,
+				Name: q,
 			},
 			Spec: kbv1.QueueSpec{
 				Weight: 1,
 			},
 		})
 
-		Expect(err).NotTo(HaveOccurred())
+		checkError(cxt, err)
 	}
 }
 
@@ -220,28 +238,16 @@ func deleteQueues(cxt *context) {
 	foreground := metav1.DeletePropagationForeground
 
 	for _, q := range cxt.queues {
-		var err error
-
-		if cxt.enableNamespaceAsQueue {
-			err = cxt.kubeclient.CoreV1().Namespaces().Delete(q, &metav1.DeleteOptions{
-				PropagationPolicy: &foreground,
-			})
-		} else {
-			err = cxt.kbclient.Scheduling().Queues().Delete(q, &metav1.DeleteOptions{
-				PropagationPolicy: &foreground,
-			})
-		}
-
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	if !cxt.enableNamespaceAsQueue {
-		err := cxt.kbclient.Scheduling().Queues().Delete(cxt.namespace, &metav1.DeleteOptions{
+		err := cxt.kbclient.SchedulingV1alpha1().Queues().Delete(q, &metav1.DeleteOptions{
 			PropagationPolicy: &foreground,
 		})
 
-		Expect(err).NotTo(HaveOccurred())
+		checkError(cxt, err)
 	}
+
+	// Wait for queues deleted
+	err := wait.Poll(100*time.Millisecond, oneMinute, queueNotExist(cxt))
+	checkError(cxt, err)
 }
 
 type taskSpec struct {
@@ -265,12 +271,6 @@ type jobSpec struct {
 func getNS(context *context, job *jobSpec) string {
 	if len(job.namespace) != 0 {
 		return job.namespace
-	}
-
-	if context.enableNamespaceAsQueue {
-		if len(job.queue) != 0 {
-			return job.queue
-		}
 	}
 
 	return context.namespace
@@ -312,7 +312,7 @@ func createJobEx(context *context, job *jobSpec) ([]*batchv1.Job, *kbv1.PodGroup
 		}
 
 		job, err := context.kubeclient.BatchV1().Jobs(job.Namespace).Create(job)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(context, err)
 		jobs = append(jobs, job)
 
 		min = min + task.min
@@ -334,7 +334,7 @@ func createJobEx(context *context, job *jobSpec) ([]*batchv1.Job, *kbv1.PodGroup
 	}
 
 	podgroup, err := context.kbclient.Scheduling().PodGroups(pg.Namespace).Create(pg)
-	Expect(err).NotTo(HaveOccurred())
+	checkError(context, err)
 
 	return jobs, podgroup
 }
@@ -342,10 +342,10 @@ func createJobEx(context *context, job *jobSpec) ([]*batchv1.Job, *kbv1.PodGroup
 func taskPhase(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum int) wait.ConditionFunc {
 	return func() (bool, error) {
 		pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		readyTaskNum := 0
 		for _, pod := range pods.Items {
@@ -368,10 +368,10 @@ func taskPhase(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum int
 func taskPhaseEx(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum map[string]int) wait.ConditionFunc {
 	return func() (bool, error) {
 		pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		readyTaskNum := map[string]int{}
 		for _, pod := range pods.Items {
@@ -400,7 +400,7 @@ func taskPhaseEx(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum m
 func podGroupUnschedulable(ctx *context, pg *kbv1.PodGroup, time time.Time) wait.ConditionFunc {
 	return func() (bool, error) {
 		events, err := ctx.kubeclient.CoreV1().Events(pg.Namespace).List(metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		for _, event := range events.Items {
 			target := event.InvolvedObject
@@ -419,10 +419,10 @@ func podGroupUnschedulable(ctx *context, pg *kbv1.PodGroup, time time.Time) wait
 func podGroupEvicted(ctx *context, pg *kbv1.PodGroup, time time.Time) wait.ConditionFunc {
 	return func() (bool, error) {
 		pg, err := ctx.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		events, err := ctx.kubeclient.CoreV1().Events(pg.Namespace).List(metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		for _, event := range events.Items {
 			target := event.InvolvedObject
@@ -524,7 +524,7 @@ func createReplicaSet(context *context, name string, rep int32, img string, req 
 	}
 
 	deployment, err := context.kubeclient.AppsV1().ReplicaSets(context.namespace).Create(deployment)
-	Expect(err).NotTo(HaveOccurred())
+	checkError(context, err)
 
 	return deployment
 }
@@ -539,10 +539,10 @@ func deleteReplicaSet(ctx *context, name string) error {
 func replicaSetReady(ctx *context, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		deployment, err := ctx.kubeclient.ExtensionsV1beta1().ReplicaSets(ctx.namespace).Get(name, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(ctx.namespace).List(metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		labelSelector := labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels)
 
@@ -566,10 +566,10 @@ func waitReplicaSetReady(ctx *context, name string) error {
 
 func clusterSize(ctx *context, req v1.ResourceList) int32 {
 	nodes, err := ctx.kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	pods, err := ctx.kubeclient.CoreV1().Pods(metav1.NamespaceAll).List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	used := map[string]*kbapi.Resource{}
 
@@ -620,7 +620,7 @@ func clusterSize(ctx *context, req v1.ResourceList) int32 {
 
 func clusterNodeNumber(ctx *context) int {
 	nodes, err := ctx.kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	nn := 0
 	for _, node := range nodes.Items {
@@ -635,10 +635,10 @@ func clusterNodeNumber(ctx *context) int {
 
 func computeNode(ctx *context, req v1.ResourceList) (string, int32) {
 	nodes, err := ctx.kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	pods, err := ctx.kubeclient.CoreV1().Pods(metav1.NamespaceAll).List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	used := map[string]*kbapi.Resource{}
 
@@ -692,10 +692,10 @@ func computeNode(ctx *context, req v1.ResourceList) (string, int32) {
 
 func getPodOfPodGroup(ctx *context, pg *kbv1.PodGroup) []*v1.Pod {
 	pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	var qjpod []*v1.Pod
 
@@ -712,7 +712,7 @@ func getPodOfPodGroup(ctx *context, pg *kbv1.PodGroup) []*v1.Pod {
 
 func taintAllNodes(ctx *context, taints []v1.Taint) error {
 	nodes, err := ctx.kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	for _, node := range nodes.Items {
 		newNode := node.DeepCopy()
@@ -735,10 +735,10 @@ func taintAllNodes(ctx *context, taints []v1.Taint) error {
 		newNode.Spec.Taints = newTaints
 
 		patchBytes, err := preparePatchBytesforNode(node.Name, &node, newNode)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		_, err = ctx.kubeclient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, patchBytes)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 	}
 
 	return nil
@@ -746,7 +746,7 @@ func taintAllNodes(ctx *context, taints []v1.Taint) error {
 
 func removeTaintsFromAllNodes(ctx *context, taints []v1.Taint) error {
 	nodes, err := ctx.kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	checkError(ctx, err)
 
 	for _, node := range nodes.Items {
 		if len(node.Spec.Taints) == 0 {
@@ -772,13 +772,28 @@ func removeTaintsFromAllNodes(ctx *context, taints []v1.Taint) error {
 		newNode.Spec.Taints = newTaints
 
 		patchBytes, err := preparePatchBytesforNode(node.Name, &node, newNode)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 
 		_, err = ctx.kubeclient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, patchBytes)
-		Expect(err).NotTo(HaveOccurred())
+		checkError(ctx, err)
 	}
 
 	return nil
+}
+
+func getAllWorkerNodes(ctx *context) []string {
+	nodeNames := make([]string, 0)
+
+	nodes, err := ctx.kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
+	checkError(ctx, err)
+
+	for _, node := range nodes.Items {
+		if len(node.Spec.Taints) != 0 {
+			continue
+		}
+		nodeNames = append(nodeNames, node.Name)
+	}
+	return nodeNames
 }
 
 func preparePatchBytesforNode(nodeName string, oldNode *v1.Node, newNode *v1.Node) ([]byte, error) {
