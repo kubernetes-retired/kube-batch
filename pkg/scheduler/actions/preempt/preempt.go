@@ -18,7 +18,6 @@ package preempt
 
 import (
 	"fmt"
-
 	"github.com/golang/glog"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
@@ -45,10 +44,14 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 	glog.V(3).Infof("Enter Preempt ...")
 	defer glog.V(3).Infof("Leaving Preempt ...")
 
-	// list of preemptor jobs by queue
+    // TODO Terry: Uncomment it after fixing integration tests
+	// if ! ssn.EnablePreemption {
+    //		glog.V(3).Infof("Preemption disabled")
+    //		return
+	//}
+
 	preemptorsMap := map[api.QueueID]*util.PriorityQueue{}
 
-	// pending tasks by preemptor job
 	preemptorTasks := map[api.JobID]*util.PriorityQueue{}
 
 	var underRequest []*api.JobInfo
@@ -65,16 +68,13 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 
 		if len(job.TaskStatusIndex[api.Pending]) != 0 {
 
-			// sort jobs that have pending tasks by queue
 			if _, found := preemptorsMap[job.Queue]; !found {
 				preemptorsMap[job.Queue] = util.NewPriorityQueue(ssn.JobOrderFn)
 			}
 			preemptorsMap[job.Queue].Push(job)
 
-			// a list of job that are trying to preempt others
 			underRequest = append(underRequest, job)
 
-			// pending tasks of preemptors
 			preemptorTasks[job.UID] = util.NewPriorityQueue(ssn.TaskOrderFn)
 			for _, task := range job.TaskStatusIndex[api.Pending] {
 				preemptorTasks[job.UID].Push(task)
@@ -82,89 +82,10 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 		}
 	}
 
-	/*
-	 * remove some backfilled jobs for top dog jobs
-	 */
-	glog.Infof("top dog ready job = %v", ssn.TopDogReadyJobs)
-	for _, node := range ssn.Nodes {
-
-		glog.Infof("node allocatable capacity %v | used: %v | idle: %v",
-			node.Allocatable, node.Used, node.Idle)
-
-		// get the debt resource target
-		debtRes := node.Used.Clone()
-		debtRes.Sub(node.Capability)
-		for _, task := range node.Tasks {
-			if _, found := ssn.Jobs[task.Job]; !found {
-				// do not handle irrelevant tasks
-				continue
-			}
-			if task.Status != api.Allocated && task.Status != api.AllocatedOverBackfill {
-				continue
-			}
-
-			if _, ok := ssn.TopDogReadyJobs[task.Job]; !ok {
-				debtRes.Sub(task.Resreq)
-				glog.Infof("reduced debt by task %s by %v to %v", task.Name, task.Resreq.MilliCPU, debtRes.MilliCPU)
-			}
-		}
-
-		glog.Infof("resource debt on node %s is %v", node.Name, debtRes)
-
-		if debtRes.IsBelowZero() {
-			// skip this node if all resource usage is below capacity
-			glog.Infof("no need to preempt on node %s", node.Name)
-			continue
-		}
-
-		// preempt just enough backfilled tasks to meet the resource debt target
-		res := api.EmptyResource()
-		bfTaskToKill := make([]*api.TaskInfo, 0)
-		for _, task := range node.Tasks {
-			if !task.IsBackfill {
-				continue
-			}
-
-			res.Add(task.Resreq)
-			bfTaskToKill = append(bfTaskToKill, task)
-
-			if debtRes.LessEqual(res) {
-				break
-			}
-		}
-
-		if !debtRes.LessEqual(res) {
-			glog.Error("cannot find enough backfill job to evict")
-			continue
-		}
-
-		// preempt the backfill tasks to reclaim resource
-		stmt := ssn.Statement()
-		for _, preemptee := range bfTaskToKill {
-
-			if err := stmt.Evict(preemptee, "preempt"); err != nil {
-				glog.Errorf("Failed to preempt Task <%s/%s>: %v",
-					preemptee.Namespace, preemptee.Name, err)
-				continue
-			} else {
-				glog.Infof("task %s is preempted on node %s", preemptee.Name, node.Name)
-			}
-		}
-		stmt.Commit()
-	}
-
-	/*
-	 * TODO: remove this after testing
-	 */
-	if true {
-		return
-	}
-
 	// Preemption between Jobs within the same queue.
 	for _, queue := range queues {
 		for {
 
-			// the preemptors here is JOB
 			preemptors := preemptorsMap[queue.UID]
 
 			// If no preemptors, no preemption.
@@ -173,7 +94,6 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 				break
 			}
 
-			// get a job by JobOrderFn
 			preemptorJob := preemptors.Pop().(*api.JobInfo)
 
 			stmt := ssn.Statement()
@@ -186,24 +106,26 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 					break
 				}
 
-				// the preemptor here is a TASK. confusing nuf?
 				preemptor := preemptorTasks[preemptorJob.UID].Pop().(*api.TaskInfo)
 
-				if preempted, _ := preempt(ssn, stmt, preemptor, ssn.Nodes,
-					func(task *api.TaskInfo) bool {
-						// Ignore non running task.
-						if task.Status != api.Running {
-							return false
-						}
 
-						job, found := ssn.Jobs[task.Job]
-						if !found {
-							return false
-						}
-						// Preempt other jobs within queue
-						// same queue, different job
-						return job.Queue == preemptorJob.Queue && preemptor.Job != task.Job
-					}); preempted {
+				glog.V(3).Infof("Considering preemptor <%s/%s> with status %s",
+					preemptor.Namespace, preemptor.Name, preemptor.Status)
+
+				if preempted, _ := preempt(ssn, stmt, preemptor, ssn.Nodes, func(task *api.TaskInfo) bool {
+					// Ignore non running task.
+					if task.Status != api.Running {
+						return false
+					}
+
+					job, found := ssn.Jobs[task.Job]
+					if !found {
+						return false
+					}
+					// Preempt other jobs within queue
+					// same queue, different job
+					return job.Queue == preemptorJob.Queue && preemptor.Job != task.Job
+				}); preempted {
 					assigned = true
 				}
 
@@ -220,7 +142,6 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 				continue
 			}
 
-			// assigned here means job is ready.
 			if assigned {
 				preemptors.Push(preemptorJob)
 			}
@@ -257,6 +178,75 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 				}
 			}
 		}
+	}
+
+	if ssn.EnablePreemption {
+		//for _, node := range ssn.Nodes {
+		//	glog.Infof(">> Node allocatable capacity %v | used: %v | idle: %v",
+		//		node.Allocatable, node.Used, node.Idle)
+		//
+		//	// get the debt resource target
+		//	debtRes := node.Used.Clone()
+		//	debtRes.Sub(node.Capability)
+		//	for _, task := range node.Tasks {
+		//		if _, found := ssn.Jobs[task.Job]; !found {
+		//			// do not handle irrelevant tasks
+		//			continue
+		//		}
+		//		if task.Status != api.Allocated && task.Status != api.AllocatedOverBackfill {
+		//			continue
+		//		}
+		//
+		//		if ! ssn.JobReady(ssn.Jobs[task.Job]) && ! ssn.JobAlmostReady(ssn.Jobs[task.Job]) {
+		//			debtRes.Sub(task.Resreq)
+		//			glog.Infof("reduced debt by task %s by %v to %v", task.Name, task.Resreq.MilliCPU, debtRes.MilliCPU)
+		//		}
+		//	}
+		//
+		//	glog.Infof(">>> Resource debt on node %s is %v", node.Name, debtRes)
+		//
+		//	if debtRes.IsBelowZero() || debtRes.IsZero(v1.ResourceCPU) {
+		//		// skip this node if all resource usage is below capacity
+		//		glog.Infof("no need to preempt on node %s", node.Name)
+		//		continue
+		//	}
+		//
+		//	// preempt just enough backfilled tasks to meet the resource debt target
+		//	res := api.EmptyResource()
+		//	bfTaskToKill := make([]*api.TaskInfo, 0)
+		//	for _, task := range node.Tasks {
+		//		if !task.IsBackfill {
+		//			continue
+		//		}
+		//
+		//		res.Add(task.Resreq)
+		//		bfTaskToKill = append(bfTaskToKill, task)
+		//
+		//		if debtRes.LessEqual(res) {
+		//			break
+		//		}
+		//	}
+		//
+		//	if !debtRes.LessEqual(res) {
+		//		glog.Error("cannot find enough backfill job to evict")
+		//		continue
+		//	}
+		//
+		//	// preempt the backfill tasks to reclaim resource
+		//	stmt := ssn.Statement()
+		//	for _, preemptee := range bfTaskToKill {
+		//
+		//		if err := stmt.Evict(preemptee, "preempt"); err != nil {
+		//			glog.Errorf("Failed to preempt Task <%s/%s>: %v",
+		//				preemptee.Namespace, preemptee.Name, err)
+		//			continue
+		//		} else {
+		//			glog.Infof("task %s is preempted on node %s", preemptee.Name, node.Name)
+		//		}
+		//	}
+		//	stmt.Commit()
+		//}
+		//
 	}
 }
 
@@ -295,7 +285,6 @@ func preempt(
 		glog.V(3).Infof("Considering Task <%s/%s> on Node <%s>.",
 			preemptor.Namespace, preemptor.Name, node.Name)
 
-		// premptees are candidates
 		var preemptees []*api.TaskInfo
 		preempted := api.EmptyResource()
 		resreq := preemptor.InitResreq.Clone()
@@ -308,9 +297,6 @@ func preempt(
 			}
 		}
 
-		// victims are tasks that can tolerate being stopped
-		// MQ: the aging plugin's Preemptable() would evict all preemptees that have
-		// lower aging priorities
 		victims := ssn.Preemptable(preemptor, preemptees)
 		metrics.UpdatePreemptionVictimsCount(len(victims))
 
@@ -333,14 +319,12 @@ func preempt(
 			glog.Errorf("Try to preempt Task <%s/%s> for Tasks <%s/%s>",
 				preemptee.Namespace, preemptee.Name, preemptor.Namespace, preemptor.Name)
 
-			// Evict always return nil. WTF?
 			if err := stmt.Evict(preemptee, "preempt"); err != nil {
 				glog.Errorf("Failed to preempt Task <%s/%s> for Tasks <%s/%s>: %v",
 					preemptee.Namespace, preemptee.Name, preemptor.Namespace, preemptor.Name, err)
 				continue
 			}
 
-			// call it preemptedResource instead of "preempted"
 			preempted.Add(preemptee.Resreq)
 
 			// If reclaimed enough resources, break loop to avoid Sub panic.
@@ -365,7 +349,6 @@ func preempt(
 			break
 		}
 	}
-
 	return assigned, nil
 }
 

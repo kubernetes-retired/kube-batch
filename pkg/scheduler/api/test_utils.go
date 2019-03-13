@@ -18,6 +18,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"reflect"
 
 	"k8s.io/api/core/v1"
@@ -92,6 +93,14 @@ func buildPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, owner []meta
 			Priority: new(int32),
 		},
 	}
+}
+
+func buildBackfillPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, owner []metav1.OwnerReference, labels map[string]string) *v1.Pod {
+	pod := buildPod(ns, n, nn, p, req, owner, labels)
+	pod.Annotations = map[string]string {
+		v1alpha1.BackfillAnnotationKey: "true",
+	}
+	return pod
 }
 
 func buildPdb(n string, min int, selectorMap map[string]string) *v1beta1.PodDisruptionBudget {

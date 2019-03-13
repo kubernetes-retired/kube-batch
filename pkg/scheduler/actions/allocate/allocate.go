@@ -58,14 +58,13 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			jobsMap[job.Queue] = util.NewPriorityQueue(ssn.JobOrderFn)
 		}
 
+		glog.V(4).Infof("Added Job <%s/%s> into Queue <%s>", job.Namespace, job.Name, job.Queue)
+		jobsMap[job.Queue].Push(job)
 	}
 
 	glog.V(3).Infof("Try to allocate resource to %d Queues", len(jobsMap))
 
 	pendingTasks := map[api.JobID]*util.PriorityQueue{}
-
-	// nodeAllocatable = Idle + backfilled
-	nodeAllocatable := make(map[string]*api.Resource)
 
 	for {
 		if queues.Empty() {
@@ -88,6 +87,7 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 		}
 
 		job := jobs.Pop().(*api.JobInfo)
+
 		if _, found := pendingTasks[job.UID]; !found {
 			tasks := util.NewPriorityQueue(ssn.TaskOrderFn)
 			for _, task := range job.TaskStatusIndex[api.Pending] {
@@ -126,24 +126,6 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			}
 
 			for _, node := range ssn.Nodes {
-				glog.V(3).Infof("Considering Task <%v/%v> on node <%v>: <%v> vs. <%v>",
-					task.Namespace, task.Name, node.Name, task.Resreq, node.Idle)
-
-				// TODO: move to node
-				if _, ok := nodeAllocatable[node.Name]; !ok {
-					backfilledRes := api.EmptyResource()
-
-					// allocatable = idle + backfill
-					backfilledRes.Add(node.Idle)
-
-					for _, task := range node.Tasks {
-						if task.IsBackfill {
-							backfilledRes.Add(task.Resreq)
-							glog.Infof("Adding task %s to node Allocable", task.Name)
-						}
-					}
-					nodeAllocatable[node.Name] = backfilledRes
-				}
 				// TODO (k82cn): Enable eCache for performance improvement.
 				if err := ssn.PredicateFn(task, node); err != nil {
 					glog.V(3).Infof("Predicates failed for task <%s/%s> on node <%s>: %v",
@@ -165,16 +147,14 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 
 			selectedNodes := util.SelectBestNode(nodeScores)
 			for _, node := range selectedNodes {
-				// Allocate idle resource to the task.
-				nodeAllocatableRes := nodeAllocatable[node.Name]
-				glog.Infof("task(%s): node.Idle = %v, node.Allocable = %v", task.Name, node.Idle, nodeAllocatableRes)
-				if task.InitResreq.LessEqual(nodeAllocatableRes) {
-					nodeAllocatableRes.Sub(task.Resreq)
+				glog.V(3).Infof("Considering Task <%v/%v> on node <%v>. Task request: <%v>; Idle: <%v>; Used: <%v>; Releasing: <%v>; Backfilled: <%v>",
+					task.Namespace, task.Name, node.Name, task.Resreq, node.Idle, node.Used, node.Releasing, node.Backfilled)
 
+				if task.InitResreq.LessEqual(node.GetAccessibleResource()) {
 					glog.V(3).Infof("Binding Task <%v/%v> to node <%v>",
 						task.Namespace, task.Name, node.Name)
 
-					if err := ssn.Allocate(task, node.Name, !task.Resreq.LessEqual(node.Idle)); err != nil {
+					if err := ssn.Allocate(task, node.Name, !task.InitResreq.LessEqual(node.Idle)); err != nil {
 						glog.Errorf("Failed to bind Task %v on %v in Session %v",
 							task.UID, node.Name, ssn.UID)
 						continue
@@ -209,6 +189,7 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			}
 
 			if ssn.JobReady(job) {
+				glog.V(3).Infof("Job <%v/%v> is ready", job.Namespace, job.Name)
 				jobs.Push(job)
 				break
 			}

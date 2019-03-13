@@ -77,8 +77,8 @@ func (r *Resource) IsEmpty() bool {
 }
 
 func (r *Resource) IsBelowZero() bool {
-	return r.MilliCPU <= 0 ||
-	r.Memory <= 0 ||
+	return r.MilliCPU <= 0 &&
+	r.Memory <= 0 &&
 	r.MilliGPU <= 0
 }
 
@@ -155,6 +155,10 @@ func (r *Resource) Multi(ratio float64) *Resource {
 
 func (r *Resource) Less(rr *Resource) bool {
 	return r.MilliCPU < rr.MilliCPU && r.Memory < rr.Memory && r.MilliGPU < rr.MilliGPU
+}
+
+func (r *Resource) Equal(rr *Resource) bool {
+	return r.MilliCPU == rr.MilliCPU && r.Memory == rr.Memory && r.MilliGPU == rr.MilliGPU
 }
 
 func (r *Resource) LessEqual(rr *Resource) bool {

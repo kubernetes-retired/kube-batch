@@ -257,7 +257,7 @@ func (sc *SchedulerCache) DeletePod(obj interface{}) {
 
 // Assumes that lock is already acquired.
 func (sc *SchedulerCache) addNode(node *v1.Node) error {
-	glog.Infof("adding node %v", node)
+	glog.Infof("Adding node <%v> with capacity %v and allocatable %v", node.Name, node.Status.Capacity, node.Status.Allocatable)
 	if sc.Nodes[node.Name] != nil {
 		sc.Nodes[node.Name].SetNode(node)
 	} else {

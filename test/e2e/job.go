@@ -102,6 +102,7 @@ var _ = Describe("Job E2E Test", func() {
 		}
 
 		_, pg := createJob(context, job)
+
 		err = waitPodGroupPending(context, pg)
 		checkError(context, err)
 
@@ -414,4 +415,69 @@ var _ = Describe("Job E2E Test", func() {
 		err = waitPodGroupReady(context, pg2)
 		checkError(context, err)
 	})
+
+	//It("Backfill scheduling", func() {
+	//	context := initTestContext()
+	//	defer cleanupTestContext(context)
+	//	maxCnt := clusterSize(context, oneCPU)
+	//
+	//	replicaset := createReplicaSet(context, "rs-1", maxCnt-2, "nginx", oneCPU)
+	//	err := waitReplicaSetReady(context, replicaset.Name)
+	//	Expect(err).NotTo(HaveOccurred())
+	//
+	//	job := &jobSpec{
+	//		name:      "gang-qj",
+	//		namespace: context.namespace,
+	//		tasks: []taskSpec{
+	//			{
+	//				img: "busybox",
+	//				req: oneCPU,
+	//				min: maxCnt,
+	//				rep: maxCnt,
+	//			},
+	//		},
+	//	}
+	//
+	//	_, pg := createJob(context, job)
+	//	err = waitPodGroupPending(context, pg)
+	//	Expect(err).NotTo(HaveOccurred())
+	//
+	//	// Job stuck in pending because no sufficient
+	//	// resources are available.
+	//	err = waitPodGroupUnschedulable(context, pg)
+	//	Expect(err).NotTo(HaveOccurred())
+	//
+	//	bfJob := &jobSpec{
+	//		name:      "bf-qj",
+	//		namespace: context.namespace,
+	//		tasks: []taskSpec{
+	//			{
+	//				img: "busybox",
+	//				req: oneCPU,
+	//				min: 1,
+	//				rep: 1,
+	//			},
+	//		},
+	//	}
+	//
+	//	// Submit bfJob which requires less resources.
+	//	// bfJob will start running because backfill is enabled.
+	//	_, bfPg := createJob(context, bfJob)
+	//	err = waitPodGroupReady(context, bfPg)
+	//	Expect(err).NotTo(HaveOccurred())
+	//
+	//	// Delete bfJob
+	//	for i := range bfJob.tasks {
+	//		err = deleteJob(context, fmt.Sprintf("%s-%d", bfJob.name, i))
+	//		Expect(err).NotTo(HaveOccurred())
+	//	}
+	//
+	//	// Delete replica set
+	//	err = deleteReplicaSet(context, replicaset.Name)
+	//	Expect(err).NotTo(HaveOccurred())
+	//
+	//	// Original job should have enough resource to start
+	//	err = waitPodGroupReady(context, pg)
+	//	Expect(err).NotTo(HaveOccurred())
+	//})
 })

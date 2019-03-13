@@ -17,6 +17,7 @@ limitations under the License.
 package api
 
 import (
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"reflect"
 	"testing"
 
@@ -195,3 +196,41 @@ func TestDeleteTaskInfo(t *testing.T) {
 		}
 	}
 }
+
+func TestIsBackfill(t *testing.T) {
+	owner := buildOwnerReference("uid")
+	noAnnotationPod := buildPod("c1", "noAnnotationPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
+	notBackfillPod := buildPod("c1", "notBackfillPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
+	notBackfillPod.Annotations = map[string]string {v1alpha1.BackfillAnnotationKey: "false"}
+	backfillPod := buildBackfillPod("c1", "backfillPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
+
+	tests := []struct {
+		name     string
+		pod      *v1.Pod
+		expected bool
+	}{
+		{
+			name:   "test backfill pod",
+			pod:    backfillPod,
+			expected: true,
+		},
+		{
+			name:   "test no-annotation pod",
+			pod:    noAnnotationPod,
+			expected: false,
+		},
+		{
+			name:   "test not-backfill pod",
+			pod:    notBackfillPod,
+			expected: false,
+		},
+	}
+
+	for i, test := range tests {
+		actual := IsBackfill(test.pod)
+		if IsBackfill(test.pod) != test.expected {
+			t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expected, actual)
+		}
+	}
+}
+

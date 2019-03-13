@@ -61,12 +61,12 @@ func getTaskStatus(pod *v1.Pod) TaskStatus {
 }
 
 func AllocatedStatus(status TaskStatus) bool {
-	switch status {
-	case Bound, Binding, Running, Allocated, AllocatedOverBackfill:
-		return true
-	default:
-		return false
+	for _, s := range AllocatedStatuses() {
+		if status == s {
+			return true
+		}
 	}
+	return false
 }
 
 func MergeErrors(errs ...error) error {

@@ -538,6 +538,13 @@ func deleteReplicaSet(ctx *context, name string) error {
 	})
 }
 
+func deleteJob(ctx *context, name string) error {
+	foreground := metav1.DeletePropagationForeground
+	return ctx.kubeclient.BatchV1().Jobs(ctx.namespace).Delete(name, &metav1.DeleteOptions{
+		PropagationPolicy: &foreground,
+	})
+}
+
 func replicaSetReady(ctx *context, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		deployment, err := ctx.kubeclient.ExtensionsV1beta1().ReplicaSets(ctx.namespace).Get(name, metav1.GetOptions{})
