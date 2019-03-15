@@ -129,31 +129,6 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 	ssn.AddReclaimableFn(gp.Name(), preemptableFn)
 	ssn.AddPreemptableFn(gp.Name(), preemptableFn)
 
-	jobOrderFn := func(l, r interface{}) int {
-		lv := l.(*api.JobInfo)
-		rv := r.(*api.JobInfo)
-
-		lReady := jobReady(lv)
-		rReady := jobReady(rv)
-
-		glog.V(4).Infof("Gang JobOrderFn: <%v/%v> is ready: %t, <%v/%v> is ready: %t",
-			lv.Namespace, lv.Name, lReady, rv.Namespace, rv.Name, rReady)
-
-		if lReady && rReady {
-			return 0
-		}
-
-		if lReady {
-			return 1
-		}
-
-		if rReady {
-			return -1
-		}
-
-		return 0
-	}
-
 	ssn.AddJobOrderFn(gp.Name(), jobOrderFn)
 	ssn.AddJobReadyFn(gp.Name(), jobReady)
 }
@@ -188,4 +163,29 @@ func (gp *gangPlugin) OnSessionClose(ssn *framework.Session) {
 	}
 
 	metrics.UpdateUnscheduleJobCount(unScheduleJobCount)
+}
+
+func jobOrderFn(l, r interface{}) int {
+	lv := l.(*api.JobInfo)
+	rv := r.(*api.JobInfo)
+
+	lReady := jobReady(lv)
+	rReady := jobReady(rv)
+
+	glog.V(4).Infof("Gang JobOrderFn: <%v/%v> is ready: %t, <%v/%v> is ready: %t",
+		lv.Namespace, lv.Name, lReady, rv.Namespace, rv.Name, rReady)
+
+	if lReady && rReady {
+		return 0
+	}
+
+	if lReady {
+		return 1
+	}
+
+	if rReady {
+		return -1
+	}
+
+	return 0
 }
