@@ -103,9 +103,9 @@ func (ssn *Session) Reclaimable(reclaimer *api.TaskInfo, reclaimees []*api.TaskI
 
 func (ssn *Session) Preemptable(preemptor *api.TaskInfo, preemptees []*api.TaskInfo) []*api.TaskInfo {
 	var victims []*api.TaskInfo
-	var init bool
 
 	for _, tier := range ssn.Tiers {
+		init := false
 		for _, plugin := range tier.Plugins {
 			if plugin.PreemptableDisabled {
 				continue
@@ -115,24 +115,11 @@ func (ssn *Session) Preemptable(preemptor *api.TaskInfo, preemptees []*api.TaskI
 			if !found {
 				continue
 			}
-			candidates := pf(preemptor, preemptees)
 			if !init {
-				victims = candidates
+				victims = preemptees
 				init = true
-			} else {
-				var intersection []*api.TaskInfo
-				// Get intersection of victims and candidates.
-				for _, v := range victims {
-					for _, c := range candidates {
-						if v.UID == c.UID {
-							intersection = append(intersection, v)
-						}
-					}
-				}
-
-				// Update victims to intersection
-				victims = intersection
 			}
+			victims = pf(preemptor, victims)
 		}
 		// Plugins in this tier made decision if victims is not nil
 		if victims != nil {
