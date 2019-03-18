@@ -107,7 +107,6 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 			nodeScores := map[int][]*api.NodeInfo{}
 
 			task := tasks.Pop().(*api.TaskInfo)
-			assigned := false
 
 			glog.V(3).Infof("There are <%d> nodes for Job <%v/%v>",
 				len(ssn.Nodes), job.Namespace, job.Name)
@@ -151,7 +150,6 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 							task.UID, node.Name, ssn.UID, err)
 						continue
 					}
-					assigned = true
 					break
 				} else {
 					//store information about missing resources
@@ -170,14 +168,8 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 							task.UID, node.Name, ssn.UID)
 						continue
 					}
-
-					assigned = true
 					break
 				}
-			}
-
-			if !assigned {
-				break
 			}
 
 			if ssn.JobReady(job) {
