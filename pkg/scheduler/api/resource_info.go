@@ -35,6 +35,9 @@ type Resource struct {
 const (
 	// need to follow https://github.com/NVIDIA/k8s-device-plugin/blob/66a35b71ac4b5cbfb04714678b548bd77e5ba719/server.go#L20
 	GPUResourceName = "nvidia.com/gpu"
+
+	// PodGroup is a resource type for limiting podgorup number in queue
+	PodGroup = "podgroup"
 )
 
 func EmptyResource() *Resource {
