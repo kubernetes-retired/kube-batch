@@ -18,6 +18,7 @@ package framework
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/glog"
 
@@ -45,6 +46,7 @@ type Session struct {
 	Tiers   []conf.Tier
 	EnablePreemption bool
 	EnableBackfill bool
+	StarvationThreshold time.Duration
 
 	plugins        map[string]Plugin
 	eventHandlers  []*EventHandler

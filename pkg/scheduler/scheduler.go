@@ -39,6 +39,7 @@ type Scheduler struct {
 	schedulePeriod time.Duration
 	enablePreemption bool
 	enableBackfill bool
+	starvationThreshold time.Duration
 }
 
 func NewScheduler(
@@ -47,16 +48,12 @@ func NewScheduler(
 	conf string,
 	period time.Duration,
 	defaultQueue string,
-	enablePreemption bool,
-	enableBackfill bool,
 ) (*Scheduler, error) {
 	scheduler := &Scheduler{
 		config:         config,
 		schedulerConf:  conf,
 		cache:          schedcache.New(config, schedulerName, defaultQueue),
 		schedulePeriod: period,
-		enablePreemption: enablePreemption,
-		enableBackfill: enableBackfill,
 	}
 
 	return scheduler, nil
@@ -72,15 +69,26 @@ func (pc *Scheduler) Run(stopCh <-chan struct{}) {
 	// Load configuration of scheduler
 	schedConf := defaultSchedulerConf
 	if len(pc.schedulerConf) != 0 {
-		if schedConf, err = readSchedulerConf(pc.schedulerConf); err != nil {
+		if schedConf, err = readFile(pc.schedulerConf); err != nil {
 			glog.Errorf("Failed to read scheduler configuration '%s', using default configuration: %v",
 				pc.schedulerConf, err)
 			schedConf = defaultSchedulerConf
 		}
 	}
 
-	pc.actions, pc.plugins, err = loadSchedulerConf(schedConf)
+	var config *conf.SchedulerConfiguration
+	if config, err = loadConf(schedConf); err == nil {
+		pc.plugins = config.Tiers
+		pc.starvationThreshold = config.StarvationThreshold
+		pc.enableBackfill = config.EnableBackfill
+		pc.enablePreemption = config.EnablePreemption
+		pc.actions, err = getActions(config)
+	}
+
 	if err != nil {
+		glog.Errorf("Failed to read scheduler configuration '%s': %s",
+			schedConf, err)
+
 		panic(err)
 	}
 
@@ -96,6 +104,7 @@ func (pc *Scheduler) runOnce() {
 	ssn := framework.OpenSession(pc.cache, pc.plugins)
 	ssn.EnablePreemption = pc.enablePreemption
 	ssn.EnableBackfill = pc.enableBackfill
+	ssn.StarvationThreshold = pc.starvationThreshold
 
 	defer framework.CloseSession(ssn)
 

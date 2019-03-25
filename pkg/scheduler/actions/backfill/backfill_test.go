@@ -146,6 +146,7 @@ func TestBackFill(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pg1",
 						Namespace: "c1",
+						CreationTimestamp: metav1.Now(),
 					},
 					Spec: kbv1.PodGroupSpec{
 						Queue: "c1",
@@ -156,6 +157,7 @@ func TestBackFill(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "pg2",
 						Namespace: "c1",
+						CreationTimestamp: metav1.Now(),
 					},
 					Spec: kbv1.PodGroupSpec{
 						Queue: "c1",
@@ -241,6 +243,7 @@ func TestBackFill(t *testing.T) {
 		}
 
 		ssn.EnableBackfill = true
+		ssn.StarvationThreshold = conf.DefaultStarvingThreshold
 		backFill.Execute(ssn)
 
 		for i := 0; i < len(test.expected); i++ {
