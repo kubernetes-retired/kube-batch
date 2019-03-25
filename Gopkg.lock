@@ -528,9 +528,10 @@
   version = "v2.2.2"
 
 [[projects]]
-  digest = "1:0d299a04c6472e4458461d7034c76d014cc6f632a3262cbf21d123b19ce13e65"
+  digest = "1:3ca4baec1a14e727951288f091badc5d403096d1c00d3ff5299f273a0c6db85d"
   name = "k8s.io/api"
   packages = [
+    "admission/v1beta1",
     "admissionregistration/v1alpha1",
     "admissionregistration/v1beta1",
     "apps/v1",
@@ -1028,6 +1029,7 @@
     "github.com/prometheus/client_golang/prometheus/promhttp",
     "github.com/spf13/pflag",
     "gopkg.in/yaml.v2",
+    "k8s.io/api/admission/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",
