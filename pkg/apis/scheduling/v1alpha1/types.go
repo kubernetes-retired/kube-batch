@@ -173,15 +173,29 @@ type Queue struct {
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	// Specification of the desired behavior of the pod group.
+	// Specification of the desired behavior of Queue.
 	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
 	// +optional
 	Spec QueueSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+
+	// Status of the Queue.
+	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
+	// +optional
+	Status QueueStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // QueueSpec represents the template of Queue.
 type QueueSpec struct {
 	Weight int32 `json:"weight,omitempty" protobuf:"bytes,1,opt,name=weight"`
+
+	// Capability defines the limit for each resource type, default to infinite.
+	Capability v1.ResourceList `json:"capacity,omitempty" protobuf:"bytes,2,opt,name=capacity"`
+}
+
+// QueueStatus represents the status of Queue.
+type QueueStatus struct {
+	// Allocated defines allocated quantity of each resource type.
+	Allocated v1.ResourceList `json:"allocated,omitempty" protobuf:"bytes,1,opt,name=allocated"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
