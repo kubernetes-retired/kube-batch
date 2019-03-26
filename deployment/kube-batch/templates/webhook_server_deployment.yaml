@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-server
+  labels:
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}"
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: webhook-server
+  template:
+    metadata:
+      labels:
+        app: webhook-server
+    spec:
+      containers:
+      - name: webhook-server
+        image: "{{ .Values.image.repository }}/kube-batch-webhook-server:{{ .Values.image.tag }}"
+        args: ["--logtostderr", "--v", "3"]
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+          - containerPort: {{ .Values.webhookServer.containerPort }}
+        volumeMounts:
+          - name: webhook-tls-certs
+            mountPath: {{ .Values.webhookServer.tls.mountPath }}
+            readOnly: true
+        resources:
+{{ toYaml .Values.webhookServer.resources | indent 10 }}
+      volumes:
+      - name: webhook-tls-certs
+        secret:
+          secretName: webhook-server-tls
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: webhook-server-tls
+type: Opaque
+data:
+  tls.crt: {{ .Values.webhookServer.tls.crt }}
+  tls.key: {{ .Values.webhookServer.tls.key }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-server
+spec:
+  selector:
+    app: webhook-server
+  ports:
+    - port: 443
+      targetPort: {{ .Values.webhookServer.containerPort }}
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: kube-batch-webhook-server
+webhooks:
+  - name: webhook-server.{{ .Release.Namespace }}.svc
+    clientConfig:
+      service:
+        name: webhook-server
+        namespace: {{ .Release.Namespace }}
+        path: "/validate/podgroup"
+      caBundle: {{ .Values.webhookServer.tls.caPemB64 }}
+    failurePolicy: Fail
+    rules:
+      - operations: [ "CREATE", "DELETE" ]
+        apiGroups: ["scheduling.incubator.k8s.io"]
+        apiVersions: ["v1alpha1"]
+        resources: ["podgroups"]
