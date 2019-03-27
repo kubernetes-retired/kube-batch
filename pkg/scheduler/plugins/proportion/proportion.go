@@ -119,6 +119,7 @@ func (pp *proportionPlugin) OnSessionOpen(ssn *framework.Session) {
 				continue
 			}
 
+			oldDeserved := attr.deserved.Clone()
 			attr.deserved.Add(remaining.Clone().Multi(float64(attr.weight) / float64(totalWeight)))
 			if !attr.deserved.LessEqual(attr.request) {
 				attr.deserved = helpers.Min(attr.deserved, attr.request)
@@ -129,7 +130,7 @@ func (pp *proportionPlugin) OnSessionOpen(ssn *framework.Session) {
 			glog.V(4).Infof("The attributes of queue <%s> in proportion: deserved <%v>, allocate <%v>, request <%v>, share <%0.2f>",
 				attr.name, attr.deserved, attr.allocated, attr.request, attr.share)
 
-			deserved.Add(attr.deserved)
+			deserved.Add(attr.deserved.Clone().Sub(oldDeserved))
 		}
 
 		remaining.Sub(deserved)
