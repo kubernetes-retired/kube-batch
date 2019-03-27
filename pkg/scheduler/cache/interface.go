@@ -42,6 +42,9 @@ type Cache interface {
 	// Evict evicts the task to release resources.
 	Evict(task *api.TaskInfo, reason string) error
 
+	// Patch annotation to the owning pod of a task
+	Patch(task *api.TaskInfo, annotation map[string]string) error
+
 	// RecordJobStatusEvent records related events according to job status.
 	// Deprecated: remove it after removed PDB support.
 	RecordJobStatusEvent(job *api.JobInfo)
@@ -67,6 +70,10 @@ type Binder interface {
 
 type Evictor interface {
 	Evict(pod *v1.Pod) error
+}
+
+type Patcher interface {
+	Patch(pod *v1.Pod, annotations map[string]string) error
 }
 
 // StatusUpdater updates pod with given PodCondition

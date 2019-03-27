@@ -17,7 +17,9 @@ limitations under the License.
 package cache
 
 import (
+	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"strings"
 	"sync"
 	"time"
@@ -90,6 +92,7 @@ type SchedulerCache struct {
 
 	Binder        Binder
 	Evictor       Evictor
+	Patcher		  Patcher
 	StatusUpdater StatusUpdater
 	VolumeBinder  VolumeBinder
 
@@ -128,6 +131,10 @@ type defaultEvictor struct {
 	kubeclient *kubernetes.Clientset
 }
 
+type defaultAnnotationPatcher struct {
+	kubeclient *kubernetes.Clientset
+}
+
 func (de *defaultEvictor) Evict(p *v1.Pod) error {
 	glog.V(3).Infof("Evicting pod %v/%v", p.Namespace, p.Name)
 
@@ -135,6 +142,23 @@ func (de *defaultEvictor) Evict(p *v1.Pod) error {
 		glog.Errorf("Failed to evict pod <%v/%v>: %#v", p.Namespace, p.Name, err)
 		return err
 	}
+	return nil
+}
+
+func (patcher *defaultAnnotationPatcher) Patch(pod *v1.Pod, annotations map[string]string) error {
+	jsonStr, err := json.Marshal(annotations)
+	if err != nil {
+		return fmt.Errorf("error marshalling annotations %v/%v (%v): %v", pod.Namespace, pod.Name, pod.UID, err)
+	}
+
+	patch := fmt.Sprintf(`{"metadata":{"annotations": %s}}`, jsonStr)
+
+	_, err = patcher.kubeclient.CoreV1().Pods(pod.Namespace).Patch(pod.Name, types.StrategicMergePatchType, []byte(patch))
+	if err != nil {
+		glog.Errorf("failed to patch pod %s, error: %v", pod.Name, err)
+		return err
+	}
+
 	return nil
 }
 
@@ -204,6 +228,10 @@ func newSchedulerCache(config *rest.Config, schedulerName string, defaultQueue s
 	}
 
 	sc.Evictor = &defaultEvictor{
+		kubeclient: sc.kubeclient,
+	}
+
+	sc.Patcher = &defaultAnnotationPatcher{
 		kubeclient: sc.kubeclient,
 	}
 
@@ -342,6 +370,11 @@ func (sc *SchedulerCache) findJobAndTask(taskInfo *kbapi.TaskInfo) (*kbapi.JobIn
 	}
 
 	return job, task, nil
+}
+
+func (sc *SchedulerCache) Patch(taskInfo *kbapi.TaskInfo, annotation map[string]string) error {
+	pod := taskInfo.Pod
+	return sc.Patcher.Patch(pod, annotation)
 }
 
 func (sc *SchedulerCache) Evict(taskInfo *kbapi.TaskInfo, reason string) error {

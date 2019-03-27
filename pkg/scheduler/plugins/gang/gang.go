@@ -202,19 +202,6 @@ func (gp *gangPlugin) OnSessionClose(ssn *framework.Session) {
 				Message:            msg,
 			}
 
-			for _, task := range job.Tasks {
-				if task.IsBackfill {
-					jc = &v1alpha1.PodGroupCondition{
-						Type:               v1alpha1.PodGroupBackfilledType,
-						Status:             v1.ConditionTrue,
-						LastTransitionTime: metav1.Now(),
-						TransitionID:       string(ssn.UID),
-					}
-					glog.Infof("Job %s is marked as a backfill job.", job.Name)
-					break
-				}
-			}
-
 			if err := ssn.UpdateJobCondition(job, jc); err != nil {
 				glog.Errorf("Failed to update job <%s/%s> condition: %v",
 					job.Namespace, job.Name, err)

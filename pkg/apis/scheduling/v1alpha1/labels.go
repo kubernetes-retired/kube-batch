@@ -20,4 +20,4 @@ package v1alpha1
 // which PodGroup it belongs to.
 const GroupNameAnnotationKey = "scheduling.k8s.io/group-name"
 
-const BackfillAnnotationKey = "scheduling.k8s.io/kube-batch/backfill"
+const BackfillAnnotationKey = "scheduling.k8s.io/kube-batch-backfill"

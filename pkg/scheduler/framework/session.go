@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/glog"
 
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -128,17 +128,27 @@ func closeSession(ssn *Session) {
 			continue
 		}
 
+		// patch the backfilled annotation
+		for _, task := range job.Tasks {
+
+			if !task.IsBackfill {
+				continue
+			}
+
+			annotation := make(map[string]string)
+			annotation[v1alpha1.BackfillAnnotationKey] = "true"
+			err := ssn.cache.Patch(task, annotation)
+			if err != nil {
+				glog.Errorf("Failed to patch task/pod <%s/%s>: %v", task.Name, task.Pod.Name, err)
+			} else {
+				glog.Infof("pod %s is marked as a backfill", task.Pod.Name)
+			}
+		}
+
 		job.PodGroup.Status = jobStatus(ssn, job)
 		if _, err := ssn.cache.UpdateJobStatus(job); err != nil {
 			glog.Errorf("Failed to update job <%s/%s>: %v",
 				job.Namespace, job.Name, err)
-		}
-
-		for _, task := range job.Tasks {
-			if api.IsBackfill(task.Pod) {
-				// TODO Terry: save backfill into pod annotations.
-				glog.V(3).Infof("patching Pod <%v/%v> as a backfill Pod", task.Pod.Namespace, task.Pod.Name)
-			}
 		}
 	}
 
@@ -257,7 +267,7 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string, usingBackfillT
 		}
 		if err := job.UpdateTaskStatus(task, newStatus); err != nil {
 			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
-				task.Namespace, task.Name, api.Allocated, ssn.UID, err)
+				task.Namespace, task.Name, newStatus, ssn.UID, err)
 			return err
 		}
 	} else {
@@ -291,7 +301,7 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string, usingBackfillT
 		}
 	}
 
-	if ssn.JobReady(job) {
+	if ssn.JobReady(job) && !usingBackfillTaskRes {
 		for _, task := range job.TaskStatusIndex[api.Allocated] {
 			if err := ssn.dispatch(task); err != nil {
 				glog.Errorf("Failed to dispatch task <%v/%v>: %v",

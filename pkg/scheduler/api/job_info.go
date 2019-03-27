@@ -70,7 +70,7 @@ func getJobID(pod *v1.Pod) JobID {
 	return ""
 }
 
-func IsBackfill(pod *v1.Pod) bool {
+func CheckBackfill(pod *v1.Pod) bool {
 	if len(pod.Annotations) != 0 {
 		if val, found := pod.Annotations[v1alpha1.BackfillAnnotationKey]; found && len(val) != 0 {
 			backfill, err := strconv.ParseBool(val)
@@ -78,6 +78,7 @@ func IsBackfill(pod *v1.Pod) bool {
 				glog.Errorf("Invalid backfill annotation value '%s': %s", pod.Annotations[v1alpha1.BackfillAnnotationKey], err)
 				return false
 			}
+			glog.Infof("Restored backfill status for pod %s", pod.Name)
 			return backfill
 		}
 	}
@@ -99,7 +100,7 @@ func NewTaskInfo(pod *v1.Pod) *TaskInfo {
 		Pod:        pod,
 		Resreq:     req,
 		InitResreq: initResreq,
-		IsBackfill: IsBackfill(pod),
+		IsBackfill: CheckBackfill(pod),
 	}
 
 	if pod.Spec.Priority != nil {
@@ -240,8 +241,6 @@ func (ji *JobInfo) addTaskIndex(ti *TaskInfo) {
 func (ji *JobInfo) AddTaskInfo(ti *TaskInfo) {
 	ji.Tasks[ti.UID] = ti
 	ji.addTaskIndex(ti)
-	// TODO Terry: Uncomment this line will break Job Priority integration test
-	//ji.Priority = *ti.Pod.Spec.Priority
 
 	ji.TotalRequest.Add(ti.Resreq)
 
@@ -321,7 +320,8 @@ func (ji *JobInfo) Clone() *JobInfo {
 	}
 
 	for _, task := range ji.Tasks {
-		info.AddTaskInfo(task.Clone())
+		newTask := task.Clone()
+		info.AddTaskInfo(newTask)
 	}
 
 	return info
