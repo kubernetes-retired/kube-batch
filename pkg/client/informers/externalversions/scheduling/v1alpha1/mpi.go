@@ -31,59 +31,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// PodGroupInformer provides access to a shared informer and lister for
-// PodGroups.
-type PodGroupInformer interface {
+// MPIInformer provides access to a shared informer and lister for
+// MPIs.
+type MPIInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.PodGroupLister
+	Lister() v1alpha1.MPILister
 }
 
-type podGroupInformer struct {
+type mPIInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewPodGroupInformer constructs a new informer for PodGroup type.
+// NewMPIInformer constructs a new informer for MPI type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewPodGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredPodGroupInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewMPIInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredMPIInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredPodGroupInformer constructs a new informer for PodGroup type.
+// NewFilteredMPIInformer constructs a new informer for MPI type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredPodGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredMPIInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SchedulingV1alpha1().PodGroups(namespace).List(options)
+				return client.SchedulingV1alpha1().MPIs(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SchedulingV1alpha1().PodGroups(namespace).Watch(options)
+				return client.SchedulingV1alpha1().MPIs(namespace).Watch(options)
 			},
 		},
-		&schedulingv1alpha1.PodGroup{},
+		&schedulingv1alpha1.MPI{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *podGroupInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredPodGroupInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *mPIInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredMPIInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *podGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&schedulingv1alpha1.PodGroup{}, f.defaultInformer)
+func (f *mPIInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&schedulingv1alpha1.MPI{}, f.defaultInformer)
 }
 
-func (f *podGroupInformer) Lister() v1alpha1.PodGroupLister {
-	return v1alpha1.NewPodGroupLister(f.Informer().GetIndexer())
+func (f *mPIInformer) Lister() v1alpha1.MPILister {
+	return v1alpha1.NewMPILister(f.Informer().GetIndexer())
 }

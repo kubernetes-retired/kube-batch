@@ -24,6 +24,8 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// MPIs returns a MPIInformer.
+	MPIs() MPIInformer
 	// PodGroups returns a PodGroupInformer.
 	PodGroups() PodGroupInformer
 	// Queues returns a QueueInformer.
@@ -39,6 +41,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// MPIs returns a MPIInformer.
+func (v *version) MPIs() MPIInformer {
+	return &mPIInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // PodGroups returns a PodGroupInformer.

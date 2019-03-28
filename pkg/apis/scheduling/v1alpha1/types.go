@@ -17,9 +17,55 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"k8s.io/api/core/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// MPISpec defines the desired state of MPI
+type MPISpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+	Job      batchv1.Job `json:"job"`
+	PodGroup PodGroup    `json:"podGroup"`
+}
+
+// MPIStatus defines the observed state of MPI
+type MPIStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+	// the job status
+	// +optional
+	Job batchv1.JobStatus `json:"job,omitempty"`
+	// the podGroup status
+	// +optional
+	PodGroup PodGroupStatus `json:"podGroup,omitempty"`
+	// additional job descriptors
+	// +optional
+	Descriptors map[string]string `json:"descriptors,omitempty"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// MPI is the Schema for the mpis API
+// +k8s:openapi-gen=true
+type MPI struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   MPISpec   `json:"spec,omitempty"`
+	Status MPIStatus `json:"status,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// MPIList contains a list of MPI
+type MPIList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []MPI `json:"items"`
+}
 
 // PodGroupPhase is the phase of a pod group at the current time.
 type PodGroupPhase string

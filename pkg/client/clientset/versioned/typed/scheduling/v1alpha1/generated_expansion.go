@@ -18,6 +18,8 @@ limitations under the License.
 
 package v1alpha1
 
+type MPIExpansion interface{}
+
 type PodGroupExpansion interface{}
 
 type QueueExpansion interface{}

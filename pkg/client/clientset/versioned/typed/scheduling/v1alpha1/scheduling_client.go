@@ -27,6 +27,7 @@ import (
 
 type SchedulingV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	MPIsGetter
 	PodGroupsGetter
 	QueuesGetter
 }
@@ -34,6 +35,10 @@ type SchedulingV1alpha1Interface interface {
 // SchedulingV1alpha1Client is used to interact with features provided by the scheduling group.
 type SchedulingV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *SchedulingV1alpha1Client) MPIs(namespace string) MPIInterface {
+	return newMPIs(c, namespace)
 }
 
 func (c *SchedulingV1alpha1Client) PodGroups(namespace string) PodGroupInterface {

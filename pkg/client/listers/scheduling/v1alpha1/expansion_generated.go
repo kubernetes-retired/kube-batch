@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// MPIListerExpansion allows custom methods to be added to
+// MPILister.
+type MPIListerExpansion interface{}
+
+// MPINamespaceListerExpansion allows custom methods to be added to
+// MPINamespaceLister.
+type MPINamespaceListerExpansion interface{}
+
 // PodGroupListerExpansion allows custom methods to be added to
 // PodGroupLister.
 type PodGroupListerExpansion interface{}
