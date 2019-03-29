@@ -15,7 +15,7 @@ spec:
           - image: continuse/mpich:v3
             imagePullPolicy: IfNotPresent
             name: mpi
-            command: ["mpirun", "-n", "6", "hostname"] #, "cat", "/mpi/hostfile"]
+            command: ["mpirun", "-n", "6", "hostname"]
             resources:
               requests:
                 cpu: "200m"

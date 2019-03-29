@@ -24,7 +24,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/scheduling/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,6 +80,8 @@ type SchedulerCache struct {
 	pdbInformer      policyv1.PodDisruptionBudgetInformer
 	nsInformer       infov1.NamespaceInformer
 	podGroupInformer kbinfov1.PodGroupInformer
+	mpiInformer      kbinfov1.MPIInformer
+	mpiPodInformer   infov1.PodInformer
 	queueInformer    kbinfov1.QueueInformer
 	pvInformer       infov1.PersistentVolumeInformer
 	pvcInformer      infov1.PersistentVolumeClaimInformer
@@ -257,7 +259,6 @@ func newSchedulerCache(config *rest.Config, schedulerName string, defaultQueue s
 				DeleteFunc: sc.DeletePod,
 			},
 		})
-
 	sc.pdbInformer = informerFactory.Policy().V1beta1().PodDisruptionBudgets()
 	sc.pdbInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    sc.AddPDB,
@@ -281,6 +282,42 @@ func newSchedulerCache(config *rest.Config, schedulerName string, defaultQueue s
 		DeleteFunc: sc.DeletePodGroup,
 	})
 
+	sc.mpiInformer = kbinformer.Scheduling().V1alpha1().MPIs()
+	sc.mpiInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    sc.AddMPI,
+		UpdateFunc: sc.UpdateMPI,
+		DeleteFunc: sc.DeleteMPI,
+	})
+
+	// create informer for mpi-pods
+	sc.mpiPodInformer = informerFactory.Core().V1().Pods()
+	sc.mpiPodInformer.Informer().AddEventHandler(
+		cache.FilteringResourceEventHandler{
+			FilterFunc: func(obj interface{}) bool {
+				switch obj.(type) {
+				case *v1.Pod:
+					pod := obj.(*v1.Pod)
+					glog.Infof("Filtering on MPI pods: %v %v", pod.GetName(), pod.GetLabels())
+					if jobType, ok := pod.Labels["job-type"]; ok {
+						glog.Infof("Found an MPI with a job type! %v %v", pod.GetName(), jobType)
+						if jobType == "mpi-job" && pod.Status.Phase == v1.PodRunning {
+							glog.Infof("We got a live MPI pod! %v", pod.GetName())
+							return true
+						}
+						glog.Infof("Pod not in correct job-type or phase: %v %v %v", pod.GetName(), jobType, pod.Status.Phase)
+					}
+					return false
+				default:
+					return false
+				}
+			},
+			Handler: cache.ResourceEventHandlerFuncs{
+				AddFunc:    sc.AddMPIPod,
+				UpdateFunc: sc.UpdateMPIPod,
+				DeleteFunc: sc.DeleteMPIPod,
+			},
+		})
+
 	// create informer for Queue information
 	sc.queueInformer = kbinformer.Scheduling().V1alpha1().Queues()
 	sc.queueInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -302,6 +339,7 @@ func (sc *SchedulerCache) Run(stopCh <-chan struct{}) {
 	go sc.scInformer.Informer().Run(stopCh)
 	go sc.queueInformer.Informer().Run(stopCh)
 	go sc.pcInformer.Informer().Run(stopCh)
+	go sc.mpiInformer.Informer().Run(stopCh)
 
 	// Re-sync error tasks.
 	go wait.Until(sc.processResyncTask, 0, stopCh)
@@ -322,6 +360,7 @@ func (sc *SchedulerCache) WaitForCacheSync(stopCh <-chan struct{}) bool {
 		sc.scInformer.Informer().HasSynced,
 		sc.queueInformer.Informer().HasSynced,
 		sc.pcInformer.Informer().HasSynced,
+		sc.mpiInformer.Informer().HasSynced,
 	)
 }
 
