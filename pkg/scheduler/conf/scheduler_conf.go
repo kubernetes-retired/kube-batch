@@ -30,8 +30,6 @@ type SchedulerConfiguration struct {
 	Tiers []Tier `yaml:"tiers"`
 	// Enables backfill
 	EnableBackfill bool `yaml:"enable-backfill"`
-	// Enables preemption
-	EnablePreemption bool `yaml:"enable-preemption"`
 	// Starvation Threshold. Jobs that have been pending longer than
 	// the threshold are considered as starving jobs.
 	StarvationThreshold time.Duration `yaml:"starvation-threshold"`

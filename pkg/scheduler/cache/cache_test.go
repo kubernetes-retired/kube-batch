@@ -99,7 +99,6 @@ func buildPod(ns, n, nn string,
 					},
 				},
 			},
-			Priority: new(int32),
 		},
 	}
 }

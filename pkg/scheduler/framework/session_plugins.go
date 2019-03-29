@@ -163,7 +163,7 @@ func (ssn *Session) Overused(queue *api.QueueInfo) bool {
 	return false
 }
 
-// TODO Terry: Move JobReady into JobInfo?
+// TODO: Move JobReady into JobInfo?
 func (ssn *Session) JobReady(obj interface{}) bool {
 	for _, tier := range ssn.Tiers {
 		for _, plugin := range tier.Plugins {
@@ -183,27 +183,6 @@ func (ssn *Session) JobReady(obj interface{}) bool {
 
 	return true
 }
-
-//func (ssn *Session) JobAlmostReady(obj interface{}) bool {
-//	status := api.AlmostReady
-//
-//	for _, tier := range ssn.Tiers {
-//		for _, plugin := range tier.Plugins {
-//			if plugin.JobReadyDisabled {
-//				continue
-//			}
-//			jrf, found := ssn.jobReadyFns[plugin.Name]
-//			if !found {
-//				continue
-//			}
-//
-//			status = jrf(obj)
-//			break
-//		}
-//	}
-//
-//	return status == api.AlmostReady
-//}
 
 func (ssn *Session) BackFillEligible(obj interface{}) bool {
 	for _, tier := range ssn.Tiers {

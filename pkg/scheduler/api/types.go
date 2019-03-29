@@ -29,7 +29,6 @@ const (
 	// and only if, N.IdleResource < T.RequestResource <= N.AllocatableResource.
 	AllocatedOverBackfill
 
-	// TODO Terry: Rename to AllocatedOverIdle
 	// Allocated means that the task is allocated with idle resources only.
 	Allocated
 

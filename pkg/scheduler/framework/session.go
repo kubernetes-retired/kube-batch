@@ -44,7 +44,6 @@ type Session struct {
 	Queues  map[api.QueueID]*api.QueueInfo
 	Backlog []*api.JobInfo
 	Tiers   []conf.Tier
-	EnablePreemption bool
 	EnableBackfill bool
 	StarvationThreshold time.Duration
 
@@ -181,7 +180,6 @@ func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
 	if len(jobInfo.TaskStatusIndex[api.Running]) != 0 && unschedulable {
 		status.Phase = v1alpha1.PodGroupUnknown
 	} else {
-		// TODO Terry: Replace with Job.GetReadiness()
 		allocated := 0
 		for status, tasks := range jobInfo.TaskStatusIndex {
 			if api.AllocatedStatus(status) {
@@ -261,7 +259,6 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string, usingBackfillT
 	job, found := ssn.Jobs[task.Job]
 	if found {
 		newStatus := api.Allocated
-		// TODO Terry: Can we use Pipelined?
 		if usingBackfillTaskRes {
 			newStatus = api.AllocatedOverBackfill
 		}

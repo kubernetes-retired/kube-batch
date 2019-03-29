@@ -44,12 +44,6 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 	glog.V(3).Infof("Enter Preempt ...")
 	defer glog.V(3).Infof("Leaving Preempt ...")
 
-    // TODO Terry: Uncomment it after fixing integration tests
-	// if ! ssn.EnablePreemption {
-    //		glog.V(3).Infof("Preemption disabled")
-    //		return
-	//}
-
 	preemptorsMap := map[api.QueueID]*util.PriorityQueue{}
 
 	preemptorTasks := map[api.JobID]*util.PriorityQueue{}
@@ -178,75 +172,6 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 				}
 			}
 		}
-	}
-
-	if ssn.EnablePreemption {
-		//for _, node := range ssn.Nodes {
-		//	glog.Infof(">> Node allocatable capacity %v | used: %v | idle: %v",
-		//		node.Allocatable, node.Used, node.Idle)
-		//
-		//	// get the debt resource target
-		//	debtRes := node.Used.Clone()
-		//	debtRes.Sub(node.Capability)
-		//	for _, task := range node.Tasks {
-		//		if _, found := ssn.Jobs[task.Job]; !found {
-		//			// do not handle irrelevant tasks
-		//			continue
-		//		}
-		//		if task.Status != api.Allocated && task.Status != api.AllocatedOverBackfill {
-		//			continue
-		//		}
-		//
-		//		if ! ssn.JobReady(ssn.Jobs[task.Job]) && ! ssn.JobAlmostReady(ssn.Jobs[task.Job]) {
-		//			debtRes.Sub(task.Resreq)
-		//			glog.Infof("reduced debt by task %s by %v to %v", task.Name, task.Resreq.MilliCPU, debtRes.MilliCPU)
-		//		}
-		//	}
-		//
-		//	glog.Infof(">>> Resource debt on node %s is %v", node.Name, debtRes)
-		//
-		//	if debtRes.IsBelowZero() || debtRes.IsZero(v1.ResourceCPU) {
-		//		// skip this node if all resource usage is below capacity
-		//		glog.Infof("no need to preempt on node %s", node.Name)
-		//		continue
-		//	}
-		//
-		//	// preempt just enough backfilled tasks to meet the resource debt target
-		//	res := api.EmptyResource()
-		//	bfTaskToKill := make([]*api.TaskInfo, 0)
-		//	for _, task := range node.Tasks {
-		//		if !task.IsBackfill {
-		//			continue
-		//		}
-		//
-		//		res.Add(task.Resreq)
-		//		bfTaskToKill = append(bfTaskToKill, task)
-		//
-		//		if debtRes.LessEqual(res) {
-		//			break
-		//		}
-		//	}
-		//
-		//	if !debtRes.LessEqual(res) {
-		//		glog.Error("cannot find enough backfill job to evict")
-		//		continue
-		//	}
-		//
-		//	// preempt the backfill tasks to reclaim resource
-		//	stmt := ssn.Statement()
-		//	for _, preemptee := range bfTaskToKill {
-		//
-		//		if err := stmt.Evict(preemptee, "preempt"); err != nil {
-		//			glog.Errorf("Failed to preempt Task <%s/%s>: %v",
-		//				preemptee.Namespace, preemptee.Name, err)
-		//			continue
-		//		} else {
-		//			glog.Infof("task %s is preempted on node %s", preemptee.Name, node.Name)
-		//		}
-		//	}
-		//	stmt.Commit()
-		//}
-		//
 	}
 }
 

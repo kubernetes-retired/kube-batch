@@ -10,7 +10,6 @@ import (
 func TestAddNode(t *testing.T) {
 	var conf1 = `
 starvation-threshold: 20h
-enable-preemption: true
 enable-backfill: true
 actions: "allocate, backfill"
 tiers:
@@ -31,7 +30,6 @@ tiers:
 			configStr:  conf1,
 			expected: &conf.SchedulerConfiguration{
 				StarvationThreshold: 20 * time.Hour,
-				EnablePreemption: true,
 				EnableBackfill: true,
 				Actions: "allocate, backfill",
 				Tiers: []conf.Tier {
@@ -62,7 +60,6 @@ tiers:
 			name: "empty configuration with default starvation-threshold",
 			configStr:  "",
 			expected: &conf.SchedulerConfiguration{
-				EnablePreemption: false,
 				EnableBackfill: false,
 				StarvationThreshold: conf.DefaultStarvingThreshold,
 			},

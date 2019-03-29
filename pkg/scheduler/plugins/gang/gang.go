@@ -44,7 +44,7 @@ func (gp *gangPlugin) Name() string {
 }
 
 func readyTaskNum(job *api.JobInfo) int32 {
-	// TODO Terry: Why is Pipelined counted as a ready status?
+	// TODO: Why is Pipelined counted as a ready status?
 	occupid := 0
 	for status, tasks := range job.TaskStatusIndex {
 		if api.AllocatedStatus(status) ||
@@ -73,7 +73,7 @@ func validTaskNum(job *api.JobInfo) int32 {
 	return int32(occupied)
 }
 
-// TODO Terry: Remove this function
+// TODO: Replace this function with the ready function in JobInfo
 func jobReady(obj interface{}) bool {
 	job := obj.(*api.JobInfo)
 
@@ -128,7 +128,7 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 		for _, preemptee := range preemptees {
 			job := ssn.Jobs[preemptee.Job]
 
-			// TODO Terry: Bug? Why job.MinAvailable == 1 makes the task preemptable?
+			// TODO: Bug? Why job.MinAvailable == 1 makes the task preemptable?
 			preemptable := job.MinAvailable <= readyTaskNum(job)-1 || job.MinAvailable == 1
 
 			if !preemptable {
@@ -153,7 +153,7 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 		lv := l.(*api.JobInfo)
 		rv := r.(*api.JobInfo)
 
-		// TODO Terry: Almost Ready jobs should be ordered in front of Not Ready jobs
+		// TODO: Almost Ready jobs should be ordered in front of Not Ready jobs
 		lReady := jobReady(lv)
 		rReady := jobReady(rv)
 

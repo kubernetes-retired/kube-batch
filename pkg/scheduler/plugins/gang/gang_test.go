@@ -12,34 +12,34 @@ import (
 )
 
 func TestJobReady(t *testing.T) {
-	//tests := []struct {
-	//	name     string
-	//	job      *api.JobInfo
-	//	expected api.JobReadiness
-	//}{
-	//	{
-	//		name: 		"ready job",
-	//		job: 		buildJob("ready-job", api.Ready),
-	//		expected: 	api.Ready,
-	//	},
-	//	{
-	//		name: 		"almost ready job",
-	//		job: 		buildJob("almost-ready-job", api.AlmostReady),
-	//		expected: 	api.AlmostReady,
-	//	},
-	//	{
-	//		name: 		"not job",
-	//		job: 		buildJob("partially-allocated-job", api.NotReady),
-	//		expected: 	api.NotReady,
-	//	},
-	//}
+	tests := []struct {
+		name     string
+		job      *api.JobInfo
+		expected bool
+	}{
+		{
+			name: 		"ready job",
+			job: 		buildJob("ready-job", api.Ready),
+			expected: 	true,
+		},
+		{
+			name: 		"almost ready job",
+			job: 		buildJob("almost-ready-job", api.AlmostReady),
+			expected: 	false,
+		},
+		{
+			name: 		"not job",
+			job: 		buildJob("partially-allocated-job", api.NotReady),
+			expected: 	false,
+		},
+	}
 
-	//for i, test := range tests {
-	//	actual := jobReady(test.job)
-	//	if test.expected != actual {
-	//		t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expected, actual)
-	//	}
-	//}
+	for i, test := range tests {
+		actual := jobReady(test.job)
+		if test.expected != actual {
+			t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expected, actual)
+		}
+	}
 }
 
 func buildPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, owner []metav1.OwnerReference, labels map[string]string) *v1.Pod {

@@ -37,7 +37,6 @@ type Scheduler struct {
 	plugins        []conf.Tier
 	schedulerConf  string
 	schedulePeriod time.Duration
-	enablePreemption bool
 	enableBackfill bool
 	starvationThreshold time.Duration
 }
@@ -81,7 +80,6 @@ func (pc *Scheduler) Run(stopCh <-chan struct{}) {
 		pc.plugins = config.Tiers
 		pc.starvationThreshold = config.StarvationThreshold
 		pc.enableBackfill = config.EnableBackfill
-		pc.enablePreemption = config.EnablePreemption
 		pc.actions, err = getActions(config)
 	}
 
@@ -102,7 +100,6 @@ func (pc *Scheduler) runOnce() {
 	defer metrics.UpdateE2eDuration(metrics.Duration(scheduleStartTime))
 
 	ssn := framework.OpenSession(pc.cache, pc.plugins)
-	ssn.EnablePreemption = pc.enablePreemption
 	ssn.EnableBackfill = pc.enableBackfill
 	ssn.StarvationThreshold = pc.starvationThreshold
 
