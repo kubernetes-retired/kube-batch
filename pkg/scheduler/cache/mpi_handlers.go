@@ -344,7 +344,7 @@ func (sc *SchedulerCache) updateMPIConfigmap(pod *corev1.Pod) error {
 		if err != nil {
 			glog.Errorf("Error getting role %s", pod.GetLabels()["job-name"]+"-role")
 		}
-		for k, _ := range role.Rules {
+		for k := range role.Rules {
 			role.Rules[k].ResourceNames = hostMap
 		}
 		sc.kubeclient.RbacV1().Roles(pod.GetNamespace()).Update(role)
