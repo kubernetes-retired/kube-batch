@@ -203,7 +203,7 @@ func preempt(
 
 		var preemptees []*api.TaskInfo
 		preempted := api.EmptyResource()
-		resreq := preemptor.Resreq.Clone()
+		resreq := preemptor.InitResreq.Clone()
 
 		for _, task := range node.Tasks {
 			if filter == nil {
@@ -220,8 +220,15 @@ func preempt(
 			continue
 		}
 
-		// Preempt victims for tasks.
-		for _, preemptee := range victims {
+		victimsQueue := util.NewPriorityQueue(func(l, r interface{}) bool {
+			return !ssn.TaskOrderFn(l, r)
+		})
+		for _, victim := range victims {
+			victimsQueue.Push(victim)
+		}
+		// Preempt victims for tasks, pick lowest priority task first.
+		for !victimsQueue.Empty() {
+			preemptee := victimsQueue.Pop().(*api.TaskInfo)
 			glog.Errorf("Try to preempt Task <%s/%s> for Tasks <%s/%s>",
 				preemptee.Namespace, preemptee.Name, preemptor.Namespace, preemptor.Name)
 			if err := stmt.Evict(preemptee, "preempt"); err != nil {
@@ -231,17 +238,16 @@ func preempt(
 			}
 			preempted.Add(preemptee.Resreq)
 			// If reclaimed enough resources, break loop to avoid Sub panic.
-			if resreq.LessEqual(preemptee.Resreq) {
+			if resreq.LessEqual(preempted) {
 				break
 			}
-			resreq.Sub(preemptee.Resreq)
 		}
 
 		metrics.RegisterPreemptionAttempts()
 		glog.V(3).Infof("Preempted <%v> for task <%s/%s> requested <%v>.",
-			preempted, preemptor.Namespace, preemptor.Name, preemptor.Resreq)
+			preempted, preemptor.Namespace, preemptor.Name, preemptor.InitResreq)
 
-		if preemptor.Resreq.LessEqual(preempted) {
+		if preemptor.InitResreq.LessEqual(preempted) {
 			if err := stmt.Pipeline(preemptor, node.Name); err != nil {
 				glog.Errorf("Failed to pipline Task <%s/%s> on Node <%s>",
 					preemptor.Namespace, preemptor.Name, node.Name)
