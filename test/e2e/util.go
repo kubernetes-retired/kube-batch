@@ -29,7 +29,7 @@ import (
 
 	appv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -343,7 +343,7 @@ func createJob(context *context, job *jobSpec) ([]*batchv1.Job, *kbv1.PodGroup) 
 
 func taskPhase(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum int) wait.ConditionFunc {
 	return func() (bool, error) {
-		pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
+		pg, err := ctx.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
 		checkError(ctx, err)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
@@ -369,7 +369,7 @@ func taskPhase(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum int
 
 func taskPhaseEx(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum map[string]int) wait.ConditionFunc {
 	return func() (bool, error) {
-		pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
+		pg, err := ctx.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
 		checkError(ctx, err)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
@@ -693,7 +693,7 @@ func computeNode(ctx *context, req v1.ResourceList) (string, int32) {
 }
 
 func getPodOfPodGroup(ctx *context, pg *kbv1.PodGroup) []*v1.Pod {
-	pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
+	pg, err := ctx.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
 	checkError(ctx, err)
 
 	pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})

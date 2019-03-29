@@ -13,12 +13,17 @@ curl ${dind_url} --output ${dind_dest}
 chmod +x ${dind_dest}
 ${dind_dest} up
 
+kubectl create -f config/crds/scheduling_v1alpha1_mpi.yaml
 kubectl create -f config/crds/scheduling_v1alpha1_podgroup.yaml
 kubectl create -f config/crds/scheduling_v1alpha1_queue.yaml
 kubectl create -f config/queue/default.yaml
 
+sleep 5;
+
 # start kube-batch
 nohup ${KA_BIN}/kube-batch --kubeconfig ${HOME}/.kube/config --scheduler-conf=config/kube-batch-conf.yaml --logtostderr --v ${LOG_LEVEL} > scheduler.log 2>&1 &
+
+sleep 5;
 
 # clean up
 function cleanup {
