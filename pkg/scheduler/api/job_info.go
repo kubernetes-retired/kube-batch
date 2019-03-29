@@ -320,8 +320,7 @@ func (ji *JobInfo) Clone() *JobInfo {
 	}
 
 	for _, task := range ji.Tasks {
-		newTask := task.Clone()
-		info.AddTaskInfo(newTask)
+		info.AddTaskInfo(task.Clone())
 	}
 
 	return info

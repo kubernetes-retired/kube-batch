@@ -227,8 +227,8 @@ func TestIsBackfill(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		actual := IsBackfill(test.pod)
-		if IsBackfill(test.pod) != test.expected {
+		actual := CheckBackfill(test.pod)
+		if CheckBackfill(test.pod) != test.expected {
 			t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expected, actual)
 		}
 	}
