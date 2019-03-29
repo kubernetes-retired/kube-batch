@@ -11,10 +11,10 @@ To run `kube-batch`, a Kubernetes cluster must start up. Here is a document on [
 
 ### (1) kube-batch image
 
-An official kube-batch image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubesigs/kube-batch/). The version is `v0.4.1` now.
+An official kube-batch image is provided and you can download it from [DockerHub](https://hub.docker.com/r/kubesigs/kube-batch/). The version is `v0.4.2` now.
 
 ```bash
-# docker pull kubesigs/kube-batch:v0.4.1
+# docker pull kubesigs/kube-batch:v0.4.2
 ```
 
 ### (2) Create a Kubernetes Deployment for kube-batch
@@ -34,6 +34,8 @@ Run the `kube-batch` as kubernetes scheduler
 ```bash
 # helm install $GOPATH/src/github.com/kubernetes-sigs/kube-batch/deployment/kube-batch --namespace kube-system
 ```
+
+Note: If there is an error `Error: apiVersion "scheduling.incubator.k8s.io/v1alpha1" in kube-batch/templates/default.yaml is not available`, please update your helm to latest version and try it again.
 
 Verify the release
 

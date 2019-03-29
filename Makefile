@@ -1,5 +1,5 @@
 BIN_DIR=_output/bin
-RELEASE_VER=v0.4.1
+RELEASE_VER=v0.4.2
 REPO_PATH=github.com/kubernetes-sigs/kube-batch
 GitSHA=`git rev-parse HEAD`
 Date=`date "+%Y-%m-%d %H:%M:%S"`
@@ -28,7 +28,7 @@ generate-code: init
 
 rel_bins:
 	go get github.com/mitchellh/gox
-	gox -osarch=${REL_OSARCH} -ldflags ${LD_FLAGS} \
+	CGO_ENABLED=0 gox -osarch=${REL_OSARCH} -ldflags ${LD_FLAGS} \
 	-output=${BIN_DIR}/{{.OS}}/{{.Arch}}/kube-batch ./cmd/kube-batch
 
 images: rel_bins
