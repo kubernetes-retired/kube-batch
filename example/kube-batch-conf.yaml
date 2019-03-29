@@ -4,7 +4,6 @@ tiers:
   - name: priority
   - name: gang
   - name: conformance
-  - name: mpi
 - plugins:
   - name: drf
   - name: predicates
