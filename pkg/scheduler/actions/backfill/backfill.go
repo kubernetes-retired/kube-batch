@@ -73,7 +73,7 @@ func (alloc *backfillAction) Execute(ssn *framework.Session) {
 		// Collect back fill candidates
 		backFillCandidates := make([]*api.JobInfo, 0, len(ssn.Jobs))
 		for _, job := range ssn.Jobs {
-			if ! ssn.BackFillEligible(job) {
+			if !ssn.BackFillEligible(job) {
 				continue
 			}
 			backFillCandidates = append(backFillCandidates, job)
@@ -144,7 +144,7 @@ func backFill(ssn *framework.Session, job *api.JobInfo) {
 		}
 	}
 
-	if ! ssn.JobReady(job) {
+	if !ssn.JobReady(job) {
 		glog.V(3).Infof("Job <%v/%v> is not ready. Release its resources.", job.Namespace, job.Name)
 		releaseReservedResources(ssn, job)
 	}

@@ -19,6 +19,7 @@ package conf
 import "time"
 
 const (
+	// DefaultStarvingThreshold sets teh default value for Starvation Threshold
 	DefaultStarvingThreshold time.Duration = 48 * time.Hour
 )
 

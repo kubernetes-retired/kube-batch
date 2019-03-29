@@ -381,7 +381,7 @@ func (ji *JobInfo) GetReadiness() JobReadiness {
 
 	allocatedOverBackfillTasks := ji.GetTasks(AllocatedOverBackfill)
 	allocatedOverBackfillTasksCnt := int32(len(allocatedOverBackfillTasks))
-	if allocatedTasksCnt + allocatedOverBackfillTasksCnt >= ji.MinAvailable {
+	if allocatedTasksCnt+allocatedOverBackfillTasksCnt >= ji.MinAvailable {
 		return AlmostReady
 	}
 

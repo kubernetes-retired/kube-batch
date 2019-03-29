@@ -97,7 +97,7 @@ func buildPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, owner []meta
 
 func buildBackfillPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, owner []metav1.OwnerReference, labels map[string]string) *v1.Pod {
 	pod := buildPod(ns, n, nn, p, req, owner, labels)
-	pod.Annotations = map[string]string {
+	pod.Annotations = map[string]string{
 		v1alpha1.BackfillAnnotationKey: "true",
 	}
 	return pod

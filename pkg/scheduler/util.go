@@ -77,4 +77,3 @@ func loadConf(confStr string) (*conf.SchedulerConfiguration, error) {
 	}
 	return schedulerConf, nil
 }
-

@@ -26,15 +26,15 @@ tiers:
 		expected  *conf.SchedulerConfiguration
 	}{
 		{
-			name: "configuration with starvation-threshold",
-			configStr:  conf1,
+			name:      "configuration with starvation-threshold",
+			configStr: conf1,
 			expected: &conf.SchedulerConfiguration{
 				StarvationThreshold: 20 * time.Hour,
-				EnableBackfill: true,
-				Actions: "allocate, backfill",
-				Tiers: []conf.Tier {
+				EnableBackfill:      true,
+				Actions:             "allocate, backfill",
+				Tiers: []conf.Tier{
 					{
-						Plugins: []conf.PluginOption {
+						Plugins: []conf.PluginOption{
 							{
 								Name: "priority",
 							},
@@ -44,7 +44,7 @@ tiers:
 						},
 					},
 					{
-						Plugins: []conf.PluginOption {
+						Plugins: []conf.PluginOption{
 							{
 								Name: "drf",
 							},
@@ -57,10 +57,10 @@ tiers:
 			},
 		},
 		{
-			name: "empty configuration with default starvation-threshold",
-			configStr:  "",
+			name:      "empty configuration with default starvation-threshold",
+			configStr: "",
 			expected: &conf.SchedulerConfiguration{
-				EnableBackfill: false,
+				EnableBackfill:      false,
 				StarvationThreshold: conf.DefaultStarvingThreshold,
 			},
 		},

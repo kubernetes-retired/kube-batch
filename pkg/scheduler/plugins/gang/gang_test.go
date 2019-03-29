@@ -18,19 +18,19 @@ func TestJobReady(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: 		"ready job",
-			job: 		buildJob("ready-job", api.Ready),
-			expected: 	true,
+			name:     "ready job",
+			job:      buildJob("ready-job", api.Ready),
+			expected: true,
 		},
 		{
-			name: 		"almost ready job",
-			job: 		buildJob("almost-ready-job", api.AlmostReady),
-			expected: 	false,
+			name:     "almost ready job",
+			job:      buildJob("almost-ready-job", api.AlmostReady),
+			expected: false,
 		},
 		{
-			name: 		"not job",
-			job: 		buildJob("partially-allocated-job", api.NotReady),
-			expected: 	false,
+			name:     "not job",
+			job:      buildJob("partially-allocated-job", api.NotReady),
+			expected: false,
 		},
 	}
 

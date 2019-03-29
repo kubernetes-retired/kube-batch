@@ -24,7 +24,6 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/client-go/tools/record"
 	kbv1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -144,23 +144,23 @@ func TestBackFill(t *testing.T) {
 			podGroups: []*kbv1.PodGroup{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "pg1",
-						Namespace: "c1",
+						Name:              "pg1",
+						Namespace:         "c1",
 						CreationTimestamp: metav1.Now(),
 					},
 					Spec: kbv1.PodGroupSpec{
-						Queue: "c1",
+						Queue:     "c1",
 						MinMember: 2,
 					},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "pg2",
-						Namespace: "c1",
+						Name:              "pg2",
+						Namespace:         "c1",
 						CreationTimestamp: metav1.Now(),
 					},
 					Spec: kbv1.PodGroupSpec{
-						Queue: "c1",
+						Queue:     "c1",
 						MinMember: 1,
 					},
 				},

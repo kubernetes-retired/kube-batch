@@ -31,13 +31,13 @@ import (
 )
 
 type Scheduler struct {
-	cache          schedcache.Cache
-	config         *rest.Config
-	actions        []framework.Action
-	plugins        []conf.Tier
-	schedulerConf  string
-	schedulePeriod time.Duration
-	enableBackfill bool
+	cache               schedcache.Cache
+	config              *rest.Config
+	actions             []framework.Action
+	plugins             []conf.Tier
+	schedulerConf       string
+	schedulePeriod      time.Duration
+	enableBackfill      bool
 	starvationThreshold time.Duration
 }
 

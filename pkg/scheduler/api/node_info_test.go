@@ -143,10 +143,10 @@ func TestNodeInfo_AddBackfillTask(t *testing.T) {
 	case01_pod2 := buildBackfillPod("c1", "p2", "n1", v1.PodRunning, buildResourceList("2000m", "2G"), []metav1.OwnerReference{}, make(map[string]string))
 
 	tests := []struct {
-		name     string
-		node     *v1.Node
-		pods     []*v1.Pod
-		expectedNode *NodeInfo
+		name               string
+		node               *v1.Node
+		pods               []*v1.Pod
+		expectedNode       *NodeInfo
 		expectedAllocatble *Resource
 	}{
 		{
@@ -185,7 +185,7 @@ func TestNodeInfo_AddBackfillTask(t *testing.T) {
 		}
 
 		actualAllocation := ni.GetAccessibleResource()
-		if ! actualAllocation.Equal(test.expectedAllocatble) {
+		if !actualAllocation.Equal(test.expectedAllocatble) {
 			t.Errorf("node info %d: \n expected %v, \n got %v \n",
 				i, test.expectedAllocatble, actualAllocation)
 		}

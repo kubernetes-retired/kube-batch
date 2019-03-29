@@ -102,7 +102,6 @@ func (alloc *preemptAction) Execute(ssn *framework.Session) {
 
 				preemptor := preemptorTasks[preemptorJob.UID].Pop().(*api.TaskInfo)
 
-
 				glog.V(3).Infof("Considering preemptor <%s/%s> with status %s",
 					preemptor.Namespace, preemptor.Name, preemptor.Status)
 

@@ -184,7 +184,7 @@ func (gp *gangPlugin) OnSessionClose(ssn *framework.Session) {
 	var unScheduleJobCount int
 	for _, job := range ssn.Jobs {
 		jc := &v1alpha1.PodGroupCondition{}
-		if ! jobReady(job) {
+		if !jobReady(job) {
 			unreadyTaskCount = job.MinAvailable - readyTaskNum(job)
 			msg := fmt.Sprintf("%v/%v tasks in gang unschedulable: %v",
 				job.MinAvailable-readyTaskNum(job), len(job.Tasks), job.FitError())
@@ -211,4 +211,3 @@ func (gp *gangPlugin) OnSessionClose(ssn *framework.Session) {
 
 	metrics.UpdateUnscheduleJobCount(unScheduleJobCount)
 }
-

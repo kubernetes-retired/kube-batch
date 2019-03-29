@@ -47,10 +47,10 @@ type NodeInfo struct {
 func NewNodeInfo(node *v1.Node) *NodeInfo {
 	if node == nil {
 		return &NodeInfo{
-			Releasing: EmptyResource(),
-			Idle:      EmptyResource(),
-			Used:      EmptyResource(),
-			Backfilled:EmptyResource(),
+			Releasing:  EmptyResource(),
+			Idle:       EmptyResource(),
+			Used:       EmptyResource(),
+			Backfilled: EmptyResource(),
 
 			Allocatable: EmptyResource(),
 			Capability:  EmptyResource(),
@@ -63,10 +63,10 @@ func NewNodeInfo(node *v1.Node) *NodeInfo {
 		Name: node.Name,
 		Node: node,
 
-		Releasing: EmptyResource(),
-		Idle:      NewResource(node.Status.Allocatable),
-		Used:      EmptyResource(),
-		Backfilled:EmptyResource(),
+		Releasing:  EmptyResource(),
+		Idle:       NewResource(node.Status.Allocatable),
+		Used:       EmptyResource(),
+		Backfilled: EmptyResource(),
 
 		Allocatable: NewResource(node.Status.Allocatable),
 		Capability:  NewResource(node.Status.Capacity),

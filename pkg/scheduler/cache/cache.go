@@ -92,7 +92,7 @@ type SchedulerCache struct {
 
 	Binder        Binder
 	Evictor       Evictor
-	Patcher		  Patcher
+	Patcher       Patcher
 	StatusUpdater StatusUpdater
 	VolumeBinder  VolumeBinder
 

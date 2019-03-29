@@ -201,7 +201,7 @@ func TestIsBackfill(t *testing.T) {
 	owner := buildOwnerReference("uid")
 	noAnnotationPod := buildPod("c1", "noAnnotationPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
 	notBackfillPod := buildPod("c1", "notBackfillPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
-	notBackfillPod.Annotations = map[string]string {v1alpha1.BackfillAnnotationKey: "false"}
+	notBackfillPod.Annotations = map[string]string{v1alpha1.BackfillAnnotationKey: "false"}
 	backfillPod := buildBackfillPod("c1", "backfillPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
 
 	tests := []struct {
@@ -210,18 +210,18 @@ func TestIsBackfill(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:   "test backfill pod",
-			pod:    backfillPod,
+			name:     "test backfill pod",
+			pod:      backfillPod,
 			expected: true,
 		},
 		{
-			name:   "test no-annotation pod",
-			pod:    noAnnotationPod,
+			name:     "test no-annotation pod",
+			pod:      noAnnotationPod,
 			expected: false,
 		},
 		{
-			name:   "test not-backfill pod",
-			pod:    notBackfillPod,
+			name:     "test not-backfill pod",
+			pod:      notBackfillPod,
 			expected: false,
 		},
 	}
@@ -233,4 +233,3 @@ func TestIsBackfill(t *testing.T) {
 		}
 	}
 }
-
