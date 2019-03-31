@@ -1045,6 +1045,7 @@
     "k8s.io/client-go/informers",
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/informers/policy/v1beta1",
+    "k8s.io/client-go/informers/scheduling/v1beta1",
     "k8s.io/client-go/informers/storage/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/scheme",
@@ -1062,14 +1063,15 @@
     "k8s.io/gengo/args",
     "k8s.io/gengo/examples/deepcopy-gen/generators",
     "k8s.io/kubernetes/pkg/api/v1/pod",
+    "k8s.io/kubernetes/pkg/apis/scheduling",
     "k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset",
+    "k8s.io/kubernetes/pkg/kubelet/apis",
     "k8s.io/kubernetes/pkg/scheduler/algorithm",
     "k8s.io/kubernetes/pkg/scheduler/algorithm/predicates",
     "k8s.io/kubernetes/pkg/scheduler/algorithm/priorities",
     "k8s.io/kubernetes/pkg/scheduler/api",
     "k8s.io/kubernetes/pkg/scheduler/cache",
     "k8s.io/kubernetes/pkg/scheduler/volumebinder",
-    "k8s.io/kubernetes/pkg/util/parsers",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
