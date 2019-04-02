@@ -63,24 +63,18 @@ func createShadowPodGroup(pod *v1.Pod) *v1alpha1.PodGroup {
 	}
 }
 
-func GenerateJob(mpi metav1.Object, job batchv1.Job) *batchv1.Job {
+func GenerateJob(mpi metav1.Object, job batchv1.JobSpec) *batchv1.Job {
 	// TODO: Default and Validate these with Webhooks
-	copyLabels := job.GetLabels()
-	if copyLabels == nil {
-		copyLabels = map[string]string{}
-	}
+
 	labels := map[string]string{}
-	for k, v := range copyLabels {
-		labels[k] = v
-	}
 	labels["job-name"] = mpi.GetName()
 	labels["job-type"] = "mpi-job"
 
-	job.Spec.Selector = &metav1.LabelSelector{
+	job.Selector = &metav1.LabelSelector{
 		MatchLabels: labels,
 	}
 
-	copyPodAnnotations := job.Spec.Template.GetAnnotations()
+	copyPodAnnotations := job.Template.GetAnnotations()
 	if copyPodAnnotations == nil {
 		copyPodAnnotations = map[string]string{}
 	}
@@ -101,7 +95,7 @@ func GenerateJob(mpi metav1.Object, job batchv1.Job) *batchv1.Job {
 		MountPath: "/entry/",
 	}
 
-	copyPodContainers := job.Spec.Template.Spec.Containers
+	copyPodContainers := job.Template.Spec.Containers
 	containers := []corev1.Container{}
 	for _, v := range copyPodContainers {
 		newArgs := []string{}
@@ -136,7 +130,7 @@ func GenerateJob(mpi metav1.Object, job batchv1.Job) *batchv1.Job {
 
 	defaultMode := int32(0444)
 	scriptMode := int32(0777)
-	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+	job.Template.Spec.Volumes = append(job.Template.Spec.Volumes, corev1.Volume{
 		Name: "mpi-hostfile",
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -153,7 +147,7 @@ func GenerateJob(mpi metav1.Object, job batchv1.Job) *batchv1.Job {
 			},
 		},
 	})
-	job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+	job.Template.Spec.Volumes = append(job.Template.Spec.Volumes, corev1.Volume{
 		Name: "mpi-data",
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -188,13 +182,13 @@ func GenerateJob(mpi metav1.Object, job batchv1.Job) *batchv1.Job {
 
 	theTrueTrue := true
 
-	job.Spec.ManualSelector = &theTrueTrue
-	job.Spec.Template.Labels = labels
-	job.Spec.Template.Annotations = podAnnotations
-	job.Spec.Template.Spec.ServiceAccountName = mpi.GetName() + "-sa"
-	job.Spec.Template.Spec.RestartPolicy = "Never"
-	job.Spec.Template.Spec.SchedulerName = "kube-batch"
-	job.Spec.Template.Spec.Containers = containers
+	job.ManualSelector = &theTrueTrue
+	job.Template.Labels = labels
+	job.Template.Annotations = podAnnotations
+	job.Template.Spec.ServiceAccountName = mpi.GetName() + "-sa"
+	job.Template.Spec.RestartPolicy = "Never"
+	job.Template.Spec.SchedulerName = "kube-batch"
+	job.Template.Spec.Containers = containers
 
 	gvk := schema.GroupVersionKind{
 		Group:   kbv1.GroupName,
@@ -212,7 +206,7 @@ func GenerateJob(mpi metav1.Object, job batchv1.Job) *batchv1.Job {
 				*metav1.NewControllerRef(mpi, gvk),
 			},
 		},
-		Spec: job.Spec,
+		Spec: job,
 	}
 	return newjob
 }

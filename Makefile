@@ -20,11 +20,9 @@ verify: generate-code
 init:
 	mkdir -p ${BIN_DIR}
 
-generate-code: init
-	go build -o ${BIN_DIR}/deepcopy-gen ./cmd/deepcopy-gen/
-	${BIN_DIR}/deepcopy-gen -i ./pkg/apis/scheduling/v1alpha1/ -O zz_generated.deepcopy
-	client-gen -i ./pkg/apis/scheduling/v1alpha1/ -h hack/boilerplate/boilerplate.go.txt 
-	
+generate-code:
+	go get -u k8s.io/code-generator/...
+	hack/update-codegen.sh
 
 rel_bins:
 	go get github.com/mitchellh/gox

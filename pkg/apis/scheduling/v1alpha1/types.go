@@ -24,10 +24,7 @@ import (
 
 // MPISpec defines the desired state of MPI
 type MPISpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Job      batchv1.Job `json:"job"`
-	PodGroup PodGroup    `json:"podGroup"`
+	Job batchv1.JobSpec `json:"job"`
 }
 
 // MPIStatus defines the observed state of MPI

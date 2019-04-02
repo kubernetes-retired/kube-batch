@@ -57,7 +57,7 @@ chmod +x /usr/bin/kubectl
 while true; do
 	happy=0;
 	while read p; do
-		/usr/bin/kubectl exec ${p} -- /bin/sh -c "My name is $(hostname)";
+		/usr/bin/kubectl exec ${p} -- /bin/sh -c echo "My name is $(hostname)";
 		happy=$((happy+$?));
 	done < /mpi/hostfile;
 
@@ -248,7 +248,9 @@ func (sc *SchedulerCache) addMPI(mpi *kbv1.MPI) error {
 				*metav1.NewControllerRef(mpi, gvk),
 			},
 		},
-		Spec: mpi.Spec.PodGroup.Spec,
+		Spec: kbv1.PodGroupSpec{
+			MinMember: *mpi.Spec.Job.Parallelism,
+		},
 	}
 
 	sc.kbclient.SchedulingV1alpha1().PodGroups(mpi.GetNamespace()).Create(podgroup)

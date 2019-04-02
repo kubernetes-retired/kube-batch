@@ -2,23 +2,18 @@ apiVersion: scheduling.incubator.k8s.io/v1alpha1
 kind: MPI
 metadata:
   name: test-mpi
+  namespace: default
 spec:
   job:
-    apiVersion: batch/v1
-    kind: Job
-    spec:
-      completions: 6
-      parallelism: 6
-      template:
-        spec:
-          containers:
-          - image: continuse/mpich:v3
-            imagePullPolicy: IfNotPresent
-            name: mpi
-            command: ["mpirun", "-n", "6", "hostname"]
-            resources:
-              requests:
-                cpu: "200m"
-  podGroup:
-    spec:
-      minMember: 6
+    completions: 6
+    parallelism: 6
+    template:
+      spec:
+        containers:
+        - image: continuse/mpich:v3
+          imagePullPolicy: IfNotPresent
+          name: mpi
+          command: ["mpirun", "-n", "6", "hostname"]
+          resources:
+            requests:
+              cpu: "200m"
