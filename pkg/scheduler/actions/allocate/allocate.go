@@ -144,9 +144,16 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 					glog.V(3).Infof("Predicates failed for task <%s/%s> on node <%s>: %v",
 						task.Namespace, task.Name, node.Name, err)
 				} else {
-					workerLock.Lock()
-					predicateNodes = append(predicateNodes, node)
-					workerLock.Unlock()
+					clonedNode := node.Idle.Clone()
+					// Check for Resource Predicate
+					if task.InitResreq.LessEqual(clonedNode.Add(node.Releasing)) {
+						workerLock.Lock()
+						predicateNodes = append(predicateNodes, node)
+						workerLock.Unlock()
+					} else {
+						glog.V(3).Infof("task <%s/%s> ResourceFit failed on node <%s>",
+							task.Namespace, task.Name, node.Name)
+					}
 				}
 			}
 			workqueue.ParallelizeUntil(context.TODO(), 16, len(allNodes), checkNode)
