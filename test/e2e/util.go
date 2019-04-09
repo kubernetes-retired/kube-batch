@@ -46,7 +46,7 @@ import (
 	kbapi "github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
 
-var oneMinute = 1 * time.Minute
+var oneMinute = 5 * time.Minute
 
 var halfCPU = v1.ResourceList{"cpu": resource.MustParse("500m")}
 var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
@@ -815,4 +815,31 @@ func preparePatchBytesforNode(nodeName string, oldNode *v1.Node, newNode *v1.Nod
 	}
 
 	return patchBytes, nil
+}
+
+func getRequestedCPU(pod v1.Pod) int64 {
+	var result int64
+	for _, container := range pod.Spec.Containers {
+		result += container.Resources.Requests.Cpu().MilliValue()
+	}
+	return result
+}
+
+func getRequestedMemory(pod v1.Pod) int64 {
+	var result int64
+	for _, container := range pod.Spec.Containers {
+		result += container.Resources.Requests.Memory().Value()
+	}
+	return result
+}
+
+// IsMasterNode returns true if its a master node or false otherwise.
+func IsMasterNode(node *v1.Node) bool {
+
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == "node-role.kubernetes.io/master" {
+			return true
+		}
+	}
+	return false
 }
