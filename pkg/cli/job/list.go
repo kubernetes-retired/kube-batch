@@ -17,9 +17,9 @@ package job
 
 import (
 	"fmt"
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/batch/v1alpha1"
 	"io"
 	"os"
-	"github.com/kubernetes-sigs/kube-batch/pkg/apis/batch/v1alpha1"
 
 	"github.com/spf13/cobra"
 
