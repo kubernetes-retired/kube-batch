@@ -46,7 +46,8 @@ import (
 	kbapi "github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
 
-var oneMinute = 5 * time.Minute
+var oneMinute = 1 * time.Minute
+var fiveMinutes = 5 * time.Minute
 
 var halfCPU = v1.ResourceList{"cpu": resource.MustParse("500m")}
 var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
@@ -437,6 +438,17 @@ func podGroupEvicted(ctx *context, pg *kbv1.PodGroup, time time.Time) wait.Condi
 
 		return false, nil
 	}
+}
+
+// waits the 'timeout' specified duration to check if the PodGroup is ready
+func waitTimeoutPodGroupReady(ctx *context, pg *kbv1.PodGroup, timeout time.Duration) error {
+	return waitTimeoutTasksReady(ctx, pg, int(pg.Spec.MinMember), timeout)
+}
+
+// waits the 'timeout' specified duration to check if the tasks are ready
+func waitTimeoutTasksReady(ctx *context, pg *kbv1.PodGroup, taskNum int, timeout time.Duration) error {
+	return wait.Poll(100*time.Millisecond, timeout, taskPhase(ctx, pg,
+		[]v1.PodPhase{v1.PodRunning, v1.PodSucceeded}, taskNum))
 }
 
 func waitPodGroupReady(ctx *context, pg *kbv1.PodGroup) error {

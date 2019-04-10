@@ -18,10 +18,13 @@ package e2e
 
 import (
 	"fmt"
-	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	kubev1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeletapi "k8s.io/kubernetes/pkg/kubelet/apis"
@@ -259,7 +262,7 @@ var _ = Describe("Predicates E2E Test", func() {
 		// These jobs will exhaust 70% of the CPU on that node.
 		// Using node-affinity assign the job per node.
 
-		cpuPodGrpList := []*v1alpha1.PodGroup{}
+		cpuPodGrpList := []*kubev1.PodGroup{}
 		for nodeName, cpu := range nodeToAllocatableMapCpu {
 			requestedCPU := cpu * 7 / 10
 			cpuJob := &jobSpec{
@@ -298,7 +301,7 @@ var _ = Describe("Predicates E2E Test", func() {
 		}
 		// Wait for CPU filler jobs to be scheduled.
 		for _, cpuPodGroup := range cpuPodGrpList {
-			err = waitPodGroupReady(context, cpuPodGroup)
+			err = waitTimeoutPodGroupReady(context, cpuPodGroup, fiveMinutes)
 			checkError(context, err)
 		}
 
@@ -307,7 +310,7 @@ var _ = Describe("Predicates E2E Test", func() {
 		// These jobs will exhaust 70% of the MEM on that node.
 		// Using node-affinity assign the job per node.
 
-		memPodGrpList := []*v1alpha1.PodGroup{}
+		memPodGrpList := []*kubev1.PodGroup{}
 		for nodeName, memory := range nodeToAllocatableMemMap {
 			requestedMem := memory * 7 / 10
 			memJob := &jobSpec{
@@ -347,7 +350,7 @@ var _ = Describe("Predicates E2E Test", func() {
 		}
 		// Wait for mem filler Jobs to be scheduled.
 		for _, memPod := range memPodGrpList {
-			err = waitPodGroupReady(context, memPod)
+			err = waitTimeoutPodGroupReady(context, memPod, fiveMinutes)
 			checkError(context, err)
 		}
 
@@ -372,8 +375,13 @@ var _ = Describe("Predicates E2E Test", func() {
 		}
 		_, addCpuPodGroup := createJob(context, addCpuJob)
 		// this additional-job-cpu should be pending
-		err = waitPodGroupPending(context, addCpuPodGroup)
-		checkError(context, err)
+		// check if the pod group is ready,
+		// this check should result in a timeout, then the test case is successful.
+
+		err = waitTimeoutPodGroupReady(context, addCpuPodGroup, oneMinute)
+		if !errors.IsTimeout(err) {
+			checkError(context, err)
+		}
 
 		By("Creating another Job that requires unavailable amount of Memory.")
 		// Create another Job that requires 50% of the largest node Memory resources.
@@ -395,8 +403,13 @@ var _ = Describe("Predicates E2E Test", func() {
 		}
 		_, addMemPodGroup := createJob(context, addMemJob)
 		// This additional-job-mem should be pending
-		err = waitPodGroupPending(context, addMemPodGroup)
-		checkError(context, err)
+		// check if the pod group is ready,
+		// this check should result in a timeout, then the test case is successful.
+
+		err = waitTimeoutPodGroupReady(context, addMemPodGroup, oneMinute)
+		if !errors.IsTimeout(err) {
+			checkError(context, err)
+		}
 	})
 
 })
