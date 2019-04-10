@@ -20,8 +20,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/golang/glog"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 
@@ -251,13 +253,14 @@ func deleteQueues(cxt *context) {
 }
 
 type taskSpec struct {
-	min, rep int32
-	img      string
-	pri      string
-	hostport int32
-	req      v1.ResourceList
-	affinity *v1.Affinity
-	labels   map[string]string
+	min, rep     int32
+	img          string
+	pri          string
+	hostport     int32
+	req          v1.ResourceList
+	affinity     *v1.Affinity
+	labels       map[string]string
+	nodeselector map[string]string
 }
 
 type jobSpec struct {
@@ -303,6 +306,7 @@ func createJob(context *context, job *jobSpec) ([]*batchv1.Job, *kbv1.PodGroup) 
 						RestartPolicy: v1.RestartPolicyOnFailure,
 						Containers:    createContainers(task.img, task.req, task.hostport),
 						Affinity:      task.affinity,
+						NodeSelector:  task.nodeselector,
 					},
 				},
 			},
@@ -783,6 +787,7 @@ func removeTaintsFromAllNodes(ctx *context, taints []v1.Taint) error {
 	return nil
 }
 
+// this method will return only worker nodes that are ready ignoring all other node including the master node
 func getAllWorkerNodes(ctx *context) []string {
 	nodeNames := make([]string, 0)
 
@@ -790,7 +795,19 @@ func getAllWorkerNodes(ctx *context) []string {
 	checkError(ctx, err)
 
 	for _, node := range nodes.Items {
-		if len(node.Spec.Taints) != 0 {
+		nodeReady := false
+		for _, condition := range node.Status.Conditions {
+			if condition.Type == v1.NodeReady && condition.Status == v1.ConditionTrue {
+				nodeReady = true
+				break
+			}
+		}
+
+		if IsMasterNode(&node) {
+			continue
+		}
+		// Skip the unready node.
+		if !nodeReady {
 			continue
 		}
 		nodeNames = append(nodeNames, node.Name)
@@ -815,4 +832,92 @@ func preparePatchBytesforNode(nodeName string, oldNode *v1.Node, newNode *v1.Nod
 	}
 
 	return patchBytes, nil
+}
+
+func expectNodeHasLabel(ctx *context, nodeName string, labelKey string, labelValue string) {
+	node, err := ctx.kubeclient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	checkError(ctx, err)
+	Expect(node.Labels[labelKey]).To(Equal(labelValue))
+}
+
+func addLabelsToNode(ctx *context, nodeName string, labels map[string]string) error {
+	tokens := make([]string, 0, len(labels))
+	for k, v := range labels {
+		tokens = append(tokens, "\""+k+"\":\""+v+"\"")
+	}
+	labelString := "{" + strings.Join(tokens, ",") + "}"
+	patch := fmt.Sprintf(`{"metadata":{"labels":%v}}`, labelString)
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		_, err = ctx.kubeclient.CoreV1().Nodes().Patch(nodeName, types.MergePatchType, []byte(patch))
+		if err != nil {
+			if !errors.IsConflict(err) {
+				return err
+			}
+		} else {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// removeLabelOffNode is for cleaning up labels temporarily added to node,
+// won't fail if target label doesn't exist or has been removed.
+func removeLabelOffNode(ctx *context, nodeName string, labelKeys []string) error {
+	var node *v1.Node
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		node, err = ctx.kubeclient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if node.Labels == nil {
+			return nil
+		}
+		for _, labelKey := range labelKeys {
+			if node.Labels == nil || len(node.Labels[labelKey]) == 0 {
+				break
+			}
+			delete(node.Labels, labelKey)
+		}
+		_, err = ctx.kubeclient.CoreV1().Nodes().Update(node)
+		if err != nil {
+			if !errors.IsConflict(err) {
+				return err
+			} else {
+				glog.V(2).Infof("Conflict when trying to remove a labels %v from %v", labelKeys, nodeName)
+			}
+		} else {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// verifyLabelsRemoved checks if Node for given nodeName does not have any of labels from labelKeys.
+// Return non-nil error if it does.
+func verifyLabelsRemoved(ctx *context, nodeName string, labelKeys []string) error {
+	node, err := ctx.kubeclient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	for _, labelKey := range labelKeys {
+		if node.Labels != nil && len(node.Labels[labelKey]) != 0 {
+			return fmt.Errorf("Failed removing label " + labelKey + " of the node " + nodeName)
+		}
+	}
+	return nil
+}
+
+// IsMasterNode returns true if its a master node or false otherwise.
+func IsMasterNode(node *v1.Node) bool {
+
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == "node-role.kubernetes.io/master" {
+			return true
+		}
+	}
+	return false
 }
