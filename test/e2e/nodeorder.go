@@ -30,7 +30,7 @@ var _ = Describe("NodeOrder E2E Test", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
 
-		nodeNames := getAllWorkerNodes(context)
+		nodeNames := getAllWorkerNodeNames(context)
 		var preferredSchedulingTermSlice []v1.PreferredSchedulingTerm
 		nodeSelectorRequirement := v1.NodeSelectorRequirement{Key: kubeletapi.LabelHostname, Operator: v1.NodeSelectorOpIn, Values: []string{nodeNames[0]}}
 		nodeSelectorTerm := v1.NodeSelectorTerm{MatchExpressions: []v1.NodeSelectorRequirement{nodeSelectorRequirement}}
@@ -139,7 +139,7 @@ var _ = Describe("NodeOrder E2E Test", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
 
-		nodeNames := getAllWorkerNodes(context)
+		nodeNames := getAllWorkerNodeNames(context)
 		affinityNodeOne := &v1.Affinity{
 			NodeAffinity: &v1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
