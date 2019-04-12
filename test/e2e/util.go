@@ -931,3 +931,14 @@ func readyNodeAmount(ctx *context) int {
 	}
 	return amount
 }
+
+// getNodesOfPodGroup returns a list of node name where the pods
+func getNodesOfPodGroup(ctx *context, pg *kbv1.PodGroup) (nodeNames []string) {
+	podList := getPodOfPodGroup(ctx, pg)
+	for _, pod := range podList {
+		if pod.Spec.NodeName != "" {
+			nodeNames = append(nodeNames, pod.Spec.NodeName)
+		}
+	}
+	return nodeNames
+}
