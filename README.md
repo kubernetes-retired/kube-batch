@@ -79,10 +79,10 @@ make images
 
 ## Verify your images
 # docker images
-REPOSITORY                      TAG                 IMAGE ID            CREATED             SIZE
-volcanosh/volcano-admission     latest              a83338506638        8 seconds ago       41.4MB
-volcanosh/volcano-scheduler     latest              faa3c2a25ac3        9 seconds ago       49.6MB
-volcanosh/volcano-controllers   latest              7b11606ebfb8        10 seconds ago      44.2MB
+REPOSITORY                                                 TAG                                        IMAGE ID            CREATED             SIZE
+kubesigs/vk-admission                                      v0.4.2                                     166dfdd01733        30 minutes ago      39.38 MB
+kubesigs/vk-controllers                                    v0.4.2                                     df8ad74b0787        30 minutes ago      42.17 MB
+kubesigs/kube-batch                                        v0.4.2                                     c77d9c9ee8a8        30 minutes ago      47.7 MB
 
 ``` 
 
@@ -98,7 +98,7 @@ kubernetes API server.
 
 ```
 #1. Install helm plugin
-helm plugin install installer/chart/volcano/plugins/gen-admission-secret
+helm plugin install deployment/volcano/plugins/gen-admission-secret
 
 #2. Generate secret within service name
 helm gen-admission-secret --service <specified-name>-admission-service --namespace <namespace>
@@ -113,10 +113,10 @@ helm gen-admission-secret --service volcano-trial-admission-service --namespace 
 Finally, install helm chart.
 
 ```
-helm install installer/chart/volcano --namespace <namespace> --name <specified-name>
+helm install deployment/volcano --namespace <namespace> --name <specified-name>
 
 For eg :
-helm install installer/chart/volcano --namespace volcano-trial --name volcano-trial
+helm install deployment/volcano --namespace volcano-trial --name volcano-trial
 
 ```
 
