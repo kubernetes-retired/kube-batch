@@ -1,4 +1,4 @@
-![volcano-logo](../images/volcano-logo.png)
+![volcano-logo](doc/images/volcano-logo.png)
 
 
 # Volcano
@@ -52,7 +52,7 @@ the open source community.
 
 ## Overall Architecture
 
-![volcano](../images/volcano-intro.png)
+![volcano](doc/images/volcano-intro.png)
 
 ## Quick Start Guide
 
