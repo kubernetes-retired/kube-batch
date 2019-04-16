@@ -92,6 +92,29 @@ type fakeBinder struct {
 	c     chan string
 }
 
+type fakePatcher struct {
+	sync.Mutex
+	patches map[string]string
+	c       chan string
+}
+
+func (fp *fakePatcher) Patch(p *v1.Pod, annotations map[string]string) error {
+	fp.Lock()
+	defer fp.Unlock()
+
+	if len(fp.patches) > 0 || len(annotations) > 1 {
+		return fmt.Errorf("more than 1 patches")
+	}
+
+	for key, val := range annotations {
+		fp.patches[key] = val
+	}
+
+	fp.c <- "patched"
+
+	return nil
+}
+
 func (fb *fakeBinder) Bind(p *v1.Pod, hostname string) error {
 	fb.Lock()
 	defer fb.Unlock()
@@ -132,12 +155,13 @@ func TestBackFill(t *testing.T) {
 	defer framework.CleanupPluginBuilders()
 
 	tests := []struct {
-		name      string
-		podGroups []*kbv1.PodGroup
-		pods      []*v1.Pod
-		nodes     []*v1.Node
-		queues    []*kbv1.Queue
-		expected  map[string]string
+		name            string
+		podGroups       []*kbv1.PodGroup
+		pods            []*v1.Pod
+		nodes           []*v1.Node
+		queues          []*kbv1.Queue
+		expectedBinds   map[string]string
+		expectedPatches map[string]string
 	}{
 		{
 			name: "two jobs with one node",
@@ -183,8 +207,11 @@ func TestBackFill(t *testing.T) {
 					},
 				},
 			},
-			expected: map[string]string{
+			expectedBinds: map[string]string{
 				"c1/pg2_1": "n1",
+			},
+			expectedPatches: map[string]string{
+				"scheduling.k8s.io/kube-batch-backfill": "true",
 			},
 		},
 	}
@@ -196,11 +223,16 @@ func TestBackFill(t *testing.T) {
 			binds: map[string]string{},
 			c:     make(chan string),
 		}
+		patcher := &fakePatcher{
+			patches: map[string]string{},
+			c:       make(chan string),
+		}
 		schedulerCache := &cache.SchedulerCache{
 			Nodes:         make(map[string]*api.NodeInfo),
 			Jobs:          make(map[api.JobID]*api.JobInfo),
 			Queues:        make(map[api.QueueID]*api.QueueInfo),
 			Binder:        binder,
+			Patcher:       patcher,
 			StatusUpdater: &fakeStatusUpdater{},
 			VolumeBinder:  &fakeVolumeBinder{},
 
@@ -236,7 +268,7 @@ func TestBackFill(t *testing.T) {
 			for _, task := range job.Tasks {
 				for _, node := range ssn.Nodes {
 					if task.Resreq.LessEqual(node.Idle) {
-						ssn.Allocate(task, node.Name, false)
+						ssn.Allocate(task, node)
 					}
 				}
 			}
@@ -244,9 +276,24 @@ func TestBackFill(t *testing.T) {
 
 		ssn.EnableBackfill = true
 		ssn.StarvationThreshold = conf.DefaultStarvingThreshold
-		backFill.Execute(ssn)
 
-		for i := 0; i < len(test.expected); i++ {
+		go func(session *framework.Session) {
+			backFill.Execute(session)
+		}(ssn)
+
+		for i := 0; i < len(test.expectedPatches); i++ {
+			select {
+			case <-patcher.c:
+			case <-time.After(3 * time.Second):
+				t.Errorf("Failed to get patching request.")
+			}
+		}
+
+		if !reflect.DeepEqual(test.expectedPatches, patcher.patches) {
+			t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expectedPatches, patcher.patches)
+		}
+
+		for i := 0; i < len(test.expectedBinds); i++ {
 			select {
 			case <-binder.c:
 			case <-time.After(3 * time.Second):
@@ -254,8 +301,8 @@ func TestBackFill(t *testing.T) {
 			}
 		}
 
-		if !reflect.DeepEqual(test.expected, binder.binds) {
-			t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expected, binder.binds)
+		if !reflect.DeepEqual(test.expectedBinds, binder.binds) {
+			t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expectedBinds, binder.binds)
 		}
 	}
 }

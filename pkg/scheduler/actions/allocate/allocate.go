@@ -150,11 +150,10 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 				glog.V(3).Infof("Considering Task <%v/%v> on node <%v>. Task request: <%v>; Idle: <%v>; Used: <%v>; Releasing: <%v>; Backfilled: <%v>",
 					task.Namespace, task.Name, node.Name, task.Resreq, node.Idle, node.Used, node.Releasing, node.Backfilled)
 
-				if task.InitResreq.LessEqual(node.GetAccessibleResource()) {
-					glog.V(3).Infof("Binding Task <%v/%v> to node <%v>",
-						task.Namespace, task.Name, node.Name)
+				if task.InitResreq.LessEqual(node.GetAccessibleResource()) || ssn.ToOverAllocate(node, task) {
+					glog.V(3).Infof("Binding Task <%v/%v> to node <%v>", task.Namespace, task.Name, node.Name)
 
-					if err := ssn.Allocate(task, node.Name, !task.InitResreq.LessEqual(node.Idle)); err != nil {
+					if err := ssn.Allocate(task, node); err != nil {
 						glog.Errorf("Failed to bind Task %v on %v in Session %v",
 							task.UID, node.Name, ssn.UID)
 						continue
@@ -170,7 +169,7 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 				}
 
 				// Allocate releasing resource to the task if any.
-				if task.InitResreq.LessEqual(node.Releasing) {
+				if !job.Starving(ssn.StarvationThreshold) && task.InitResreq.LessEqual(node.Releasing) {
 					glog.V(3).Infof("Pipelining Task <%v/%v> to node <%v> for <%v> on <%v>",
 						task.Namespace, task.Name, node.Name, task.InitResreq, node.Releasing)
 					if err := ssn.Pipeline(task, node.Name); err != nil {

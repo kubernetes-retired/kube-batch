@@ -57,7 +57,7 @@ func (alloc *backfillAction) Execute(ssn *framework.Session) {
 					}
 
 					glog.V(3).Infof("Binding Task <%v/%v> to node <%v>", task.Namespace, task.Name, node.Name)
-					if err := ssn.Allocate(task, node.Name, false); err != nil {
+					if err := ssn.Allocate(task, node); err != nil {
 						glog.Errorf("Failed to bind Task %v on %v in Session %v", task.UID, node.Name, ssn.UID)
 						continue
 					}
@@ -83,7 +83,7 @@ func (alloc *backfillAction) Execute(ssn *framework.Session) {
 		// we can back fill more jobs in the next step.
 		resourceReleased := false
 		for _, job := range ssn.Jobs {
-			if ssn.JobReady(job) || job.GetReadiness() == api.AlmostReady || job.Starving(ssn.StarvationThreshold) {
+			if ssn.JobReady(job) || job.GetReadiness() == api.OverResourceReady || job.Starving(ssn.StarvationThreshold) {
 				glog.V(3).Infof("Disable backfill on job <%v/%v>", job.Namespace, job.Name)
 			} else {
 				releaseReservedResources(ssn, job)
@@ -125,6 +125,7 @@ func backFill(ssn *framework.Session, job *api.JobInfo) {
 	glog.V(3).Infof("Backfill job <%v/%v>", job.Namespace, job.Name)
 
 	for _, task := range job.TaskStatusIndex[api.Pending] {
+		allocateFailed := false
 		for _, node := range ssn.Nodes {
 			if err := ssn.PredicateFn(task, node); err != nil {
 				glog.V(3).Infof("Predicates failed for task <%s/%s> on node <%s>: %v",
@@ -135,12 +136,16 @@ func backFill(ssn *framework.Session, job *api.JobInfo) {
 			if task.InitResreq.LessEqual(node.Idle) {
 				task.IsBackfill = true
 				glog.V(3).Infof("Binding backfill task <%v/%v> to node <%v>", task.Namespace, task.Name, node.Name)
-				if err := ssn.Allocate(task, node.Name, false); err != nil {
+				if err := ssn.Allocate(task, node); err != nil {
 					glog.Errorf("Failed to bind backfill task %v on %v in Session %v: %s", task.UID, node.Name, ssn.UID, err)
-					continue
+					allocateFailed = true
 				}
 				break
 			}
+		}
+		if allocateFailed {
+			glog.V(3).Infof("Aborted backilling job %s", job.Name)
+			break
 		}
 	}
 

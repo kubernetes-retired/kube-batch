@@ -24,7 +24,7 @@ func TestJobReady(t *testing.T) {
 		},
 		{
 			name:     "almost ready job",
-			job:      buildJob("almost-ready-job", api.AlmostReady),
+			job:      buildJob("almost-ready-job", api.OverResourceReady),
 			expected: false,
 		},
 		{
@@ -92,7 +92,7 @@ func buildJob(name string, status api.JobReadiness) *api.JobInfo {
 	case api.Ready:
 		t1 = buildTask("t1", api.Allocated)
 		t2 = buildTask("t2", api.Allocated)
-	case api.AlmostReady:
+	case api.OverResourceReady:
 		t1 = buildTask("t1", api.Allocated)
 		t2 = buildTask("t2", api.AllocatedOverBackfill)
 	case api.NotReady:

@@ -29,6 +29,10 @@ const (
 	// and only if, N.IdleResource < T.RequestResource <= N.AllocatableResource.
 	AllocatedOverBackfill
 
+	// OverOccupied means the job is allocated even when there is no immedicately
+	// available resources due to starvation
+	OverOccupied
+
 	// Allocated means that the task is allocated with idle resources only.
 	Allocated
 
@@ -72,7 +76,7 @@ const (
 	// state exceeds the job's minim task number requirement. In other words,
 	// #(Allocated Tasks) < Job.MinAvailable &&
 	// #(Allocated Tasks) + #(AllocatedOverBackFill Tasks) >= Job.MinAvailable
-	AlmostReady
+	OverResourceReady
 
 	// #(Allocated Tasks) + #(AllocatedOverBackFill Tasks) < Job.MinAvailable
 	NotReady

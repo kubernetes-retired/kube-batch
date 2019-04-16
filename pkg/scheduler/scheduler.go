@@ -90,6 +90,7 @@ func (pc *Scheduler) Run(stopCh <-chan struct{}) {
 		panic(err)
 	}
 
+	glog.V(4).Infof("pc setting %+v", pc)
 	go wait.Until(pc.runOnce, pc.schedulePeriod, stopCh)
 }
 

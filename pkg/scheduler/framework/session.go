@@ -18,6 +18,7 @@ package framework
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -127,23 +128,6 @@ func closeSession(ssn *Session) {
 			continue
 		}
 
-		// patch the backfilled annotation
-		for _, task := range job.Tasks {
-
-			if !task.IsBackfill {
-				continue
-			}
-
-			annotation := make(map[string]string)
-			annotation[v1alpha1.BackfillAnnotationKey] = "true"
-			err := ssn.cache.Patch(task, annotation)
-			if err != nil {
-				glog.Errorf("Failed to patch task/pod <%s/%s>: %v", task.Name, task.Pod.Name, err)
-			} else {
-				glog.Infof("pod %s is marked as a backfill", task.Pod.Name)
-			}
-		}
-
 		job.PodGroup.Status = jobStatus(ssn, job)
 		if _, err := ssn.cache.UpdateJobStatus(job); err != nil {
 			glog.Errorf("Failed to update job <%s/%s>: %v",
@@ -160,6 +144,10 @@ func closeSession(ssn *Session) {
 	ssn.queueOrderFns = nil
 
 	glog.V(3).Infof("Close Session %v", ssn.UID)
+}
+
+func (ssn *Session) PatchAnnotation(task *api.TaskInfo, annotations map[string]string) error {
+	return ssn.cache.Patch(task, annotations)
 }
 
 func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
@@ -250,7 +238,34 @@ func (ssn *Session) Pipeline(task *api.TaskInfo, hostname string) error {
 	return nil
 }
 
-func (ssn *Session) Allocate(task *api.TaskInfo, hostname string, usingBackfillTaskRes bool) error {
+func (ssn *Session) ToOverAllocate(node *api.NodeInfo, task *api.TaskInfo) bool {
+	job, found := ssn.Jobs[task.Job]
+	if !found {
+		return false
+	}
+	isJobStarving := job.Starving(ssn.StarvationThreshold)
+	if !isJobStarving {
+		return false
+	}
+
+	// allow over-allocate for starving job
+	netResource := node.Allocatable.Clone()
+	for _, nodeTask := range node.Tasks {
+		if nodeTask.Job == job.UID &&
+			(nodeTask.Status == api.OverOccupied ||
+				(nodeTask.Job == job.UID && nodeTask.Status == api.Allocated)) {
+			netResource.Sub(nodeTask.InitResreq)
+		}
+	}
+
+	// return true means when allocating for starving job, over-allocate resources ignoring
+	// resources being used on the node to prevent other non-startving job from taking the resources
+	return !task.InitResreq.LessEqual(node.GetAccessibleResource()) &&
+		task.InitResreq.LessEqual(netResource)
+}
+
+func (ssn *Session) Allocate(task *api.TaskInfo, node *api.NodeInfo) error {
+	hostname := node.Name
 	if err := ssn.cache.AllocateVolumes(task, hostname); err != nil {
 		return err
 	}
@@ -258,9 +273,14 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string, usingBackfillT
 	// Only update status in session
 	job, found := ssn.Jobs[task.Job]
 	if found {
+		isJobStarving := job.Starving(ssn.StarvationThreshold)
+		usingBackfillTaskRes := !task.InitResreq.LessEqual(node.Idle) && !isJobStarving
+
 		newStatus := api.Allocated
 		if usingBackfillTaskRes {
 			newStatus = api.AllocatedOverBackfill
+		} else if ssn.ToOverAllocate(node, task) {
+			newStatus = api.OverOccupied
 		}
 		if err := job.UpdateTaskStatus(task, newStatus); err != nil {
 			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
@@ -298,11 +318,53 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string, usingBackfillT
 		}
 	}
 
-	if ssn.JobReady(job) && !usingBackfillTaskRes {
+	if ssn.JobReady(job) {
+
+		// patch all the pod with backfill annotation. if any fails, abort the backfill
+		var wg sync.WaitGroup
+		errChannel := make(chan error, 1)
+		finished := make(chan bool, 1)
+
+		for _, pendingTask := range job.TaskStatusIndex[api.Allocated] {
+			if pendingTask.IsBackfill {
+
+				wg.Add(1)
+				go func(pendingTask *api.TaskInfo) {
+					defer wg.Done()
+
+					annotation := map[string]string{v1alpha1.BackfillAnnotationKey: "true"}
+					err := ssn.PatchAnnotation(pendingTask, annotation)
+					if err != nil {
+						glog.Errorf("Failed to patch backfill=true to task/pod <%s/%s>: %v",
+							pendingTask.Name, pendingTask.Pod.Name, err)
+						errChannel <- err
+						return
+					}
+				}(pendingTask)
+			}
+		}
+
+		go func() {
+			wg.Wait()
+			close(finished)
+		}()
+
+		select {
+		case <-finished:
+		case err := <-errChannel:
+			if err != nil {
+				fmt.Println("error ", err)
+				return err
+			}
+		}
+
+		// actually dispatch the pod to node
 		for _, task := range job.TaskStatusIndex[api.Allocated] {
+
 			if err := ssn.dispatch(task); err != nil {
 				glog.Errorf("Failed to dispatch task <%v/%v>: %v",
 					task.Namespace, task.Name, err)
+
 				return err
 			}
 		}

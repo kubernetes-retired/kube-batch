@@ -136,6 +136,12 @@ func (ni *NodeInfo) AddTask(task *TaskInfo) error {
 			ni.Idle.Sub(ti.Resreq)
 		}
 
+		// removing pod resources not maintained by kube-batch from node.ALlocatable
+		if ti.Job == "" && ti.Pod.Status.Phase == v1.PodRunning {
+			glog.Infof("adjusted Allocatable on node %s by %v", ni.Name, ti.Resreq)
+			ni.Allocatable.Sub(ti.Resreq)
+		}
+
 		ni.Used.Add(ti.Resreq)
 	}
 
@@ -209,6 +215,6 @@ func (ni *NodeInfo) Pods() (pods []*v1.Pod) {
 func (ni *NodeInfo) GetAccessibleResource() *Resource {
 	idle := ni.Idle.Clone()
 	accessible := idle.Add(ni.Backfilled).Clone()
-	glog.V(3).Infof("Accessible resources on Node <%v>: %v. Idle: %v. Backfilled: %v", ni.Name, accessible, ni.Idle, ni.Backfilled)
+	glog.V(3).Infof("Accessible resources on Node <%v>: %v. Idle: %v. Used: %v. Backfilled: %v", ni.Name, accessible, ni.Idle, ni.Used, ni.Backfilled)
 	return accessible
 }

@@ -73,13 +73,21 @@ func getJobID(pod *v1.Pod) JobID {
 func CheckBackfill(pod *v1.Pod) bool {
 	if len(pod.Annotations) != 0 {
 		if val, found := pod.Annotations[v1alpha1.BackfillAnnotationKey]; found && len(val) != 0 {
-			backfill, err := strconv.ParseBool(val)
+			hasBackfillAnnotation, err := strconv.ParseBool(val)
 			if err != nil {
 				glog.Errorf("Invalid backfill annotation value '%s': %s", pod.Annotations[v1alpha1.BackfillAnnotationKey], err)
 				return false
 			}
 			glog.Infof("Restored backfill status for pod %s", pod.Name)
-			return backfill
+
+			isPodScheduled := false
+			for _, cond := range pod.Status.Conditions {
+				if cond.Type == v1.PodScheduled {
+					isPodScheduled = true
+					break
+				}
+			}
+			return hasBackfillAnnotation && isPodScheduled
 		}
 	}
 	return false
@@ -382,7 +390,7 @@ func (ji *JobInfo) GetReadiness() JobReadiness {
 	allocatedOverBackfillTasks := ji.GetTasks(AllocatedOverBackfill)
 	allocatedOverBackfillTasksCnt := int32(len(allocatedOverBackfillTasks))
 	if allocatedTasksCnt+allocatedOverBackfillTasksCnt >= ji.MinAvailable {
-		return AlmostReady
+		return OverResourceReady
 	}
 
 	return NotReady
@@ -390,5 +398,5 @@ func (ji *JobInfo) GetReadiness() JobReadiness {
 
 func (ji *JobInfo) Starving(starvationThreshold time.Duration) bool {
 	readiness := ji.GetReadiness()
-	return readiness != Ready && readiness != AlmostReady && time.Since(ji.CreationTimestamp.Time) >= starvationThreshold
+	return readiness != Ready && readiness != OverResourceReady && time.Since(ji.CreationTimestamp.Time) >= starvationThreshold
 }
