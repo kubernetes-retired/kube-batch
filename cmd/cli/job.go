@@ -68,5 +68,15 @@ func buildJobCmd() *cobra.Command {
 	job.InitResumeFlags(jobResumeCmd)
 	jobCmd.AddCommand(jobResumeCmd)
 
+	jobQueueCmd := &cobra.Command{
+		Use:   "queue",
+		Short: "Get the queue of the job",
+		Run: func(cmd *cobra.Command, args []string) {
+			checkError(cmd, job.JobQueue())
+		},
+	}
+	job.InitQueueFlags(jobQueueCmd)
+	jobCmd.AddCommand(jobQueueCmd)
+
 	return jobCmd
 }
