@@ -234,7 +234,8 @@ func (ssn *Session) Pipeline(task *api.TaskInfo, hostname string) error {
 }
 
 //Allocate the task to the node in the session
-func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
+func (ssn *Session) Allocate(task *api.TaskInfo, node *api.NodeInfo) error {
+	hostname := node.Name
 	if err := ssn.cache.AllocateVolumes(task, hostname); err != nil {
 		return err
 	}
@@ -242,7 +243,14 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
 	// Only update status in session
 	job, found := ssn.Jobs[task.Job]
 	if found {
-		if err := job.UpdateTaskStatus(task, api.Allocated); err != nil {
+
+		borrowingResource := !task.InitResreq.LessEqual(node.Idle)
+		newStatus := api.Allocated
+		if borrowingResource {
+			newStatus = api.Borrowing
+		}
+
+		if err := job.UpdateTaskStatus(task, newStatus); err != nil {
 			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
 				task.Namespace, task.Name, api.Allocated, ssn.UID, err)
 			return err

@@ -16,17 +16,30 @@ limitations under the License.
 
 package conf
 
+import "time"
+
 // SchedulerConfiguration defines the configuration of scheduler.
 type SchedulerConfiguration struct {
 	// Actions defines the actions list of scheduler in order
-	Actions string `yaml:"actions"`
+	Actions []SchedulerAction `yaml:"actions"`
 	// Tiers defines plugins in different tiers
 	Tiers []Tier `yaml:"tiers"`
 }
 
+const (
+	// DefaultStarvingThreshold sets the default value for Starvation Threshold
+	DefaultStarvingThreshold time.Duration = 48 * time.Hour
+)
+
 // Tier defines plugin tier
 type Tier struct {
 	Plugins []PluginOption `yaml:"plugins"`
+}
+
+// SchedulerAction defines action with its options
+type SchedulerAction struct {
+	Name      string            `yaml:"name"`
+	Arguments map[string]string `yaml:"arguments"`
 }
 
 // PluginOption defines the options of plugin
@@ -51,6 +64,9 @@ type PluginOption struct {
 	EnabledPredicate *bool `yaml:"enablePredicate"`
 	// EnabledNodeOrder defines whether NodeOrderFn is enabled
 	EnabledNodeOrder *bool `yaml:"enableNodeOrder"`
+	// Starvation Threshold. Jobs that have been pending longer than
+	// the threshold are considered as starving jobs.
+	StarvationThreshold time.Duration `yaml:"starvation-threshold"`
 	// Arguments defines the different arguments that can be given to different plugins
 	Arguments map[string]string `yaml:"arguments"`
 }

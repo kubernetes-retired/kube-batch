@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -414,6 +415,82 @@ var _ = Describe("Job E2E Test", func() {
 		checkError(context, err)
 
 		err = waitPodGroupReady(context, pg2)
+		checkError(context, err)
+	})
+
+	It("Starvation Prevention", func() {
+		context := initTestContext()
+		defer cleanupTestContext(context)
+
+		rep := clusterSize(context, oneCPU)
+
+		// create a replica set to keep the cluster occupied
+		jobHolder := &jobSpec{
+			name: "job-holder",
+			pri:  workerPriority,
+			tasks: []taskSpec{
+				{
+					img: "nginx",
+					req: oneCPU,
+					min: rep - 1,
+					rep: rep - 1,
+				},
+			},
+		}
+		_, pgHolder := createJob(context, jobHolder)
+		err := waitPodGroupReady(context, pgHolder)
+		checkError(context, err)
+
+		job1 := &jobSpec{
+			name: "job-1-low-pri",
+			pri:  workerPriority,
+			tasks: []taskSpec{
+				{
+					img: "nginx",
+					req: oneCPU,
+					min: rep - 1,
+					rep: rep - 1,
+				},
+			},
+		}
+
+		// create job1 (lower priority)
+		_, pg1 := createJob(context, job1)
+		err = waitPodGroupPending(context, pg1)
+		checkError(context, err)
+
+		// exhaust the starvation time for job 1
+		time.Sleep(time.Minute)
+
+		// create job2 (higher priority)
+		job2 := &jobSpec{
+			name: "job-2-high-pri",
+			pri:  masterPriority,
+			tasks: []taskSpec{
+				{
+					img: "nginx",
+					req: oneCPU,
+					min: rep - 1,
+					rep: rep - 1,
+				},
+			},
+		}
+
+		_, pg2 := createJob(context, job2)
+
+		err = waitPodGroupPending(context, pg2)
+		checkError(context, err)
+
+		// Delete ReplicaSet
+		for i := range jobHolder.tasks {
+			err = deleteJob(context, fmt.Sprintf("%s-%d", jobHolder.name, i))
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		err = waitPodGroupReady(context, pg1)
+		checkError(context, err)
+
+		err = waitPodGroupPending(context, pg2)
 		checkError(context, err)
 	})
 })

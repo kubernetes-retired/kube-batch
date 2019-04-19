@@ -21,12 +21,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 )
 
 // TaskID is UID type for Task
@@ -371,6 +370,25 @@ func (ji *JobInfo) FitError() string {
 	return reasonMsg
 }
 
+// GetReadiness Check whether the job is read or over-resource-ready
+// over-resource-ready means the job is ready but some resource
+// is used by allocated job
+func (ji *JobInfo) GetReadiness() JobReadiness {
+	allocatedTasks := ji.GetTasks(AllocatedStatuses()...)
+	allocatedTasksCnt := int32(len(allocatedTasks))
+	if allocatedTasksCnt >= ji.MinAvailable {
+		return Ready
+	}
+
+	borrowingResourceTasks := ji.GetTasks(Borrowing)
+	borrowingResourceTasksCnt := int32(len(borrowingResourceTasks))
+	if allocatedTasksCnt+borrowingResourceTasksCnt >= ji.MinAvailable {
+		return ConditionallyReady
+	}
+
+	return NotReady
+}
+
 // ReadyTaskNum returns the number of tasks that are ready.
 func (ji *JobInfo) ReadyTaskNum() int32 {
 	occupid := 0
@@ -401,6 +419,7 @@ func (ji *JobInfo) ValidTaskNum() int32 {
 	occupied := 0
 	for status, tasks := range ji.TaskStatusIndex {
 		if AllocatedStatus(status) ||
+			status == Borrowing ||
 			status == Succeeded ||
 			status == Pipelined ||
 			status == Pending {

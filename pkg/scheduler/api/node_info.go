@@ -19,6 +19,8 @@ package api
 import (
 	"fmt"
 
+	"github.com/golang/glog"
+
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -74,9 +76,15 @@ func NewNodeInfo(node *v1.Node) *NodeInfo {
 // Clone used to clone nodeInfo Object
 func (ni *NodeInfo) Clone() *NodeInfo {
 	res := NewNodeInfo(ni.Node)
+	glog.V(4).Infof("new node <%v>: capability %v,  allocatable %v, idle %v, used %v, releasing %v", ni.Name, ni.Capability.MilliCPU,
+		ni.Allocatable.MilliCPU,
+		ni.Idle.MilliCPU,
+		ni.Used.MilliCPU,
+		ni.Releasing.MilliCPU)
 
-	for _, p := range ni.Tasks {
-		res.AddTask(p)
+	for _, task := range ni.Tasks {
+		glog.V(4).Infof("Adding task <%v/%v> to node <%v> with resource request %v", task.Namespace, task.Name, ni.Name, task.Resreq)
+		res.AddTask(task)
 	}
 
 	return res
@@ -122,6 +130,12 @@ func (ni *NodeInfo) AddTask(task *TaskInfo) error {
 			ni.Releasing.Sub(ti.Resreq)
 		default:
 			ni.Idle.Sub(ti.Resreq)
+		}
+
+		// removing pod resources not maintained by kube-batch from node.ALlocatable
+		if ti.Job == "" && ti.Pod.Status.Phase == v1.PodRunning {
+			glog.Infof("Adjusted Allocatable on node %s by %v", ni.Name, ti.Resreq)
+			ni.Allocatable.Sub(ti.Resreq)
 		}
 
 		ni.Used.Add(ti.Resreq)

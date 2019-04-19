@@ -1026,3 +1026,10 @@ func deleteReplicationController(ctx *context, name string) error {
 		PropagationPolicy: &foreground,
 	})
 }
+
+func deleteJob(ctx *context, name string) error {
+	foreground := metav1.DeletePropagationForeground
+	return ctx.kubeclient.BatchV1().Jobs(ctx.namespace).Delete(name, &metav1.DeleteOptions{
+		PropagationPolicy: &foreground,
+	})
+}

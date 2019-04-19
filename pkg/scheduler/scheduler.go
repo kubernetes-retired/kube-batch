@@ -77,11 +77,17 @@ func (pc *Scheduler) Run(stopCh <-chan struct{}) {
 		}
 	}
 
-	pc.actions, pc.plugins, err = loadSchedulerConf(schedConf)
-	if err != nil {
+	var config *conf.SchedulerConfiguration
+	if config, err = loadSchedulerConf(schedConf); err == nil {
+		pc.plugins = config.Tiers
+		pc.actions, err = getActions(config)
+	} else {
+		glog.Errorf("Failed to read scheduler configuration '%s': %s",
+			schedConf, err)
 		panic(err)
 	}
 
+	glog.V(4).Infof("pc setting %+v", pc)
 	go wait.Until(pc.runOnce, pc.schedulePeriod, stopCh)
 }
 

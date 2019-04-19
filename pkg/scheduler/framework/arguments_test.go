@@ -18,6 +18,7 @@ package framework
 
 import (
 	"testing"
+	"time"
 )
 
 type GetIntTestCases struct {
@@ -25,6 +26,20 @@ type GetIntTestCases struct {
 	key         string
 	baseValue   int
 	expectValue int
+}
+
+type GetBooleanTestCases struct {
+	arg         Arguments
+	key         string
+	baseValue   bool
+	expectValue bool
+}
+
+type GetDurationTestCases struct {
+	arg         Arguments
+	key         string
+	baseValue   time.Duration
+	expectValue time.Duration
 }
 
 func TestArgumentsGetInt(t *testing.T) {
@@ -69,6 +84,136 @@ func TestArgumentsGetInt(t *testing.T) {
 		baseValue := c.baseValue
 		c.arg.GetInt(nil, c.key)
 		c.arg.GetInt(&baseValue, c.key)
+		if baseValue != c.expectValue {
+			t.Errorf("index %d, value should be %v, but not %v", index, c.expectValue, baseValue)
+		}
+	}
+}
+
+func TestArgumentsGetBoolean(t *testing.T) {
+	key := "key"
+
+	cases := []GetBooleanTestCases{
+		{
+			arg: Arguments{
+				"anotherkey": "false",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+		{
+			arg: Arguments{
+				"anotherkey": "false",
+			},
+			key:         key,
+			baseValue:   true,
+			expectValue: true,
+		},
+		{
+			arg: Arguments{
+				key: "false",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+		{
+			arg: Arguments{
+				key: "true",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: true,
+		},
+		{
+			arg: Arguments{
+				key: "errorvalue",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+		{
+			arg: Arguments{
+				key: "errorvalue",
+			},
+			key:         key,
+			baseValue:   true,
+			expectValue: true,
+		},
+		{
+			arg: Arguments{
+				key: "",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+	}
+
+	for index, c := range cases {
+		baseValue := c.baseValue
+		c.arg.GetBool(nil, c.key)
+		c.arg.GetBool(&baseValue, c.key)
+		if baseValue != c.expectValue {
+			t.Errorf("index %d, value should be %v, but not %v", index, c.expectValue, baseValue)
+		}
+	}
+}
+
+func TestArgumentsGetDuration(t *testing.T) {
+	key := "key"
+	d2, _ := time.ParseDuration("2h")
+	d48, _ := time.ParseDuration("48h")
+
+	cases := []GetDurationTestCases{
+		{
+			arg: Arguments{
+				"anotherkey": "2h",
+			},
+			key:         key,
+			baseValue:   d48,
+			expectValue: d48,
+		},
+		{
+			arg: Arguments{
+				key: "2h",
+			},
+			key:         key,
+			baseValue:   d48,
+			expectValue: d2,
+		},
+		{
+			arg: Arguments{
+				key: "48h",
+			},
+			key:         key,
+			baseValue:   d48,
+			expectValue: d48,
+		},
+		{
+			arg: Arguments{
+				key: "errorvalue",
+			},
+			key:         key,
+			baseValue:   d2,
+			expectValue: d2,
+		},
+		{
+			arg: Arguments{
+				key: "",
+			},
+			key:         key,
+			baseValue:   d2,
+			expectValue: d2,
+		},
+	}
+
+	for index, c := range cases {
+		baseValue := c.baseValue
+		c.arg.GetTimeDuration(nil, c.key)
+		c.arg.GetTimeDuration(&baseValue, c.key)
 		if baseValue != c.expectValue {
 			t.Errorf("index %d, value should be %v, but not %v", index, c.expectValue, baseValue)
 		}

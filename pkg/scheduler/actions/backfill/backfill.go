@@ -18,17 +18,20 @@ package backfill
 
 import (
 	"github.com/golang/glog"
-
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
 )
 
 type backfillAction struct {
-	ssn *framework.Session
+	ssn       *framework.Session
+	arguments framework.Arguments
 }
 
-func New() *backfillAction {
-	return &backfillAction{}
+// New inits the action
+func New(args framework.Arguments) framework.Action {
+	return &backfillAction{
+		arguments: args,
+	}
 }
 
 func (alloc *backfillAction) Name() string {
@@ -57,7 +60,7 @@ func (alloc *backfillAction) Execute(ssn *framework.Session) {
 					}
 
 					glog.V(3).Infof("Binding Task <%v/%v> to node <%v>", task.Namespace, task.Name, node.Name)
-					if err := ssn.Allocate(task, node.Name); err != nil {
+					if err := ssn.Allocate(task, node); err != nil {
 						glog.Errorf("Failed to bind Task %v on %v in Session %v", task.UID, node.Name, ssn.UID)
 						continue
 					}

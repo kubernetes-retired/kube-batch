@@ -66,7 +66,7 @@ type Binder interface {
 	Bind(task *v1.Pod, hostname string) error
 }
 
-// Evictor interface for evict pods
+// Evictor interface for evicting pods
 type Evictor interface {
 	Evict(pod *v1.Pod) error
 }

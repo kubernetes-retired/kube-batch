@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In kube-batch there are 4 actions such as allocate, preempt, reclaim, backfill and with the help of plugins like conformance, drf, gang, nodeorder and more plugins. All these plugins provides behavioural characteristics how scheduler make scheduling decisions.
+In kube-batch there are 4 actions such as allocate, preempt, reclaim, reserve and with the help of plugins like conformance, drf, gang, nodeorder and more plugins. All these plugins provides behavioural characteristics how scheduler make scheduling decisions.
 
 ## Reclaim Action
 

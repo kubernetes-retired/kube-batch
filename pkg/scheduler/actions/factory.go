@@ -17,6 +17,7 @@ limitations under the License.
 package actions
 
 import (
+	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/actions/reserve"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/actions/allocate"
@@ -26,8 +27,9 @@ import (
 )
 
 func init() {
-	framework.RegisterAction(reclaim.New())
-	framework.RegisterAction(allocate.New())
-	framework.RegisterAction(backfill.New())
-	framework.RegisterAction(preempt.New())
+	framework.RegisterAction("reclaim", reclaim.New)
+	framework.RegisterAction("allocate", allocate.New)
+	framework.RegisterAction("backfill", backfill.New)
+	framework.RegisterAction("reserve", reserve.New)
+	framework.RegisterAction("preempt", preempt.New)
 }

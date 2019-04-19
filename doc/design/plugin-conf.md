@@ -22,7 +22,14 @@ scenario on the fly.
 The following YAML format will be introduced for dynamic plugin configuration:
 
 ```yaml
-actions: "list_of_action_in_order"
+actions:
+- name: action_1
+  options:
+    key1: val1
+    key2: val2
+- name: action_2
+- name: action_3
+- name: action_4
 tiers:
 - plugins:
   - name: "plugin_1"
@@ -54,7 +61,11 @@ will preempt other jobs, although it's already allocated "enough" resource accor
 1. `"tiers.plugins.drf.disableTaskOrder"` is `true`, so `drf` will not impact task order phase/action
 
 ```yaml
-actions: "reclaim, allocate, backfill, preempt"
+actions:
+- name: reclaim
+- name: allocate
+- name: backfill
+- name: preempt
 tiers:
 - plugins:
   - name: "priority"

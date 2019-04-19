@@ -131,7 +131,8 @@ func TestPreempt(t *testing.T) {
 		},
 	}
 
-	allocate := New()
+	arguments := framework.Arguments{}
+	allocate := New(arguments)
 
 	for i, test := range tests {
 		binder := &util.FakeBinder{

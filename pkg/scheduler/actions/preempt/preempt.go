@@ -28,11 +28,14 @@ import (
 )
 
 type preemptAction struct {
-	ssn *framework.Session
+	ssn       *framework.Session
+	arguments framework.Arguments
 }
 
-func New() *preemptAction {
-	return &preemptAction{}
+func New(args framework.Arguments) framework.Action {
+	return &preemptAction{
+		arguments: args,
+	}
 }
 
 func (alloc *preemptAction) Name() string {

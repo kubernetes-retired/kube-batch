@@ -25,8 +25,13 @@ import (
 )
 
 func TestLoadSchedulerConf(t *testing.T) {
-	configuration := `
-actions: "allocate, backfill"
+	configurations := []string{`
+actions:
+- name: allocate
+- name: reserve 
+  arguments:
+    enabled: true
+    threshold: 48h
 tiers:
 - plugins:
   - name: priority
@@ -37,8 +42,22 @@ tiers:
   - name: predicates
   - name: proportion
   - name: nodeorder
-`
+`,
+	}
 
+	expectedOptions := []map[string]string{
+		{
+			"enabled":   "true",
+			"threshold": "48h",
+		},
+	}
+
+	for i, config := range configurations {
+		testLoadSchedulerConfCases(config, expectedOptions[i], t)
+	}
+}
+
+func testLoadSchedulerConfCases(configuration string, expectedOption map[string]string, t *testing.T) {
 	trueValue := true
 	expectedTiers := []conf.Tier{
 		{
@@ -135,12 +154,32 @@ tiers:
 		},
 	}
 
-	_, tiers, err := loadSchedulerConf(configuration)
+	config, err := loadSchedulerConf(configuration)
 	if err != nil {
 		t.Errorf("Failed to load scheduler configuration: %v", err)
 	}
+	tiers := config.Tiers
 	if !reflect.DeepEqual(tiers, expectedTiers) {
 		t.Errorf("Failed to set default settings for plugins, expected: %+v, got %+v",
 			expectedTiers, tiers)
 	}
+
+	if len(config.Actions) != 2 ||
+		config.Actions[0].Name != "allocate" ||
+		len(config.Actions[0].Arguments) != 0 {
+		t.Errorf("Failed to set default settings for backfill, "+
+			"expected: len(config.Actions)==2, config.Action[1].Name=='allocate', config.Action[1].Options==[], got %+v",
+			config.Actions)
+	}
+
+	if config.Actions[1].Name != "reserve" ||
+		len(config.Actions[1].Arguments) != 2 ||
+		config.Actions[1].Arguments["enabled"] != expectedOption["enabled"] ||
+		config.Actions[1].Arguments["threshold"] != expectedOption["threshold"] {
+		t.Errorf("Failed to set default settings for reserve, "+
+			"expected: len(config.Actions)==2, config.Action[1].Name=='reserve', "+
+			"config.Action[1].Options[\"enabled\"]==\"%s\", got %+v",
+			expectedOption, config.Actions)
+	}
+
 }

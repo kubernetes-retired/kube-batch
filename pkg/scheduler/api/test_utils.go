@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -72,6 +74,7 @@ func buildPod(ns, n, nn string, p v1.PodPhase, req v1.ResourceList, owner []meta
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:             types.UID(fmt.Sprintf("%v-%v", ns, n)),
+			Annotations:     map[string]string{v1alpha1.GroupNameAnnotationKey: "testpodgroup"},
 			Name:            n,
 			Namespace:       ns,
 			OwnerReferences: owner,

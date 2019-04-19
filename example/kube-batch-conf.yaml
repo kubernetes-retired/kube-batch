@@ -1,4 +1,12 @@
-actions: "reclaim, allocate, backfill, preempt"
+actions:
+- name: reserve
+  arguments:
+    enabled: true
+    threshold: 48h
+- name: reclaim
+- name: allocate
+- name: backfill
+- name: preempt
 tiers:
 - plugins:
   - name: priority
