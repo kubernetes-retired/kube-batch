@@ -141,22 +141,17 @@ func (r *Resource) Add(rr *Resource) *Resource {
 
 //Sub subtracts two Resource objects.
 func (r *Resource) Sub(rr *Resource) *Resource {
-	if rr.LessEqual(r) {
-		r.MilliCPU -= rr.MilliCPU
-		r.Memory -= rr.Memory
+	r.MilliCPU -= rr.MilliCPU
+	r.Memory -= rr.Memory
 
-		for rrName, rrQuant := range rr.ScalarResources {
-			if r.ScalarResources == nil {
-				return r
-			}
-			r.ScalarResources[rrName] -= rrQuant
+	for rrName, rrQuant := range rr.ScalarResources {
+		if r.ScalarResources == nil {
+			return r
 		}
-
-		return r
+		r.ScalarResources[rrName] -= rrQuant
 	}
 
-	panic(fmt.Errorf("Resource is not sufficient to do operation: <%v> sub <%v>",
-		r, rr))
+	return r
 }
 
 // SetMaxResource compares with ResourceList and takes max value for each Resource.

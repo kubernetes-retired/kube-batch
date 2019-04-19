@@ -18,6 +18,7 @@ package framework
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/golang/glog"
 
@@ -45,19 +46,21 @@ type Session struct {
 	Backlog []*api.JobInfo
 	Tiers   []conf.Tier
 
-	plugins         map[string]Plugin
-	eventHandlers   []*EventHandler
-	jobOrderFns     map[string]api.CompareFn
-	queueOrderFns   map[string]api.CompareFn
-	taskOrderFns    map[string]api.CompareFn
-	predicateFns    map[string]api.PredicateFn
-	nodeOrderFns    map[string]api.NodeOrderFn
-	preemptableFns  map[string]api.EvictableFn
-	reclaimableFns  map[string]api.EvictableFn
-	overusedFns     map[string]api.ValidateFn
-	jobReadyFns     map[string]api.ValidateFn
-	jobPipelinedFns map[string]api.ValidateFn
-	jobValidFns     map[string]api.ValidateExFn
+	plugins             map[string]Plugin
+	eventHandlers       []*EventHandler
+	jobOrderFns         map[string]api.CompareFn
+	queueOrderFns       map[string]api.CompareFn
+	taskOrderFns        map[string]api.CompareFn
+	predicateFns        map[string]api.PredicateFn
+	nodeOrderFns        map[string]api.NodeOrderFn
+	preemptableFns      map[string]api.EvictableFn
+	reclaimableFns      map[string]api.EvictableFn
+	overusedFns         map[string]api.ValidateFn
+	jobReadyFns         map[string]api.ValidateFn
+	jobBackfillReadyFns map[string]api.ValidateFn
+	jobPipelinedFns     map[string]api.ValidateFn
+	jobValidFns         map[string]api.ValidateExFn
+	backFillEligibleFns map[string]api.BackFillEligibleFn
 }
 
 func openSession(cache cache.Cache) *Session {
@@ -69,18 +72,20 @@ func openSession(cache cache.Cache) *Session {
 		Nodes:  map[string]*api.NodeInfo{},
 		Queues: map[api.QueueID]*api.QueueInfo{},
 
-		plugins:         map[string]Plugin{},
-		jobOrderFns:     map[string]api.CompareFn{},
-		queueOrderFns:   map[string]api.CompareFn{},
-		taskOrderFns:    map[string]api.CompareFn{},
-		predicateFns:    map[string]api.PredicateFn{},
-		nodeOrderFns:    map[string]api.NodeOrderFn{},
-		preemptableFns:  map[string]api.EvictableFn{},
-		reclaimableFns:  map[string]api.EvictableFn{},
-		overusedFns:     map[string]api.ValidateFn{},
-		jobReadyFns:     map[string]api.ValidateFn{},
-		jobPipelinedFns: map[string]api.ValidateFn{},
-		jobValidFns:     map[string]api.ValidateExFn{},
+		plugins:             map[string]Plugin{},
+		jobOrderFns:         map[string]api.CompareFn{},
+		queueOrderFns:       map[string]api.CompareFn{},
+		taskOrderFns:        map[string]api.CompareFn{},
+		predicateFns:        map[string]api.PredicateFn{},
+		nodeOrderFns:        map[string]api.NodeOrderFn{},
+		preemptableFns:      map[string]api.EvictableFn{},
+		reclaimableFns:      map[string]api.EvictableFn{},
+		overusedFns:         map[string]api.ValidateFn{},
+		jobReadyFns:         map[string]api.ValidateFn{},
+		jobBackfillReadyFns: map[string]api.ValidateFn{},
+		jobPipelinedFns:     map[string]api.ValidateFn{},
+		jobValidFns:         map[string]api.ValidateExFn{},
+		backFillEligibleFns: map[string]api.BackFillEligibleFn{},
 	}
 
 	snapshot := cache.Snapshot()
@@ -141,6 +146,11 @@ func closeSession(ssn *Session) {
 	ssn.queueOrderFns = nil
 
 	glog.V(3).Infof("Close Session %v", ssn.UID)
+}
+
+// PatchAnnotation patch annotation
+func (ssn *Session) PatchAnnotation(task *api.TaskInfo, annotations map[string]string) error {
+	return ssn.cache.Patch(task, annotations)
 }
 
 func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
@@ -234,7 +244,8 @@ func (ssn *Session) Pipeline(task *api.TaskInfo, hostname string) error {
 }
 
 //Allocate the task to the node in the session
-func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
+func (ssn *Session) Allocate(task *api.TaskInfo, node *api.NodeInfo) error {
+	hostname := node.Name
 	if err := ssn.cache.AllocateVolumes(task, hostname); err != nil {
 		return err
 	}
@@ -242,7 +253,14 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
 	// Only update status in session
 	job, found := ssn.Jobs[task.Job]
 	if found {
-		if err := job.UpdateTaskStatus(task, api.Allocated); err != nil {
+
+		usingBackfillTaskRes := !task.InitResreq.LessEqual(node.Idle)
+		newStatus := api.Allocated
+		if usingBackfillTaskRes {
+			newStatus = api.Borrowing
+		}
+
+		if err := job.UpdateTaskStatus(task, newStatus); err != nil {
 			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
 				task.Namespace, task.Name, api.Allocated, ssn.UID, err)
 			return err
@@ -279,6 +297,46 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
 	}
 
 	if ssn.JobReady(job) {
+
+		// patch all the pod with backfill annotation. if any fails, abort the backfill
+		var wg sync.WaitGroup
+		errChannel := make(chan error, 1)
+		finished := make(chan bool, 1)
+
+		for _, pendingTask := range job.TaskStatusIndex[api.Allocated] {
+			if pendingTask.Condition.IsBackfill {
+
+				wg.Add(1)
+				go func(pendingTask *api.TaskInfo) {
+					defer wg.Done()
+
+					annotation := map[string]string{v1alpha1.BackfillAnnotationKey: "true"}
+					err := ssn.PatchAnnotation(pendingTask, annotation)
+					if err != nil {
+						glog.Errorf("Failed to patch backfill=true to task/pod <%s/%s>: %v",
+							pendingTask.Name, pendingTask.Pod.Name, err)
+						errChannel <- err
+						return
+					}
+				}(pendingTask)
+			}
+		}
+
+		go func() {
+			wg.Wait()
+			close(finished)
+		}()
+
+		select {
+		case <-finished:
+		case err := <-errChannel:
+			if err != nil {
+				fmt.Println("error ", err)
+				return err
+			}
+		}
+
+		// actually dispatch the pod to node
 		for _, task := range job.TaskStatusIndex[api.Allocated] {
 			if err := ssn.dispatch(task); err != nil {
 				glog.Errorf("Failed to dispatch task <%v/%v>: %v",

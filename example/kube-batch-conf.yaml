@@ -1,4 +1,8 @@
-actions: "reclaim, allocate, backfill, preempt"
+actions:
+- name: reclaim
+- name: allocate
+- name: backfill
+- name: preempt
 tiers:
 - plugins:
   - name: priority

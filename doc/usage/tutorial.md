@@ -57,7 +57,9 @@ Please check following configurable fields and customize kube-batch based on you
 By default, scheduler will read following default configuraion as `scheduler-conf`.
 
 ```yaml
-actions: "allocate, backfill"
+actions:
+- name: allocate
+- name: backfill
 tiers:
 - plugins:
   - name: priority

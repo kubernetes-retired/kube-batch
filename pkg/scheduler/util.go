@@ -19,17 +19,19 @@ package scheduler
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/conf"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/plugins"
+	"gopkg.in/yaml.v2"
 )
 
 var defaultSchedulerConf = `
-actions: "allocate, backfill"
+actions:
+- name: allocate
+- name: backfill
 tiers:
 - plugins:
   - name: priority
@@ -41,16 +43,14 @@ tiers:
   - name: nodeorder
 `
 
-func loadSchedulerConf(confStr string) ([]framework.Action, []conf.Tier, error) {
-	var actions []framework.Action
-
+func loadSchedulerConf(confStr string) (*conf.SchedulerConfiguration, error) {
 	schedulerConf := &conf.SchedulerConfiguration{}
 
 	buf := make([]byte, len(confStr))
 	copy(buf, confStr)
 
 	if err := yaml.Unmarshal(buf, schedulerConf); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Set default settings for each plugin if not set
@@ -60,16 +60,41 @@ func loadSchedulerConf(confStr string) ([]framework.Action, []conf.Tier, error) 
 		}
 	}
 
-	actionNames := strings.Split(schedulerConf.Actions, ",")
-	for _, actionName := range actionNames {
-		if action, found := framework.GetAction(strings.TrimSpace(actionName)); found {
-			actions = append(actions, action)
-		} else {
-			return nil, nil, fmt.Errorf("failed to found Action %s, ignore it", actionName)
+	for i, action := range schedulerConf.Actions {
+		if _, found := framework.GetAction(action.Name); !found {
+			return nil, fmt.Errorf("failed to found Action %s, ignore it", action.Name)
+		}
+
+		if action.Options == nil {
+			schedulerConf.Actions[i].Options = map[string]string{}
+		}
+
+		// set default value for backfill enabled
+		if action.Name == "backfill" {
+			if _, found := schedulerConf.Actions[i].Options[conf.BackfillFlagName]; !found {
+				schedulerConf.Actions[i].Options[conf.BackfillFlagName] = "false"
+			}
 		}
 	}
 
-	return actions, schedulerConf.Tiers, nil
+	return schedulerConf, nil
+}
+
+func getActions(schedulerConf *conf.SchedulerConfiguration) ([]framework.Action, error) {
+	var actions []framework.Action
+
+	for _, confAction := range schedulerConf.Actions {
+		var found bool
+		var actionBuilder framework.ActionBuilder
+		if actionBuilder, found = framework.GetAction(confAction.Name); !found {
+			return nil, fmt.Errorf("failed to found Action %s, ignore it", confAction.Name)
+		}
+
+		action := actionBuilder(confAction.Options)
+		actions = append(actions, action)
+	}
+
+	return actions, nil
 }
 
 func readSchedulerConf(confPath string) (string, error) {

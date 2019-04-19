@@ -20,6 +20,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -192,6 +194,60 @@ func TestDeleteTaskInfo(t *testing.T) {
 		if !jobInfoEqual(ps, test.expected) {
 			t.Errorf("podset info %d: \n expected: %v, \n got: %v \n",
 				i, test.expected, ps)
+		}
+	}
+}
+
+func TestIsBackfill(t *testing.T) {
+	owner := buildOwnerReference("uid")
+
+	noAnnotationPod := buildPod("c1", "noAnnotationPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
+
+	notBackfillPod := buildPod("c1", "notBackfillPod", "", v1.PodPending, buildResourceList("1000m", "1G"), []metav1.OwnerReference{owner}, make(map[string]string))
+	notBackfillPod.Annotations[v1alpha1.BackfillAnnotationKey] = "false"
+
+	nonBondBackfillPod := buildBackfillPod("c1", "backfillPod", "", v1.PodPending,
+		buildResourceList("1000m", "1G"),
+		[]metav1.OwnerReference{owner}, make(map[string]string), nil)
+
+	bondStatus := &v1.PodStatus{
+		HostIP: "1.1.1.1",
+	}
+	bondBackfillPod := buildBackfillPod("c1", "backfillPod", "", v1.PodPending,
+		buildResourceList("1000m", "1G"),
+		[]metav1.OwnerReference{owner}, make(map[string]string), bondStatus)
+
+	tests := []struct {
+		name     string
+		pod      *v1.Pod
+		expected bool
+	}{
+		{
+			name:     "test non-bound backfill pod",
+			pod:      nonBondBackfillPod,
+			expected: false,
+		},
+		{
+			name:     "test bond backfill pod",
+			pod:      bondBackfillPod,
+			expected: true,
+		},
+		{
+			name:     "test no-annotation pod",
+			pod:      noAnnotationPod,
+			expected: false,
+		},
+		{
+			name:     "test not-backfill pod",
+			pod:      notBackfillPod,
+			expected: false,
+		},
+	}
+
+	for i, test := range tests {
+		actual := checkBackfill(test.pod)
+		if checkBackfill(test.pod) != test.expected {
+			t.Errorf("case %d (%s): expected: %v, got %v ", i, test.name, test.expected, actual)
 		}
 	}
 }

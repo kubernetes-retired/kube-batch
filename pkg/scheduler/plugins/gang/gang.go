@@ -44,6 +44,20 @@ func (gp *gangPlugin) Name() string {
 	return "gang"
 }
 
+func backFillEligible(obj interface{}) bool {
+	job := obj.(*api.JobInfo)
+
+	allPending := true
+	for _, task := range job.Tasks {
+		if task.Status != api.Pending {
+			allPending = false
+			break
+		}
+	}
+
+	return allPending
+}
+
 func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 	validJobFn := func(obj interface{}) *api.ValidateResult {
 		job, ok := obj.(*api.JobInfo)
@@ -92,6 +106,7 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 	// TODO(k82cn): Support preempt/reclaim batch job.
 	ssn.AddReclaimableFn(gp.Name(), preemptableFn)
 	ssn.AddPreemptableFn(gp.Name(), preemptableFn)
+	ssn.AddBackFillEligibleFn(gp.Name(), backFillEligible)
 
 	jobOrderFn := func(l, r interface{}) int {
 		lv := l.(*api.JobInfo)
@@ -123,6 +138,12 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 		ji := obj.(*api.JobInfo)
 		return ji.Ready()
 	})
+
+	ssn.AddJobBackfillReadyFn(gp.Name(), func(obj interface{}) bool {
+		ji := obj.(*api.JobInfo)
+		return ji.BackfillReady()
+	})
+
 	ssn.AddJobPipelinedFn(gp.Name(), func(obj interface{}) bool {
 		ji := obj.(*api.JobInfo)
 		return ji.Pipelined()

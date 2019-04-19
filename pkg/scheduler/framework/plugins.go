@@ -52,18 +52,21 @@ func GetPluginBuilder(name string) (PluginBuilder, bool) {
 }
 
 // Action management
-var actionMap = map[string]Action{}
+var actionMap = map[string]ActionBuilder{}
+
+// PluginBuilder plugin management
+type ActionBuilder func(Arguments) Action
 
 // RegisterAction register action
-func RegisterAction(act Action) {
+func RegisterAction(name string, builder ActionBuilder) {
 	pluginMutex.Lock()
 	defer pluginMutex.Unlock()
 
-	actionMap[act.Name()] = act
+	actionMap[name] = builder
 }
 
 // GetAction get the action by name
-func GetAction(name string) (Action, bool) {
+func GetAction(name string) (ActionBuilder, bool) {
 	pluginMutex.Lock()
 	defer pluginMutex.Unlock()
 

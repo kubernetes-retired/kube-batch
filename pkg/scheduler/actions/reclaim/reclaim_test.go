@@ -100,7 +100,8 @@ func TestReclaim(t *testing.T) {
 		},
 	}
 
-	reclaim := New()
+	arguments := framework.Arguments{}
+	reclaim := New(arguments)
 
 	for i, test := range tests {
 		binder := &util.FakeBinder{

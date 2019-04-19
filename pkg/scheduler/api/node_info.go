@@ -19,6 +19,8 @@ package api
 import (
 	"fmt"
 
+	"github.com/golang/glog"
+
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -34,6 +36,8 @@ type NodeInfo struct {
 	// The used resource on that node, including running and terminating
 	// pods
 	Used *Resource
+	// The used resource on the node occupied by backfill tasks
+	Backfilled *Resource
 
 	Allocatable *Resource
 	Capability  *Resource
@@ -45,9 +49,10 @@ type NodeInfo struct {
 func NewNodeInfo(node *v1.Node) *NodeInfo {
 	if node == nil {
 		return &NodeInfo{
-			Releasing: EmptyResource(),
-			Idle:      EmptyResource(),
-			Used:      EmptyResource(),
+			Releasing:  EmptyResource(),
+			Idle:       EmptyResource(),
+			Used:       EmptyResource(),
+			Backfilled: EmptyResource(),
 
 			Allocatable: EmptyResource(),
 			Capability:  EmptyResource(),
@@ -60,9 +65,10 @@ func NewNodeInfo(node *v1.Node) *NodeInfo {
 		Name: node.Name,
 		Node: node,
 
-		Releasing: EmptyResource(),
-		Idle:      NewResource(node.Status.Allocatable),
-		Used:      EmptyResource(),
+		Releasing:  EmptyResource(),
+		Idle:       NewResource(node.Status.Allocatable),
+		Used:       EmptyResource(),
+		Backfilled: EmptyResource(),
 
 		Allocatable: NewResource(node.Status.Allocatable),
 		Capability:  NewResource(node.Status.Capacity),
@@ -74,9 +80,16 @@ func NewNodeInfo(node *v1.Node) *NodeInfo {
 // Clone used to clone nodeInfo Object
 func (ni *NodeInfo) Clone() *NodeInfo {
 	res := NewNodeInfo(ni.Node)
+	glog.V(3).Infof("new node <%v>: capability %v,  allocatable %v, idle %v, used %v, backfilled %v, releasing %v", ni.Name, ni.Capability.MilliCPU,
+		ni.Allocatable.MilliCPU,
+		ni.Idle.MilliCPU,
+		ni.Used.MilliCPU,
+		ni.Backfilled.MilliCPU,
+		ni.Releasing.MilliCPU)
 
-	for _, p := range ni.Tasks {
-		res.AddTask(p)
+	for _, task := range ni.Tasks {
+		glog.V(4).Infof("Adding task <%v/%v> to node <%v> with resource request %v", task.Namespace, task.Name, ni.Name, task.Resreq)
+		res.AddTask(task)
 	}
 
 	return res
@@ -114,6 +127,10 @@ func (ni *NodeInfo) AddTask(task *TaskInfo) error {
 	ti := task.Clone()
 
 	if ni.Node != nil {
+		if task.Condition.IsBackfill {
+			ni.Backfilled.Add(task.Resreq)
+		}
+
 		switch ti.Status {
 		case Releasing:
 			ni.Releasing.Add(ti.Resreq)
@@ -122,6 +139,12 @@ func (ni *NodeInfo) AddTask(task *TaskInfo) error {
 			ni.Releasing.Sub(ti.Resreq)
 		default:
 			ni.Idle.Sub(ti.Resreq)
+		}
+
+		// removing pod resources not maintained by kube-batch from node.ALlocatable
+		if ti.Job == "" && ti.Pod.Status.Phase == v1.PodRunning {
+			glog.Infof("adjusted Allocatable on node %s by %v", ni.Name, ti.Resreq)
+			ni.Allocatable.Sub(ti.Resreq)
 		}
 
 		ni.Used.Add(ti.Resreq)
@@ -143,6 +166,10 @@ func (ni *NodeInfo) RemoveTask(ti *TaskInfo) error {
 	}
 
 	if ni.Node != nil {
+		if task.Condition.IsBackfill {
+			ni.Backfilled.Sub(task.Resreq)
+		}
+
 		switch task.Status {
 		case Releasing:
 			ni.Releasing.Sub(task.Resreq)
@@ -180,8 +207,8 @@ func (ni NodeInfo) String() string {
 		i++
 	}
 
-	return fmt.Sprintf("Node (%s): idle <%v>, used <%v>, releasing <%v>, taints <%v>%s",
-		ni.Name, ni.Idle, ni.Used, ni.Releasing, ni.Node.Spec.Taints, res)
+	return fmt.Sprintf("Node (%s): idle <%v>, used <%v>, releasing <%v>, backfill <%v>, taints <%v>%s",
+		ni.Name, ni.Idle, ni.Used, ni.Releasing, ni.Backfilled, ni.Node.Spec.Taints, res)
 
 }
 
@@ -192,4 +219,12 @@ func (ni *NodeInfo) Pods() (pods []*v1.Pod) {
 	}
 
 	return
+}
+
+// GetAccessibleResource get accessible resource which equals idle + backfilled
+func (ni *NodeInfo) GetAccessibleResource() *Resource {
+	idle := ni.Idle.Clone()
+	accessible := idle.Add(ni.Backfilled).Clone()
+	glog.V(3).Infof("Accessible resources on Node <%v>: %v. Idle: %v. Used: %v. Backfilled: %v", ni.Name, accessible, ni.Idle, ni.Used, ni.Backfilled)
+	return accessible
 }

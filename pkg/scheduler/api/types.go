@@ -23,6 +23,12 @@ const (
 	// Pending means the task is pending in the apiserver.
 	Pending TaskStatus = 1 << iota
 
+	// Borrowing means that the task is allocated borrowing resources
+	// that are currently occupied by tasks.
+	// Task T is allocated to Node N as an Borrowing task if,
+	// and only if, N.IdleResource < T.RequestResource <= N.AllocatableResource.
+	Borrowing
+
 	// Allocated means the scheduler assigns a host to it.
 	Allocated
 
@@ -53,10 +59,44 @@ const (
 	Unknown
 )
 
+type TaskCondition struct {
+	IsBackfill bool
+}
+
+// JobReadiness type of job readiness
+type JobReadiness int
+
+const (
+	// Ready : a job is Ready if the number of tasks in Allocated state
+	// exceeds the job's minimum task number requirement. In other words,
+	// #(Allocated Tasks) >= Job.MinAvailable
+	// A Ready job can be dispatch to a node right away.
+	Ready JobReadiness = 1 << iota
+
+	// ConditionallyReady : a job is ConditionallyReady if the job is not Ready for dispatch, but
+	// the number of tasks in Allocated state exceeds the job's minim task
+	// number requirement. In other words,
+	// #(Allocated Tasks) < Job.MinAvailable &&
+	// #(Allocated Tasks) + #(AllocatedOverBackFill Tasks) >= Job.MinAvailable
+	ConditionallyReady
+
+	// NotReady : #(Allocated Tasks) + #(AllocatedOverBackFill Tasks) < Job.MinAvailable
+	NotReady
+)
+
+// AllocatedStatuses all status of allocated
+func AllocatedStatuses() []TaskStatus {
+	return []TaskStatus{Bound, Binding, Running, Allocated}
+}
+
 func (ts TaskStatus) String() string {
 	switch ts {
 	case Pending:
 		return "Pending"
+	case Allocated:
+		return "Allocated"
+	case Borrowing:
+		return "Borrowing"
 	case Binding:
 		return "Binding"
 	case Bound:
@@ -106,3 +146,6 @@ type EvictableFn func(*TaskInfo, []*TaskInfo) []*TaskInfo
 
 // NodeOrderFn is the func declaration used to get priority score for a node for a particular task.
 type NodeOrderFn func(*TaskInfo, *NodeInfo) (float64, error)
+
+// BackFillEligibleFn is the func declaration used to get backfill eligiblity
+type BackFillEligibleFn func(interface{}) bool

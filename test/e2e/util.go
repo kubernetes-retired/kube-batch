@@ -499,6 +499,13 @@ func createContainers(img string, req v1.ResourceList, hostport int32) []v1.Cont
 	return []v1.Container{container}
 }
 
+func deleteJob(ctx *context, name string) error {
+	foreground := metav1.DeletePropagationForeground
+	return ctx.kubeclient.BatchV1().Jobs(ctx.namespace).Delete(name, &metav1.DeleteOptions{
+		PropagationPolicy: &foreground,
+	})
+}
+
 func createReplicaSet(context *context, name string, rep int32, img string, req v1.ResourceList) *appv1.ReplicaSet {
 	deploymentName := "deployment.k8s.io"
 	deployment := &appv1.ReplicaSet{

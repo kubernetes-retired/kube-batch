@@ -19,14 +19,23 @@ package conf
 // SchedulerConfiguration defines the configuration of scheduler.
 type SchedulerConfiguration struct {
 	// Actions defines the actions list of scheduler in order
-	Actions string `yaml:"actions"`
+	Actions []SchedulerAction `yaml:"actions"`
 	// Tiers defines plugins in different tiers
 	Tiers []Tier `yaml:"tiers"`
 }
 
+// BackfillFlagName the flag to enable backfill for non-best effort jobs
+const BackfillFlagName = "backfillNonBestEffortJobs"
+
 // Tier defines plugin tier
 type Tier struct {
 	Plugins []PluginOption `yaml:"plugins"`
+}
+
+// SchedulerAction defines action with its options
+type SchedulerAction struct {
+	Name    string            `yaml:"name"`
+	Options map[string]string `yaml:"options"`
 }
 
 // PluginOption defines the options of plugin
@@ -37,6 +46,8 @@ type PluginOption struct {
 	EnabledJobOrder *bool `yaml:"enableJobOrder"`
 	// EnabledJobReady defines whether jobReadyFn is enabled
 	EnabledJobReady *bool `yaml:"enableJobReady"`
+	// EnabledJobBackfillReady defines whether jobBackfillReadyFn is enabled
+	EnabledJobBackfillReady *bool `yaml:"enableJobBackfillReady"`
 	// EnabledJobPipelined defines whether jobPipelinedFn is enabled
 	EnabledJobPipelined *bool `yaml:"enableJobPipelined"`
 	// EnabledTaskOrder defines whether taskOrderFn is enabled

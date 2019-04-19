@@ -27,11 +27,14 @@ import (
 )
 
 type allocateAction struct {
-	ssn *framework.Session
+	ssn       *framework.Session
+	arguments framework.Arguments
 }
 
-func New() *allocateAction {
-	return &allocateAction{}
+func New(args framework.Arguments) framework.Action {
+	return &allocateAction{
+		arguments: args,
+	}
 }
 
 func (alloc *allocateAction) Name() string {
@@ -149,10 +152,10 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 
 			node := util.SelectBestNode(nodeScores)
 			// Allocate idle resource to the task.
-			if task.InitResreq.LessEqual(node.Idle) {
+			if task.InitResreq.LessEqual(node.GetAccessibleResource()) {
 				glog.V(3).Infof("Binding Task <%v/%v> to node <%v>",
 					task.Namespace, task.Name, node.Name)
-				if err := ssn.Allocate(task, node.Name); err != nil {
+				if err := ssn.Allocate(task, node); err != nil {
 					glog.Errorf("Failed to bind Task %v on %v in Session %v, err: %v",
 						task.UID, node.Name, ssn.UID, err)
 				}
