@@ -21,7 +21,7 @@ spec:
       restartPolicy: Never
       schedulerName: kube-batch
 ---
-apiVersion: scheduling.incubator.k8s.io/v1alpha1
+apiVersion: scheduling.sigs.dev/v1alpha1
 kind: PodGroup
 metadata:
   name: qj-1

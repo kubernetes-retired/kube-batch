@@ -121,7 +121,7 @@ spec:
       restartPolicy: Never
       schedulerName: kube-batch
 ---
-apiVersion: scheduling.incubator.k8s.io/v1alpha1
+apiVersion: scheduling.sigs.dev/v1alpha1
 kind: PodGroup
 metadata:
   name: qj-1
@@ -214,7 +214,7 @@ NOTE:
 ## FAQ
 
 ### How to fix apiVersion unavailable error when I install kube-batch using helm?
-`Error: apiVersion "scheduling.incubator.k8s.io/v1alpha1" in kube-batch/templates/default.yaml is not available`
+`Error: apiVersion "scheduling.sigs.dev/v1alpha1" in kube-batch/templates/default.yaml is not available`
 please update your helm to latest version and try it again.
 
 
@@ -223,7 +223,7 @@ please update your helm to latest version and try it again.
 ```
 E0327 06:30:45.494416       1 reflector.go:134] github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache/cache.go:302: Failed to list *v1.Pod: pods is forbidden: User "system:serviceaccount:kube-system:default" cannot list pods at the cluster scope
 E0327 06:30:45.495362       1 reflector.go:134] github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache/cache.go:306: Failed to list *v1.PersistentVolumeClaim: persistentvolumeclaims is forbidden: User "system:serviceaccount:kube-system:default" cannot list persistentvolumeclaims at the cluster scope
-E0327 06:30:45.496355       1 reflector.go:134] github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache/cache.go:308: Failed to list *v1alpha1.Queue: queues.scheduling.incubator.k8s.io is forbidden: User "system:serviceaccount:kube-system:default" cannot list queues.scheduling.incubator.k8s.io at the cluster scope
+E0327 06:30:45.496355       1 reflector.go:134] github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache/cache.go:308: Failed to list *v1alpha1.Queue: queues.scheduling.sigs.dev is forbidden: User "system:serviceaccount:kube-system:default" cannot list queues.scheduling.sigs.dev at the cluster scope
 E0327 06:30:45.497695       1 reflector.go:134] github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache/cache.go:301: Failed to list *v1beta1.PodDisruptionBudget: poddisruptionbudgets.policy is forbidden: User "system:serviceaccount:kube-system:default" cannot list poddisruptionbudgets.policy at the cluster scope
 E0327 06:30:45.498641       1 reflector.go:134] github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache/cache.go:303: Failed to list *v1.Node: nodes is forbidden: User "system:serviceaccount:kube-system:default" cannot list nodes at the cluster scope
 E0327 06:30:45.499895       1 reflector.go:134] github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache/cache.go:305: Failed to list *v1.PersistentVolume: persistentvolumes is forbidden: User "system:serviceaccount:kube-system:default" cannot list persistentvolumes at the cluster scope
@@ -240,7 +240,7 @@ Please follow tf-operator [quick start](https://www.kubeflow.org/docs/components
 
 ```yaml
 - apiGroups:
-  - scheduling.incubator.k8s.io
+  - scheduling.sigs.dev
   resources:
   - podgroups
   verbs:

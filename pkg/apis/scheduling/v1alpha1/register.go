@@ -29,7 +29,7 @@ var (
 
 const (
 	// GroupName is the group name used in this package.
-	GroupName = "scheduling.incubator.k8s.io"
+	GroupName = "scheduling.sigs.dev"
 
 	// GroupVersion is the version of scheduling group
 	GroupVersion = "v1alpha1"
