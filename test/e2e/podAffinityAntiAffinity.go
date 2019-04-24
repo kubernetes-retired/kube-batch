@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +18,10 @@ package e2e
 
 import (
 	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -29,9 +31,10 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 	// We have two setup podgroups which will create a single task with single pod.
 	// This is required to test the Pod Affinity and Anti-Affinity.
 
-	// since these setup pods will be created ramdomly
+	// since these setup pods will be created randomly
 	// we store their node name in these var
 	var setupPodGrpOnesNodeName, setupPodGrpTwosNodeName string
+	// job names used in the test.
 	setupPodGrpOneName := "setup-pod-one"
 	setupPodGrpTwoName := "setup-pod-two"
 	testPodGrpName := "test-pod"
@@ -65,7 +68,6 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 		},
 	}
 
-	//1
 	It("validate scheduler respect's pod-affinity with hard constraint", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
@@ -135,7 +137,6 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 		Expect(nodenames[0]).To(Equal(setupPodGrpOnesNodeName))
 	})
 
-	//2
 	It("validates scheduler respect's pod-anti-affinity with hard constraint", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
@@ -173,6 +174,13 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 			},
 		}
 
+		// this test require atleast two nodes
+		By("Check if at least two nodes are available")
+		schedulableNodes := getAllWorkerNodes(context)
+		if len(schedulableNodes) < 2 {
+			Skip(fmt.Sprintf("Skipping this test case as this requires minimum of two node and only %d nodes available", len(schedulableNodes)))
+		}
+
 		By("Trying to launch the setup podgroup one with label security S1")
 		_, setupPgOne := createJob(context, setupPodGrpOne)
 
@@ -205,7 +213,6 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 		Expect(nodeNames[0]).NotTo(Equal(setupPodGrpOnesNodeName))
 	})
 
-	//3
 	It("validates scheduler respect's pod-anti-affinity with soft constraint", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
@@ -246,6 +253,13 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 			},
 		}
 
+		// this test require atleast two nodes
+		By("Check if at least two nodes are available")
+		schedulableNodes := getAllWorkerNodes(context)
+		if len(schedulableNodes) < 2 {
+			Skip(fmt.Sprintf("Skipping this test case as this requires minimum of two node and only %d nodes available", len(schedulableNodes)))
+		}
+
 		By("Trying to launch the setup podgroup one with label security S1")
 		_, setupPgOne := createJob(context, setupPodGrpOne)
 
@@ -278,7 +292,6 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 		Expect(nodeNames[0]).NotTo(Equal(setupPodGrpOnesNodeName))
 	})
 
-	//4
 	It("validates scheduler respect's a pod-affinity with both hard and soft constraint", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
@@ -385,7 +398,6 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 
 	})
 
-	//5
 	It("validates scheduler respect's a pod-anti-affinity with both hard and soft constraint", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
@@ -442,6 +454,13 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 			},
 		}
 
+		// this test require atleast two nodes
+		By("Check if at least two nodes are available")
+		schedulableNodes := getAllWorkerNodes(context)
+		if len(schedulableNodes) < 2 {
+			Skip(fmt.Sprintf("Skipping this test case as this requires minimum of two node and only %d nodes available", len(schedulableNodes)))
+		}
+
 		By("Trying to launch the setup podgroup one with label security S1")
 		_, setupPgOne := createJob(context, setupPodGrpOne)
 
@@ -491,7 +510,6 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 		Expect(nodeNames[0]).ShouldNot(SatisfyAll(Equal(setupPodGrpOnesNodeName), Equal(setupPodGrpTwosNodeName)))
 	})
 
-	//6
 	It("validates scheduler respect's a pod-affinity with hard constraint and anti-affinity soft constraint", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
@@ -550,6 +568,13 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 			},
 		}
 
+		// this test require atleast two nodes
+		By("Check if at least two nodes are available")
+		schedulableNodes := getAllWorkerNodes(context)
+		if len(schedulableNodes) < 2 {
+			Skip(fmt.Sprintf("Skipping this test case as this requires minimum of two node and only %d nodes available", len(schedulableNodes)))
+		}
+
 		By("Trying to launch the setup podgroup one with label security S1")
 		_, setupPgOne := createJob(context, setupPodGrpOne)
 
@@ -599,7 +624,6 @@ var _ = Describe("Pod Affinity and Anti-Affinity", func() {
 		Expect(nodeNames[0]).To(Equal(setupPodGrpOnesNodeName))
 	})
 
-	//7
 	It("validates scheduler respect's a pod-anti-affinity with hard constraint and affinity soft constraint", func() {
 		context := initTestContext()
 		defer cleanupTestContext(context)
