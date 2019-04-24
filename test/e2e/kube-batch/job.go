@@ -78,14 +78,14 @@ var _ = Describe("Job E2E Test", func() {
 			tasks: []taskSpec{
 				{
 					img: "nginx",
-					pri: masterPriority,
+					pri: workerPriority,
 					min: 1,
 					rep: 1,
 					req: twoCPU,
 				},
 				{
 					img: "nginx",
-					pri: workerPriority,
+					pri: masterPriority,
 					min: 1,
 					rep: 1,
 					req: halfCPU,
