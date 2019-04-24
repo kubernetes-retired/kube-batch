@@ -89,7 +89,7 @@ func initTestContext() *context {
 	home := homeDir()
 	Expect(home).NotTo(Equal(""))
 
-	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(home, ".kube", "config"))
+	config, err := clientcmd.BuildConfigFromFlags(masterURL(), kubeconfigPath(home))
 	checkError(cxt, err)
 
 	cxt.kbclient = kbver.NewForConfigOrDie(config)
@@ -1022,4 +1022,18 @@ func deleteReplicationController(ctx *context, name string) error {
 	return ctx.kubeclient.CoreV1().ReplicationControllers(ctx.namespace).Delete(name, &metav1.DeleteOptions{
 		PropagationPolicy: &foreground,
 	})
+}
+
+func kubeconfigPath(home string) string {
+	if m := os.Getenv("KUBECONFIG"); m != "" {
+		return m
+	}
+	return filepath.Join(home, ".kube", "config") // default kubeconfig path is $HOME/.kube/config
+}
+
+func masterURL() string {
+	if m := os.Getenv("MASTER"); m != "" {
+		return m
+	}
+	return ""
 }

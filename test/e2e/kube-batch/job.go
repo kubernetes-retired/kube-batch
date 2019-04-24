@@ -62,6 +62,7 @@ var _ = Describe("Job E2E Test", func() {
 	})
 
 	It("Try to fit unassigned task with different resource requests in one loop", func() {
+		Skip("Skipped due to unstable behaviour among different k8s cluster, need digging and reopen.")
 		context := initTestContext()
 		defer cleanupTestContext(context)
 

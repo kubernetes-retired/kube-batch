@@ -133,6 +133,8 @@ install-volcano
 # Run e2e test
 cd ${VK_ROOT}
 KUBECONFIG=${KUBECONFIG} go test ./test/e2e -v -timeout 30m ${TEST_CONTEXT}
+# Test the elder kube-batch e2e tests as well. Should be removed once upgraded.
+KUBECONFIG=${KUBECONFIG} go test ./test/e2e/kube-batch -v -timeout 30m
 
 if [[ $? != 0 ]]; then
   generate-log
