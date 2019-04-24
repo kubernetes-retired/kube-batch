@@ -449,6 +449,17 @@ func podGroupEvicted(ctx *context, pg *kbv1.PodGroup, time time.Time) wait.Condi
 	}
 }
 
+// waits the 'timeout' specified duration to check if the PodGroup is ready
+func waitTimeoutPodGroupReady(ctx *context, pg *kbv1.PodGroup, timeout time.Duration) error {
+	return waitTimeoutTasksReady(ctx, pg, int(pg.Spec.MinMember), timeout)
+}
+
+// waits the 'timeout' specified duration to check if the tasks are ready
+func waitTimeoutTasksReady(ctx *context, pg *kbv1.PodGroup, taskNum int, timeout time.Duration) error {
+	return wait.Poll(100*time.Millisecond, timeout, taskPhase(ctx, pg,
+		[]v1.PodPhase{v1.PodRunning, v1.PodSucceeded}, taskNum))
+}
+
 func waitPodGroupReady(ctx *context, pg *kbv1.PodGroup) error {
 	return waitTasksReady(ctx, pg, int(pg.Spec.MinMember))
 }
@@ -1025,4 +1036,31 @@ func deleteReplicationController(ctx *context, name string) error {
 	return ctx.kubeclient.CoreV1().ReplicationControllers(ctx.namespace).Delete(name, &metav1.DeleteOptions{
 		PropagationPolicy: &foreground,
 	})
+}
+
+func getRequestedCPU(pod v1.Pod) int64 {
+	var result int64
+	for _, container := range pod.Spec.Containers {
+		result += container.Resources.Requests.Cpu().MilliValue()
+	}
+	return result
+}
+
+func getRequestedMemory(pod v1.Pod) int64 {
+	var result int64
+	for _, container := range pod.Spec.Containers {
+		result += container.Resources.Requests.Memory().Value()
+	}
+	return result
+}
+
+// IsMasterNode returns true if its a master node or false otherwise.
+func IsMasterNode(node *v1.Node) bool {
+
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == "node-role.kubernetes.io/master" {
+			return true
+		}
+	}
+	return false
 }
