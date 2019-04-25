@@ -21,48 +21,7 @@ import (
 )
 
 var _ = Describe("Job E2E Test", func() {
-	It("TaskPriority", func() {
-		context := initTestContext()
-		defer cleanupTestContext(context)
-
-		slot := oneCPU
-		rep := clusterSize(context, slot)
-
-		replicaset := createReplicaSet(context, "rs-1", rep/2, "nginx", slot)
-		err := waitReplicaSetReady(context, replicaset.Name)
-		checkError(context, err)
-
-		_, pg := createJob(context, &jobSpec{
-			name: "multi-pod-job",
-			tasks: []taskSpec{
-				{
-					img: "nginx",
-					pri: workerPriority,
-					min: rep/2 - 1,
-					rep: rep,
-					req: slot,
-				},
-				{
-					img: "nginx",
-					pri: masterPriority,
-					min: 1,
-					rep: 1,
-					req: slot,
-				},
-			},
-		})
-
-		expteced := map[string]int{
-			masterPriority: 1,
-			workerPriority: int(rep/2) - 1,
-		}
-
-		err = waitTasksReadyEx(context, pg, expteced)
-		checkError(context, err)
-	})
-
 	It("Try to fit unassigned task with different resource requests in one loop", func() {
-		Skip("Skipped due to unstable behaviour among different k8s cluster, need digging and reopen.")
 		context := initTestContext()
 		defer cleanupTestContext(context)
 
@@ -100,54 +59,6 @@ var _ = Describe("Job E2E Test", func() {
 
 		// task_1 has been scheduled
 		err = waitTasksReady(context, pg, int(minMemberOverride))
-		checkError(context, err)
-	})
-
-	It("Job Priority", func() {
-		context := initTestContext()
-		defer cleanupTestContext(context)
-
-		slot := oneCPU
-		rep := clusterSize(context, slot)
-
-		replicaset := createReplicaSet(context, "rs-1", rep, "nginx", slot)
-		err := waitReplicaSetReady(context, replicaset.Name)
-		checkError(context, err)
-
-		job1 := &jobSpec{
-			name: "pri-job-1",
-			pri:  workerPriority,
-			tasks: []taskSpec{
-				{
-					img: "nginx",
-					req: oneCPU,
-					min: rep/2 + 1,
-					rep: rep,
-				},
-			},
-		}
-
-		job2 := &jobSpec{
-			name: "pri-job-2",
-			pri:  masterPriority,
-			tasks: []taskSpec{
-				{
-					img: "nginx",
-					req: oneCPU,
-					min: rep/2 + 1,
-					rep: rep,
-				},
-			},
-		}
-
-		createJob(context, job1)
-		_, pg2 := createJob(context, job2)
-
-		// Delete ReplicaSet
-		err = deleteReplicaSet(context, replicaset.Name)
-		checkError(context, err)
-
-		err = waitPodGroupReady(context, pg2)
 		checkError(context, err)
 	})
 })

@@ -367,6 +367,8 @@ func taskPhase(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum int
 				if pod.Status.Phase == p {
 					readyTaskNum++
 					break
+				} else {
+					fmt.Printf("Expected [%s]'s status %s to be Running or Succeed. \n", pod.Name, pod.Status.Phase)
 				}
 			}
 		}
@@ -457,7 +459,7 @@ func waitPodGroupPending(ctx *context, pg *kbv1.PodGroup) error {
 }
 
 func waitTasksReady(ctx *context, pg *kbv1.PodGroup, taskNum int) error {
-	return wait.Poll(100*time.Millisecond, oneMinute, taskPhase(ctx, pg,
+	return wait.Poll(100*time.Millisecond, 2*time.Minute, taskPhase(ctx, pg,
 		[]v1.PodPhase{v1.PodRunning, v1.PodSucceeded}, taskNum))
 }
 
