@@ -1,6 +1,7 @@
 
 pkg/apis/helpers
 pkg/apis/scheduling/v1alpha1
+pkg/apis/scheduling/v1alpha2
 pkg/apis/utils
 pkg/scheduler/actions/allocate
 pkg/scheduler/actions/backfill
