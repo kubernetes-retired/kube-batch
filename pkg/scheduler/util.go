@@ -25,7 +25,6 @@ import (
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/conf"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/plugins"
-	"gopkg.in/yaml.v2"
 )
 
 var defaultSchedulerConf = `
@@ -65,15 +64,8 @@ func loadSchedulerConf(confStr string) (*conf.SchedulerConfiguration, error) {
 			return nil, fmt.Errorf("failed to found Action %s, ignore it", action.Name)
 		}
 
-		if action.Options == nil {
-			schedulerConf.Actions[i].Options = map[string]string{}
-		}
-
-		// set default value for backfill enabled
-		if action.Name == "backfill" {
-			if _, found := schedulerConf.Actions[i].Options[conf.BackfillFlagName]; !found {
-				schedulerConf.Actions[i].Options[conf.BackfillFlagName] = "false"
-			}
+		if action.Arguments == nil {
+			schedulerConf.Actions[i].Arguments = map[string]string{}
 		}
 	}
 
@@ -90,7 +82,7 @@ func getActions(schedulerConf *conf.SchedulerConfiguration) ([]framework.Action,
 			return nil, fmt.Errorf("failed to found Action %s, ignore it", confAction.Name)
 		}
 
-		action := actionBuilder(confAction.Options)
+		action := actionBuilder(confAction.Arguments)
 		actions = append(actions, action)
 	}
 

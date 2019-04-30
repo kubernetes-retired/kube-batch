@@ -226,7 +226,7 @@ func TestBackFill(t *testing.T) {
 				"c1/pg2_1": "n1",
 			},
 			expectedPatches: map[string]string{
-				"scheduling.k8s.io/kube-batch-backfill": "true",
+				"scheduling.k8s.io/backfilled-task": "true",
 			},
 		},
 		{

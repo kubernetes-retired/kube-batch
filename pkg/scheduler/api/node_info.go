@@ -80,7 +80,7 @@ func NewNodeInfo(node *v1.Node) *NodeInfo {
 // Clone used to clone nodeInfo Object
 func (ni *NodeInfo) Clone() *NodeInfo {
 	res := NewNodeInfo(ni.Node)
-	glog.V(3).Infof("new node <%v>: capability %v,  allocatable %v, idle %v, used %v, backfilled %v, releasing %v", ni.Name, ni.Capability.MilliCPU,
+	glog.V(4).Infof("new node <%v>: capability %v,  allocatable %v, idle %v, used %v, backfilled %v, releasing %v", ni.Name, ni.Capability.MilliCPU,
 		ni.Allocatable.MilliCPU,
 		ni.Idle.MilliCPU,
 		ni.Used.MilliCPU,
@@ -224,7 +224,7 @@ func (ni *NodeInfo) Pods() (pods []*v1.Pod) {
 // GetAccessibleResource get accessible resource which equals idle + backfilled
 func (ni *NodeInfo) GetAccessibleResource() *Resource {
 	idle := ni.Idle.Clone()
-	accessible := idle.Add(ni.Backfilled).Clone()
+	accessible := idle.Add(ni.Backfilled)
 	glog.V(3).Infof("Accessible resources on Node <%v>: %v. Idle: %v. Used: %v. Backfilled: %v", ni.Name, accessible, ni.Idle, ni.Used, ni.Backfilled)
 	return accessible
 }

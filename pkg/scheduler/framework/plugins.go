@@ -54,7 +54,7 @@ func GetPluginBuilder(name string) (PluginBuilder, bool) {
 // Action management
 var actionMap = map[string]ActionBuilder{}
 
-// PluginBuilder plugin management
+// ActionBuilder action management
 type ActionBuilder func(Arguments) Action
 
 // RegisterAction register action

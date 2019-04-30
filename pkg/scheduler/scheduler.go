@@ -36,11 +36,9 @@ type Scheduler struct {
 	cache          schedcache.Cache
 	config         *rest.Config
 	actions        []framework.Action
-	actionOptions  map[string]map[string]string
 	plugins        []conf.Tier
 	schedulerConf  string
 	schedulePeriod time.Duration
-	enableBackfill bool
 }
 
 // NewScheduler returns a scheduler

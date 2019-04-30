@@ -402,9 +402,8 @@ func (ji *JobInfo) FitError() string {
 	return reasonMsg
 }
 
-// GetBackillReadiness checks whether the job is ready or ready
-// using backill job's resources ConditionallyReady means the
-// job is ready but some resource is used by backfilled job
+// BackfillReady checks whether the job is ready or ready by
+// borrowing backilled job's resources
 func (ji *JobInfo) BackfillReady() bool {
 	allocatedTasks := ji.GetTasks(AllocatedStatuses()...)
 	allocatedTasksCnt := int32(len(allocatedTasks))

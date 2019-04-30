@@ -17,8 +17,6 @@ limitations under the License.
 package backfill
 
 import (
-	"strconv"
-
 	"github.com/golang/glog"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/conf"
 
@@ -79,11 +77,8 @@ func (alloc *backfillAction) Execute(ssn *framework.Session) {
 		return
 	}
 
-	backfillNonBestEffortJobsEnabled, err := strconv.ParseBool(alloc.arguments[conf.BackfillFlagName])
-	if err != nil {
-		glog.V(3).Infof("backfilling non best effort jobs is disabled")
-		return
-	}
+	backfillNonBestEffortJobsEnabled := false
+	alloc.arguments.GetBool(&backfillNonBestEffortJobsEnabled, conf.BackfillFlagName)
 
 	if backfillNonBestEffortJobsEnabled {
 		// Collect back fill candidates

@@ -50,7 +50,7 @@ func (ssn *Session) AddJobReadyFn(name string, vf api.ValidateFn) {
 	ssn.jobReadyFns[name] = vf
 }
 
-// AddJobReadyFn add JobReady function
+// AddJobBackfillReadyFn add JobReady function
 func (ssn *Session) AddJobBackfillReadyFn(name string, vf api.ValidateFn) {
 	ssn.jobBackfillReadyFns[name] = vf
 }
@@ -187,7 +187,7 @@ func (ssn *Session) Overused(queue *api.QueueInfo) bool {
 	return false
 }
 
-// JobReady invoke jobready function of the plugins
+// JobBackfillReady invoke jobready function of the plugins
 func (ssn *Session) JobBackfillReady(obj interface{}) bool {
 	for _, tier := range ssn.Tiers {
 		for _, plugin := range tier.Plugins {

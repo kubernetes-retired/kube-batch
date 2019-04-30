@@ -34,8 +34,8 @@ type Tier struct {
 
 // SchedulerAction defines action with its options
 type SchedulerAction struct {
-	Name    string            `yaml:"name"`
-	Options map[string]string `yaml:"options"`
+	Name      string            `yaml:"name"`
+	Arguments map[string]string `yaml:"arguments"`
 }
 
 // PluginOption defines the options of plugin

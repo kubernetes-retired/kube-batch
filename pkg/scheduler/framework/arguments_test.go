@@ -27,6 +27,13 @@ type GetIntTestCases struct {
 	expectValue int
 }
 
+type GetBooleanTestCases struct {
+	arg         Arguments
+	key         string
+	baseValue   bool
+	expectValue bool
+}
+
 func TestArgumentsGetInt(t *testing.T) {
 	key1 := "intkey"
 
@@ -69,6 +76,78 @@ func TestArgumentsGetInt(t *testing.T) {
 		baseValue := c.baseValue
 		c.arg.GetInt(nil, c.key)
 		c.arg.GetInt(&baseValue, c.key)
+		if baseValue != c.expectValue {
+			t.Errorf("index %d, value should be %v, but not %v", index, c.expectValue, baseValue)
+		}
+	}
+}
+
+func TestArgumentsGetBoolean(t *testing.T) {
+	key := "key"
+
+	cases := []GetBooleanTestCases{
+		{
+			arg: Arguments{
+				"anotherkey": "false",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+		{
+			arg: Arguments{
+				"anotherkey": "false",
+			},
+			key:         key,
+			baseValue:   true,
+			expectValue: true,
+		},
+		{
+			arg: Arguments{
+				key: "false",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+		{
+			arg: Arguments{
+				key: "true",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: true,
+		},
+		{
+			arg: Arguments{
+				key: "errorvalue",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+		{
+			arg: Arguments{
+				key: "errorvalue",
+			},
+			key:         key,
+			baseValue:   true,
+			expectValue: true,
+		},
+		{
+			arg: Arguments{
+				key: "",
+			},
+			key:         key,
+			baseValue:   false,
+			expectValue: false,
+		},
+	}
+
+	for index, c := range cases {
+		baseValue := c.baseValue
+		c.arg.GetBool(nil, c.key)
+		c.arg.GetBool(&baseValue, c.key)
 		if baseValue != c.expectValue {
 			t.Errorf("index %d, value should be %v, but not %v", index, c.expectValue, baseValue)
 		}

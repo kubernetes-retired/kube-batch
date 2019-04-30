@@ -59,6 +59,7 @@ const (
 	Unknown
 )
 
+// TaskCondition the condition of the task
 type TaskCondition struct {
 	IsBackfill bool
 }
