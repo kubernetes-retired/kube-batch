@@ -518,7 +518,6 @@ func createReplicaSet(context *context, name string, rep int32, img string, req 
 					Labels: map[string]string{deploymentName: name},
 				},
 				Spec: v1.PodSpec{
-					SchedulerName: "kube-batch",
 					RestartPolicy: v1.RestartPolicyAlways,
 					Containers: []v1.Container{
 						{

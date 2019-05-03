@@ -142,7 +142,7 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 
 			predicateNodes := util.PredicateNodes(task, allNodes, predicateFn)
 			if len(predicateNodes) == 0 {
-				break
+				continue
 			}
 
 			nodeScores := util.PrioritizeNodes(task, predicateNodes, ssn.NodeOrderFn)

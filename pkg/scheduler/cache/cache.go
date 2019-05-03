@@ -159,7 +159,7 @@ func (su *defaultStatusUpdater) UpdatePodCondition(pod *v1.Pod, condition *v1.Po
 
 // UpdatePodGroup will Update pod with podCondition
 func (su *defaultStatusUpdater) UpdatePodGroup(pg *v1alpha1.PodGroup) (*v1alpha1.PodGroup, error) {
-	return su.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Update(pg)
+	return su.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).UpdateStatus(pg)
 }
 
 type defaultVolumeBinder struct {

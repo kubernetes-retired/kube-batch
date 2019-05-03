@@ -80,10 +80,9 @@ var _ = Describe("Job E2E Test", func() {
 	})
 
 	It("Gang scheduling", func() {
-		Skip("TODO: Testcase skipped due to failing should be fixed and enabled.")
 		context := initTestContext()
 		defer cleanupTestContext(context)
-		rep := clusterSize(context, oneCPU)/2 + 1
+		rep := (clusterSize(context, oneCPU) / 2) + 1
 
 		replicaset := createReplicaSet(context, "rs-1", rep, "nginx", oneCPU)
 		err := waitReplicaSetReady(context, replicaset.Name)
