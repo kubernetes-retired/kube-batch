@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 
@@ -60,6 +61,7 @@ var tenMinute = 10 * time.Minute
 var halfCPU = v1.ResourceList{"cpu": resource.MustParse("500m")}
 var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
 var twoCPU = v1.ResourceList{"cpu": resource.MustParse("2000m")}
+var oneAndHalfCPU = v1.ResourceList{"cpu": resource.MustParse("1500m")}
 var smallCPU = v1.ResourceList{"cpu": resource.MustParse("2m")}
 
 const (
@@ -91,7 +93,7 @@ func initTestContext() *context {
 	home := homeDir()
 	Expect(home).NotTo(Equal(""))
 
-	config, err := clientcmd.BuildConfigFromFlags("", filepath.Join(home, ".kube", "config"))
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath(home))
 	checkError(cxt, err)
 
 	cxt.kbclient = kbver.NewForConfigOrDie(config)
@@ -123,6 +125,13 @@ func initTestContext() *context {
 	checkError(cxt, err)
 
 	return cxt
+}
+
+func kubeconfigPath(home string) string {
+	if m := os.Getenv("KUBECONFIG"); m != "" {
+		return m
+	}
+	return filepath.Join(home, ".kube", "config") // default kubeconfig path is $HOME/.kube/config
 }
 
 func namespaceNotExist(ctx *context) wait.ConditionFunc {
@@ -416,7 +425,7 @@ func podGroupUnschedulable(ctx *context, pg *kbv1.PodGroup, time time.Time) wait
 
 		for _, event := range events.Items {
 			target := event.InvolvedObject
-			if target.Name == pg.Name && target.Namespace == pg.Namespace {
+			if strings.HasPrefix(target.Name, pg.Name) && target.Namespace == pg.Namespace {
 				if event.Reason == string(kbv1.PodGroupUnschedulableType) &&
 					event.LastTimestamp.After(time) {
 					return true, nil
