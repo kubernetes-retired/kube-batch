@@ -160,8 +160,19 @@ func (alloc *reserveAction) Execute(ssn *framework.Session) {
 				break
 			}
 
-			taskAllocated := false
+			// sort resource by memory
+			nodeScores := map[float64][]*api.NodeInfo{}
 			for _, node := range nodes {
+				score := float64(node.Capability.MaxTaskNum)
+				if _, found := nodeScores[score]; !found {
+					nodeScores[score] = []*api.NodeInfo{}
+				}
+				nodeScores[score] = append(nodeScores[score], node)
+			}
+			sortedNodes := util.SortNodes(nodeScores)
+
+			taskAllocated := false
+			for _, node := range sortedNodes {
 				// Allocate idle resource to the task.
 				if task.InitResreq.LessEqual(node.Idle) || toOverAllocate(ssn, node, threshold, task) {
 					if err := ssn.Allocate(task, node); err != nil {
