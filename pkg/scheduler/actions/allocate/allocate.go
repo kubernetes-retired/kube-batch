@@ -142,6 +142,8 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 
 			predicateNodes := util.PredicateNodes(task, allNodes, predicateFn)
 			if len(predicateNodes) == 0 {
+				// Further Tasks should be checked because tasks are ordered in priority, so it affects taskPriority within Job,
+				// so if one task fails predicates, it should not check further tasks in same job, should skip to next job.
 				break
 			}
 
