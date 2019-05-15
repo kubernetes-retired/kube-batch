@@ -40,7 +40,7 @@ run-test:
 	hack/make-rules/test.sh $(WHAT) $(TESTS)
 
 e2e: kube-batch
-	hack/run-e2e.sh
+	hack/run-e2e-kind.sh
 
 coverage:
 	KUBE_COVER=y hack/make-rules/test.sh $(WHAT) $(TESTS)

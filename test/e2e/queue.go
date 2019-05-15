@@ -32,7 +32,6 @@ var _ = Describe("Predicates E2E Test", func() {
 
 		slot := oneCPU
 		rep := clusterSize(context, slot)
-
 		job := &jobSpec{
 			tasks: []taskSpec{
 				{
@@ -54,7 +53,7 @@ var _ = Describe("Predicates E2E Test", func() {
 		// Reduce one pod to tolerate decimal fraction.
 		if expected > 1 {
 			expected--
-		} else {
+		} else if expected < 1 {
 			err := fmt.Errorf("expected replica <%d> is too small", expected)
 			checkError(context, err)
 		}
