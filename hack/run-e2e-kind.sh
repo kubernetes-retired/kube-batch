@@ -4,9 +4,11 @@ export ROOT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )/..
 export LOG_LEVEL=3
 export CLEANUP_CLUSTER=${CLEANUP_CLUSTER:-1}
 export CLUSTER_CONTEXT="--name test"
-export IMAGE="nginx:latest"
+export IMAGE_NGINX="nginx:latest"
+export IMAGE_BUSYBOX="busybox:latest"
 export KIND_OPT=${KIND_OPT:=" --config ${ROOT_DIR}/hack/e2e-kind-config.yaml"}
 export KA_BIN=_output/bin
+export WAIT_TIME="20s"
 
 
 sudo apt-get update && sudo apt-get install -y apt-transport-https
@@ -42,11 +44,11 @@ function check-prerequisites {
 function kind-up-cluster {
   check-prerequisites
   echo "Running kind: [kind create cluster ${CLUSTER_CONTEXT} ${KIND_OPT}]"
-  kind create cluster ${CLUSTER_CONTEXT} ${KIND_OPT}
-  # Wait for Cluster to become ready, without this sleep first test case might fail randomly.
-  sleep 15
-  kind load docker-image ${IMAGE}  ${CLUSTER_CONTEXT}
-
+  kind create cluster ${CLUSTER_CONTEXT} ${KIND_OPT} --wait ${WAIT_TIME}
+  docker pull ${IMAGE_BUSYBOX}
+  docker pull ${IMAGE_NGINX}
+  kind load docker-image ${IMAGE_NGINX} ${CLUSTER_CONTEXT}
+  kind load docker-image ${IMAGE_BUSYBOX} ${CLUSTER_CONTEXT}
 }
 
 # clean up
