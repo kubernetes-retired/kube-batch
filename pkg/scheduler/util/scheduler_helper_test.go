@@ -19,34 +19,63 @@ package util
 import (
 	"reflect"
 	"testing"
-
-	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
 
 func TestSelectBestNode(t *testing.T) {
 	cases := []struct {
-		NodeScores map[float64][]*api.NodeInfo
+		PriorityList HostPriorityList
 		// Expected node is one of ExpectedNodes
-		ExpectedNodes []*api.NodeInfo
+		ExpectedNodes []string
 	}{
 		{
-			NodeScores: map[float64][]*api.NodeInfo{
-				1.0: {&api.NodeInfo{Name: "node1"}, &api.NodeInfo{Name: "node2"}},
-				2.0: {&api.NodeInfo{Name: "node3"}, &api.NodeInfo{Name: "node4"}},
+			PriorityList: HostPriorityList{
+				{
+					Host:  "node1",
+					Score: 1.0,
+				},
+				{
+					Host:  "node2",
+					Score: 1.0,
+				},
+				{
+					Host:  "node3",
+					Score: 2.0,
+				},
+				{
+					Host:  "node4",
+					Score: 2.0,
+				},
 			},
-			ExpectedNodes: []*api.NodeInfo{{Name: "node3"}, {Name: "node4"}},
+			ExpectedNodes: []string{"node3", "node4"},
 		},
 		{
-			NodeScores: map[float64][]*api.NodeInfo{
-				1.0: {&api.NodeInfo{Name: "node1"}, &api.NodeInfo{Name: "node2"}},
-				3.0: {&api.NodeInfo{Name: "node3"}},
-				2.0: {&api.NodeInfo{Name: "node4"}, &api.NodeInfo{Name: "node5"}},
+			PriorityList: HostPriorityList{
+				{
+					Host:  "node1",
+					Score: 1.0,
+				},
+				{
+					Host:  "node2",
+					Score: 1.0,
+				},
+				{
+					Host:  "node3",
+					Score: 3.0,
+				},
+				{
+					Host:  "node4",
+					Score: 2.0,
+				},
+				{
+					Host:  "node5",
+					Score: 2.0,
+				},
 			},
-			ExpectedNodes: []*api.NodeInfo{{Name: "node3"}},
+			ExpectedNodes: []string{"node3"},
 		},
 	}
 
-	oneOf := func(node *api.NodeInfo, nodes []*api.NodeInfo) bool {
+	oneOf := func(node string, nodes []string) bool {
 		for _, v := range nodes {
 			if reflect.DeepEqual(node, v) {
 				return true
@@ -55,7 +84,7 @@ func TestSelectBestNode(t *testing.T) {
 		return false
 	}
 	for i, test := range cases {
-		result := SelectBestNode(test.NodeScores)
+		result := SelectBestNode(test.PriorityList)
 		if !oneOf(result, test.ExpectedNodes) {
 			t.Errorf("Failed test case #%d, expected: %#v, got %#v", i, test.ExpectedNodes, result)
 		}

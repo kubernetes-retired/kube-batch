@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	"k8s.io/kubernetes/pkg/scheduler/algorithm"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
@@ -45,19 +46,19 @@ type Session struct {
 	Backlog []*api.JobInfo
 	Tiers   []conf.Tier
 
-	plugins         map[string]Plugin
-	eventHandlers   []*EventHandler
-	jobOrderFns     map[string]api.CompareFn
-	queueOrderFns   map[string]api.CompareFn
-	taskOrderFns    map[string]api.CompareFn
-	predicateFns    map[string]api.PredicateFn
-	nodeOrderFns    map[string]api.NodeOrderFn
-	preemptableFns  map[string]api.EvictableFn
-	reclaimableFns  map[string]api.EvictableFn
-	overusedFns     map[string]api.ValidateFn
-	jobReadyFns     map[string]api.ValidateFn
-	jobPipelinedFns map[string]api.ValidateFn
-	jobValidFns     map[string]api.ValidateExFn
+	plugins          map[string]Plugin
+	eventHandlers    []*EventHandler
+	jobOrderFns      map[string]api.CompareFn
+	queueOrderFns    map[string]api.CompareFn
+	taskOrderFns     map[string]api.CompareFn
+	predicateFns     map[string]api.PredicateFn
+	preemptableFns   map[string]api.EvictableFn
+	reclaimableFns   map[string]api.EvictableFn
+	overusedFns      map[string]api.ValidateFn
+	jobReadyFns      map[string]api.ValidateFn
+	jobPipelinedFns  map[string]api.ValidateFn
+	jobValidFns      map[string]api.ValidateExFn
+	nodePrioritizers map[string][]algorithm.PriorityConfig
 }
 
 func openSession(cache cache.Cache) *Session {
@@ -69,18 +70,18 @@ func openSession(cache cache.Cache) *Session {
 		Nodes:  map[string]*api.NodeInfo{},
 		Queues: map[api.QueueID]*api.QueueInfo{},
 
-		plugins:         map[string]Plugin{},
-		jobOrderFns:     map[string]api.CompareFn{},
-		queueOrderFns:   map[string]api.CompareFn{},
-		taskOrderFns:    map[string]api.CompareFn{},
-		predicateFns:    map[string]api.PredicateFn{},
-		nodeOrderFns:    map[string]api.NodeOrderFn{},
-		preemptableFns:  map[string]api.EvictableFn{},
-		reclaimableFns:  map[string]api.EvictableFn{},
-		overusedFns:     map[string]api.ValidateFn{},
-		jobReadyFns:     map[string]api.ValidateFn{},
-		jobPipelinedFns: map[string]api.ValidateFn{},
-		jobValidFns:     map[string]api.ValidateExFn{},
+		plugins:          map[string]Plugin{},
+		jobOrderFns:      map[string]api.CompareFn{},
+		queueOrderFns:    map[string]api.CompareFn{},
+		taskOrderFns:     map[string]api.CompareFn{},
+		predicateFns:     map[string]api.PredicateFn{},
+		preemptableFns:   map[string]api.EvictableFn{},
+		reclaimableFns:   map[string]api.EvictableFn{},
+		overusedFns:      map[string]api.ValidateFn{},
+		jobReadyFns:      map[string]api.ValidateFn{},
+		jobPipelinedFns:  map[string]api.ValidateFn{},
+		jobValidFns:      map[string]api.ValidateExFn{},
+		nodePrioritizers: map[string][]algorithm.PriorityConfig{},
 	}
 
 	snapshot := cache.Snapshot()

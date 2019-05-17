@@ -18,6 +18,7 @@ package framework
 
 import (
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
+	"k8s.io/kubernetes/pkg/scheduler/algorithm"
 )
 
 // AddJobOrderFn add job order function
@@ -60,9 +61,9 @@ func (ssn *Session) AddPredicateFn(name string, pf api.PredicateFn) {
 	ssn.predicateFns[name] = pf
 }
 
-// AddNodeOrderFn add Node order function
-func (ssn *Session) AddNodeOrderFn(name string, pf api.NodeOrderFn) {
-	ssn.nodeOrderFns[name] = pf
+// AddNodePrioritizers add Node prioritizers
+func (ssn *Session) AddNodePrioritizers(name string, pf []algorithm.PriorityConfig) {
+	ssn.nodePrioritizers[name] = pf
 }
 
 // AddOverusedFn add overused function
@@ -349,27 +350,22 @@ func (ssn *Session) PredicateFn(task *api.TaskInfo, node *api.NodeInfo) error {
 	return nil
 }
 
-// NodeOrderFn invoke node order function of the plugins
-func (ssn *Session) NodeOrderFn(task *api.TaskInfo, node *api.NodeInfo) (float64, error) {
-	priorityScore := 0.0
+// NodePrioritizers merge all prioritizers function of the plugins
+func (ssn *Session) NodePrioritizers() []algorithm.PriorityConfig {
+	priorityConfigs := []algorithm.PriorityConfig{}
 	for _, tier := range ssn.Tiers {
 		for _, plugin := range tier.Plugins {
 			if !isEnabled(plugin.EnabledNodeOrder) {
 				continue
 			}
-			pfn, found := ssn.nodeOrderFns[plugin.Name]
+			prioritizers, found := ssn.nodePrioritizers[plugin.Name]
 			if !found {
 				continue
 			}
-			score, err := pfn(task, node)
-			if err != nil {
-				return 0, err
-			}
-			priorityScore = priorityScore + score
-
+			priorityConfigs = append(priorityConfigs, prioritizers...)
 		}
 	}
-	return priorityScore, nil
+	return priorityConfigs
 }
 
 func isEnabled(enabled *bool) bool {

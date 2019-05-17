@@ -19,16 +19,12 @@ package nodeorder
 import (
 	"fmt"
 
-	"github.com/golang/glog"
-
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm/priorities"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
-	"k8s.io/kubernetes/pkg/scheduler/cache"
-
-	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/plugins/util"
+
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/kubernetes/pkg/scheduler/algorithm"
+	"k8s.io/kubernetes/pkg/scheduler/algorithm/priorities"
 )
 
 const (
@@ -45,28 +41,6 @@ const (
 type nodeOrderPlugin struct {
 	// Arguments given for the plugin
 	pluginArguments framework.Arguments
-}
-
-func getInterPodAffinityScore(name string, interPodAffinityScore schedulerapi.HostPriorityList) int {
-	for _, hostPriority := range interPodAffinityScore {
-		if hostPriority.Host == name {
-			return hostPriority.Score
-		}
-	}
-	return 0
-}
-
-func generateNodeMapAndSlice(nodes map[string]*api.NodeInfo) (map[string]*cache.NodeInfo, []*v1.Node) {
-	var nodeMap map[string]*cache.NodeInfo
-	var nodeSlice []*v1.Node
-	nodeMap = make(map[string]*cache.NodeInfo)
-	for _, node := range nodes {
-		nodeInfo := cache.NewNodeInfo(node.Pods()...)
-		nodeInfo.SetNode(node.Node)
-		nodeMap[node.Name] = nodeInfo
-		nodeSlice = append(nodeSlice, node.Node)
-	}
-	return nodeMap, nodeSlice
 }
 
 type cachedNodeInfo struct {
@@ -153,73 +127,44 @@ func calculateWeight(args framework.Arguments) priorityWeight {
 }
 
 func (pp *nodeOrderPlugin) OnSessionOpen(ssn *framework.Session) {
-	nodeOrderFn := func(task *api.TaskInfo, node *api.NodeInfo) (float64, error) {
+	weight := calculateWeight(pp.pluginArguments)
 
-		weight := calculateWeight(pp.pluginArguments)
-
-		pl := &util.PodLister{
-			Session: ssn,
-		}
-
-		nl := &util.NodeLister{
-			Session: ssn,
-		}
-
-		cn := &cachedNodeInfo{
-			session: ssn,
-		}
-
-		var nodeMap map[string]*cache.NodeInfo
-		var nodeSlice []*v1.Node
-		var interPodAffinityScore schedulerapi.HostPriorityList
-
-		nodeMap, nodeSlice = generateNodeMapAndSlice(ssn.Nodes)
-
-		nodeInfo := cache.NewNodeInfo(node.Pods()...)
-		nodeInfo.SetNode(node.Node)
-		var score = 0.0
-
-		//TODO: Add ImageLocalityPriority Function once priorityMetadata is published
-		//Issue: #74132 in kubernetes ( https://github.com/kubernetes/kubernetes/issues/74132 )
-
-		host, err := priorities.LeastRequestedPriorityMap(task.Pod, nil, nodeInfo)
-		if err != nil {
-			glog.Warningf("Least Requested Priority Failed because of Error: %v", err)
-			return 0, err
-		}
-		// If leastReqWeight in provided, host.Score is multiplied with weight, if not, host.Score is added to total score.
-		score = score + float64(host.Score*weight.leastReqWeight)
-
-		host, err = priorities.BalancedResourceAllocationMap(task.Pod, nil, nodeInfo)
-		if err != nil {
-			glog.Warningf("Balanced Resource Allocation Priority Failed because of Error: %v", err)
-			return 0, err
-		}
-		// If balancedRescourceWeight in provided, host.Score is multiplied with weight, if not, host.Score is added to total score.
-		score = score + float64(host.Score*weight.balancedRescourceWeight)
-
-		host, err = priorities.CalculateNodeAffinityPriorityMap(task.Pod, nil, nodeInfo)
-		if err != nil {
-			glog.Warningf("Calculate Node Affinity Priority Failed because of Error: %v", err)
-			return 0, err
-		}
-		// If nodeAffinityWeight in provided, host.Score is multiplied with weight, if not, host.Score is added to total score.
-		score = score + float64(host.Score*weight.nodeAffinityWeight)
-
-		mapFn := priorities.NewInterPodAffinityPriority(cn, nl, pl, v1.DefaultHardPodAffinitySymmetricWeight)
-		interPodAffinityScore, err = mapFn(task.Pod, nodeMap, nodeSlice)
-		if err != nil {
-			glog.Warningf("Calculate Inter Pod Affinity Priority Failed because of Error: %v", err)
-			return 0, err
-		}
-		hostScore := getInterPodAffinityScore(node.Name, interPodAffinityScore)
-		// If podAffinityWeight in provided, host.Score is multiplied with weight, if not, host.Score is added to total score.
-		score = score + float64(hostScore*weight.podAffinityWeight)
-
-		glog.V(4).Infof("Total Score for that node is: %d", score)
-		return score, nil
+	pl := &util.PodLister{
+		Session: ssn,
 	}
-	ssn.AddNodeOrderFn(pp.Name(), nodeOrderFn)
+
+	nl := &util.NodeLister{
+		Session: ssn,
+	}
+
+	cn := &cachedNodeInfo{
+		session: ssn,
+	}
+
+	priorityConfigs := []algorithm.PriorityConfig{
+		{
+			Name:   "LeastRequestedPriority",
+			Map:    priorities.LeastRequestedPriorityMap,
+			Weight: weight.leastReqWeight,
+		},
+		{
+			Name:   "BalancedResourceAllocation",
+			Map:    priorities.BalancedResourceAllocationMap,
+			Weight: weight.balancedRescourceWeight,
+		},
+		{
+			Name:   "NodeAffinityPriority",
+			Map:    priorities.CalculateNodeAffinityPriorityMap,
+			Reduce: priorities.CalculateNodeAffinityPriorityReduce,
+			Weight: weight.balancedRescourceWeight,
+		},
+		{
+			Name:     "InterPodAffinityPriority",
+			Function: priorities.NewInterPodAffinityPriority(cn, nl, pl, v1.DefaultHardPodAffinitySymmetricWeight),
+			Weight:   weight.balancedRescourceWeight,
+		},
+	}
+	ssn.AddNodePrioritizers(pp.Name(), priorityConfigs)
 }
 
 func (pp *nodeOrderPlugin) OnSessionClose(ssn *framework.Session) {
