@@ -147,9 +147,15 @@ func (alloc *allocateAction) Execute(ssn *framework.Session) {
 				break
 			}
 
-			nodeScores := util.PrioritizeNodes(task, predicateNodes, ssn.NodeOrderFn)
+			priorityList, err := util.PrioritizeNodes(task, predicateNodes, ssn.NodePrioritizers())
+			if err != nil {
+				glog.Errorf("Prioritize Nodes for task %s err: %v", task.UID, err)
+				break
+			}
 
-			node := util.SelectBestNode(nodeScores)
+			nodeName := util.SelectBestNode(priorityList)
+			node := ssn.Nodes[nodeName]
+
 			// Allocate idle resource to the task.
 			if task.InitResreq.LessEqual(node.Idle) {
 				glog.V(3).Infof("Binding Task <%v/%v> to node <%v>",
