@@ -63,6 +63,7 @@ var oneCPU = v1.ResourceList{"cpu": resource.MustParse("1000m")}
 var twoCPU = v1.ResourceList{"cpu": resource.MustParse("2000m")}
 var oneAndHalfCPU = v1.ResourceList{"cpu": resource.MustParse("1500m")}
 var smallCPU = v1.ResourceList{"cpu": resource.MustParse("2m")}
+var oneGigaByteMem = v1.ResourceList{"memory": resource.MustParse("1Gi")}
 
 const (
 	workerPriority = "worker-pri"
