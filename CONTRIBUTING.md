@@ -23,4 +23,4 @@ Follow either of the two links above to access the appropriate CLA and instructi
 
 ### Adding dependencies
 
-If your patch depends on new packages, add that package with [`dep`](https://github.com/golang/dep). Follow the [instructions to add a dependency](https://golang.github.io/dep/docs/daily-dep.html#adding-a-new-dependency).
+If your patch depends on new packages, add that package with [go modules](https://github.com/golang/go/wiki/Modules). Could refer to [quick start guideline](https://github.com/golang/go/wiki/Modules#quick-start) for more details.
