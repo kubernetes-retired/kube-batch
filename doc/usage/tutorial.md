@@ -50,6 +50,7 @@ Please check following configurable fields and customize kube-batch based on you
 | leader-elect | false | Start a leader election client and gain leadership before executing the main loop. Enable this when running replicated kube-batch for high availability |
 | lock-object-namespace | "" | Define the namespace of the lock object that is used for leader election |
 | listen-address | :8080 | The address to listen on for HTTP requests. Metrics will be exposed at this port |
+| priority-class | true | Enable PriorityClass to provide the capacity of preemption at pod group level; to disable it, set it false |
 
 
 ### scheduler configuration
