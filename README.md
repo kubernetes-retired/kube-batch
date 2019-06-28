@@ -7,14 +7,13 @@
 [![Release](https://img.shields.io/github/release/kubernetes-sigs/kube-batch.svg)](https://github.com/kubernetes-sigs/kube-batch/releases)
 [![LICENSE](https://img.shields.io/github/license/kubernetes-sigs/kube-batch.svg)](https://github.com/kubernetes-sigs/kube-batch/blob/master/LICENSE)
 
+`kube-batch` is a batch scheduler for Kubernetes, providing mechanisms for applications which would like to run batch jobs leveraging Kubernetes. It builds upon a decade and a half of experience on running batch workloads at scale using several systems, combined with best-of-breed ideas and practices from the open source community.
 
-`kube-batch` is a batch scheduler for Kubernetes, providing mechanisms for applications which would like to run batch jobs leveraging Kubernetes. 
-
-`kube-batch` builds upon a decade and a half of experience on running batch workloads at scale using several systems, combined with best-of-breed ideas and practices from the open source community.
-
-Refer to [tutorial](doc/usage/tutorial.md) on how to use `kube-batch` to run batch job in Kubernetes
+Refer to [tutorial](doc/usage/tutorial.md) on how to use `kube-batch` to run batch job in Kubernetes.
 
 ## Overall Architecture
+
+The following figure describes the overall architecture and scope of `kube-batch`; the out-of-scope part is going to be handled by other projects, e.g. [Volcano](http://github.com/volcano-sh/volcano)
 
 ![kube-batch](doc/images/kube-batch.png)
 
