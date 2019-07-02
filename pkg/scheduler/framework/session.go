@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/kubernetes/pkg/scheduler/algorithm"
 
-	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/conf"
@@ -90,8 +89,8 @@ func openSession(cache cache.Cache) *Session {
 	for _, job := range ssn.Jobs {
 		if vjr := ssn.JobValid(job); vjr != nil {
 			if !vjr.Pass {
-				jc := &v1alpha1.PodGroupCondition{
-					Type:               v1alpha1.PodGroupUnschedulableType,
+				jc := &api.PodGroupCondition{
+					Type:               api.PodGroupUnschedulableType,
 					Status:             v1.ConditionTrue,
 					LastTransitionTime: metav1.Now(),
 					TransitionID:       string(ssn.UID),
@@ -144,12 +143,12 @@ func closeSession(ssn *Session) {
 	glog.V(3).Infof("Close Session %v", ssn.UID)
 }
 
-func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
+func jobStatus(ssn *Session, jobInfo *api.JobInfo) api.PodGroupStatus {
 	status := jobInfo.PodGroup.Status
 
 	unschedulable := false
 	for _, c := range status.Conditions {
-		if c.Type == v1alpha1.PodGroupUnschedulableType &&
+		if c.Type == api.PodGroupUnschedulableType &&
 			c.Status == v1.ConditionTrue &&
 			c.TransitionID == string(ssn.UID) {
 
@@ -160,7 +159,7 @@ func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
 
 	// If running tasks && unschedulable, unknown phase
 	if len(jobInfo.TaskStatusIndex[api.Running]) != 0 && unschedulable {
-		status.Phase = v1alpha1.PodGroupUnknown
+		status.Phase = api.PodGroupUnknown
 	} else {
 		allocated := 0
 		for status, tasks := range jobInfo.TaskStatusIndex {
@@ -171,9 +170,9 @@ func jobStatus(ssn *Session, jobInfo *api.JobInfo) v1alpha1.PodGroupStatus {
 
 		// If there're enough allocated resource, it's running
 		if int32(allocated) >= jobInfo.PodGroup.Spec.MinMember {
-			status.Phase = v1alpha1.PodGroupRunning
+			status.Phase = api.PodGroupRunning
 		} else {
-			status.Phase = v1alpha1.PodGroupPending
+			status.Phase = api.PodGroupPending
 		}
 	}
 
@@ -359,7 +358,7 @@ func (ssn *Session) Evict(reclaimee *api.TaskInfo, reason string) error {
 }
 
 // UpdateJobCondition update job condition accordingly.
-func (ssn *Session) UpdateJobCondition(jobInfo *api.JobInfo, cond *v1alpha1.PodGroupCondition) error {
+func (ssn *Session) UpdateJobCondition(jobInfo *api.JobInfo, cond *api.PodGroupCondition) error {
 	job, ok := ssn.Jobs[jobInfo.UID]
 	if !ok {
 		return fmt.Errorf("failed to find job <%s/%s>", jobInfo.Namespace, jobInfo.Name)
