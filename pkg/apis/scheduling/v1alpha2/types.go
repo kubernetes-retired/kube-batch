@@ -160,3 +160,55 @@ type PodGroupList struct {
 	// items is the list of PodGroup
 	Items []PodGroup `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Queue is a queue of PodGroup.
+type Queue struct {
+	metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Specification of the desired behavior of the queue.
+	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
+	// +optional
+	Spec QueueSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+
+	// The status of queue.
+	// +optional
+	Status QueueStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// QueueStatus represents the status of Queue.
+type QueueStatus struct {
+	// The number of 'Unknonw' PodGroup in this queue.
+	Unknown int32 `json:"unknown,omitempty" protobuf:"bytes,1,opt,name=unknown"`
+	// The number of 'Pending' PodGroup in this queue.
+	Pending int32 `json:"pending,omitempty" protobuf:"bytes,2,opt,name=pending"`
+	// The number of 'Running' PodGroup in this queue.
+	Running int32 `json:"running,omitempty" protobuf:"bytes,3,opt,name=running"`
+}
+
+// QueueSpec represents the template of Queue.
+type QueueSpec struct {
+	Weight     int32           `json:"weight,omitempty" protobuf:"bytes,1,opt,name=weight"`
+	Capability v1.ResourceList `json:"capability,omitempty" protobuf:"bytes,2,opt,name=capability"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// QueueList is a collection of queues.
+type QueueList struct {
+	metav1.TypeMeta `json:",inline"`
+	// Standard list metadata
+	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+	// +optional
+	metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// items is the list of PodGroup
+	Items []Queue `json:"items" protobuf:"bytes,2,rep,name=items"`
+}

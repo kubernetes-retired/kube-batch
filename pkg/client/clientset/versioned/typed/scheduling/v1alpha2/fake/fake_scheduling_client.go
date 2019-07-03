@@ -32,6 +32,10 @@ func (c *FakeSchedulingV1alpha2) PodGroups(namespace string) v1alpha2.PodGroupIn
 	return &FakePodGroups{c, namespace}
 }
 
+func (c *FakeSchedulingV1alpha2) Queues() v1alpha2.QueueInterface {
+	return &FakeQueues{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeSchedulingV1alpha2) RESTClient() rest.Interface {

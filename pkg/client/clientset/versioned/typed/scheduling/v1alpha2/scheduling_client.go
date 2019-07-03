@@ -28,6 +28,7 @@ import (
 type SchedulingV1alpha2Interface interface {
 	RESTClient() rest.Interface
 	PodGroupsGetter
+	QueuesGetter
 }
 
 // SchedulingV1alpha2Client is used to interact with features provided by the scheduling group.
@@ -37,6 +38,10 @@ type SchedulingV1alpha2Client struct {
 
 func (c *SchedulingV1alpha2Client) PodGroups(namespace string) PodGroupInterface {
 	return newPodGroups(c, namespace)
+}
+
+func (c *SchedulingV1alpha2Client) Queues() QueueInterface {
+	return newQueues(c)
 }
 
 // NewForConfig creates a new SchedulingV1alpha2Client for the given config.

@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// PodGroups returns a PodGroupInformer.
 	PodGroups() PodGroupInformer
+	// Queues returns a QueueInformer.
+	Queues() QueueInformer
 }
 
 type version struct {
@@ -42,4 +44,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // PodGroups returns a PodGroupInformer.
 func (v *version) PodGroups() PodGroupInformer {
 	return &podGroupInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// Queues returns a QueueInformer.
+func (v *version) Queues() QueueInformer {
+	return &queueInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
