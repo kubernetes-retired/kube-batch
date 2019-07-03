@@ -72,6 +72,7 @@ function kube-batch-up {
     kubectl create -f deployment/kube-batch/templates/scheduling_v1alpha1_queue.yaml
     kubectl create -f deployment/kube-batch/templates/scheduling_v1alpha1_podgroup.yaml
     kubectl create -f deployment/kube-batch/templates/scheduling_v1alpha2_podgroup.yaml
+    kubectl create -f deployment/kube-batch/templates/scheduling_v1alpha2_queue.yaml
     kubectl create -f deployment/kube-batch/templates/default.yaml
 
     # start kube-batch
@@ -87,4 +88,3 @@ kube-batch-up
 
 cd ${ROOT_DIR}
 go test ./test/e2e -v -timeout 30m
-
