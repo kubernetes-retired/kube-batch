@@ -147,7 +147,7 @@ type JobInfo struct {
 	TotalRequest *Resource
 
 	CreationTimestamp metav1.Time
-	PodGroup          *v1alpha1.PodGroup
+	PodGroup          *PodGroup
 
 	// TODO(k82cn): keep backward compatibility, removed it when v1alpha1 finalized.
 	PDB *policyv1.PodDisruptionBudget
@@ -181,7 +181,7 @@ func (ji *JobInfo) UnsetPodGroup() {
 }
 
 // SetPodGroup sets podGroup details to a job
-func (ji *JobInfo) SetPodGroup(pg *v1alpha1.PodGroup) {
+func (ji *JobInfo) SetPodGroup(pg *PodGroup) {
 	ji.Name = pg.Name
 	ji.Namespace = pg.Namespace
 	ji.MinAvailable = pg.Spec.MinMember

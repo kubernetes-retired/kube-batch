@@ -17,7 +17,6 @@ limitations under the License.
 package cache
 
 import (
-	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	v1 "k8s.io/api/core/v1"
 )
@@ -74,5 +73,5 @@ type Evictor interface {
 // StatusUpdater updates pod with given PodCondition
 type StatusUpdater interface {
 	UpdatePodCondition(pod *v1.Pod, podCondition *v1.PodCondition) (*v1.Pod, error)
-	UpdatePodGroup(pg *v1alpha1.PodGroup) (*v1alpha1.PodGroup, error)
+	UpdatePodGroup(pg *api.PodGroup) (*api.PodGroup, error)
 }
