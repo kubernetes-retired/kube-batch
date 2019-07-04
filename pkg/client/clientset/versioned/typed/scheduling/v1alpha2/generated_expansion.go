@@ -19,3 +19,5 @@ limitations under the License.
 package v1alpha2
 
 type PodGroupExpansion interface{}
+
+type QueueExpansion interface{}

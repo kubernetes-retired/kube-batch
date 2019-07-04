@@ -25,3 +25,7 @@ type PodGroupListerExpansion interface{}
 // PodGroupNamespaceListerExpansion allows custom methods to be added to
 // PodGroupNamespaceLister.
 type PodGroupNamespaceListerExpansion interface{}
+
+// QueueListerExpansion allows custom methods to be added to
+// QueueLister.
+type QueueListerExpansion interface{}
