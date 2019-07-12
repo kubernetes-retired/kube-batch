@@ -164,7 +164,6 @@ apiVersion: scheduling.k8s.io/v1beta1
 kind: PriorityClass
 metadata:
   name: high-priority
-  namespace: batch-ns01
 value: 1000
 ```
 
