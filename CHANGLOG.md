@@ -11,13 +11,7 @@
 - Update API GroupName [\#815](https://github.com/kubernetes-sigs/kube-batch/issues/815)
 - Migrate nodeorder and predicates plugins [\#814](https://github.com/kubernetes-sigs/kube-batch/issues/814)
 - Add Configuration for predicate plugin to enable/disable predicates algorithm [\#802](https://github.com/kubernetes-sigs/kube-batch/issues/802)
-- Propose not to delete all pods after the job finished [\#797](https://github.com/kubernetes-sigs/kube-batch/issues/797)
 - Consider support multi-containers pod error code handling [\#776](https://github.com/kubernetes-sigs/kube-batch/issues/776)
-- Support Task/Job retry [\#769](https://github.com/kubernetes-sigs/kube-batch/issues/769)
-- Job GC [\#768](https://github.com/kubernetes-sigs/kube-batch/issues/768)
-- Support PriorityClassName in Job Resource [\#766](https://github.com/kubernetes-sigs/kube-batch/issues/766)
-- Support ScheduledJob/CronJob  [\#765](https://github.com/kubernetes-sigs/kube-batch/issues/765)
-- Queue controller & cli [\#763](https://github.com/kubernetes-sigs/kube-batch/issues/763)
 - Deserved attr is not correctly calculated in proportion plugin [\#729](https://github.com/kubernetes-sigs/kube-batch/issues/729)
 - Keep backward compatibility for priority class [\#724](https://github.com/kubernetes-sigs/kube-batch/issues/724)
 - Change return value of NodeOrderFn from int to float [\#708](https://github.com/kubernetes-sigs/kube-batch/issues/708)
@@ -27,10 +21,6 @@
 - Add resource predicates for tasks [\#694](https://github.com/kubernetes-sigs/kube-batch/issues/694)
 - Pass conformance test [\#589](https://github.com/kubernetes-sigs/kube-batch/issues/589)
 - big PodGroup blocks scheduling issue [\#514](https://github.com/kubernetes-sigs/kube-batch/issues/514)
-- Changing the architecture diagram [\#504](https://github.com/kubernetes-sigs/kube-batch/issues/504)
-- Support MPI job by kube-batch [\#351](https://github.com/kubernetes-sigs/kube-batch/issues/351)
-- Currently no IBM Power\(ppc64le\) based image is available in kubearbitrator public repository [\#241](https://github.com/kubernetes-sigs/kube-batch/issues/241)
-
 
 ## v0.4.2
 
