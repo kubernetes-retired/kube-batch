@@ -9,7 +9,7 @@ CRD_DIRECTORY="${VK_ROOT}/deployment/kube-batch/templates"
 QUEUE_DIR="${VK_ROOT}/config/queue"
 
 #Release version for kube batch
-RELEASE_VER=v0.4.2
+RELEASE_VER=v0.5
 
 #Ensure external cluster exists and kubectl binary works
 kubectl get nodes

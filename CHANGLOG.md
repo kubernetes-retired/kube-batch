@@ -1,3 +1,27 @@
+## v0.5  
+
+**Closed issues:**
+
+- master and worker start in order in a job [\#872](https://github.com/kubernetes-sigs/kube-batch/issues/872)
+-  use kubernetes default schedule policies [\#864](https://github.com/kubernetes-sigs/kube-batch/issues/864)
+- v0.4 runtime panic  [\#861](https://github.com/kubernetes-sigs/kube-batch/issues/861)
+- Helm install fails [\#857](https://github.com/kubernetes-sigs/kube-batch/issues/857)
+- "NewResource/Convert2K8sResource" behavior mismatch [\#851](https://github.com/kubernetes-sigs/kube-batch/issues/851)
+- Phase of podgroup status looks incorrect [\#846](https://github.com/kubernetes-sigs/kube-batch/issues/846)
+- Update API GroupName [\#815](https://github.com/kubernetes-sigs/kube-batch/issues/815)
+- Migrate nodeorder and predicates plugins [\#814](https://github.com/kubernetes-sigs/kube-batch/issues/814)
+- Add Configuration for predicate plugin to enable/disable predicates algorithm [\#802](https://github.com/kubernetes-sigs/kube-batch/issues/802)
+- Consider support multi-containers pod error code handling [\#776](https://github.com/kubernetes-sigs/kube-batch/issues/776)
+- Deserved attr is not correctly calculated in proportion plugin [\#729](https://github.com/kubernetes-sigs/kube-batch/issues/729)
+- Keep backward compatibility for priority class [\#724](https://github.com/kubernetes-sigs/kube-batch/issues/724)
+- Change return value of NodeOrderFn from int to float [\#708](https://github.com/kubernetes-sigs/kube-batch/issues/708)
+- Add type Argument with some common parse function [\#704](https://github.com/kubernetes-sigs/kube-batch/issues/704)
+- Replace NodeOrder with BestNode [\#699](https://github.com/kubernetes-sigs/kube-batch/issues/699)
+- Support set default value to the configuration [\#695](https://github.com/kubernetes-sigs/kube-batch/issues/695)
+- Add resource predicates for tasks [\#694](https://github.com/kubernetes-sigs/kube-batch/issues/694)
+- Pass conformance test [\#589](https://github.com/kubernetes-sigs/kube-batch/issues/589)
+- big PodGroup blocks scheduling issue [\#514](https://github.com/kubernetes-sigs/kube-batch/issues/514)
+
 ## v0.4.2
 
 ### Notes:
