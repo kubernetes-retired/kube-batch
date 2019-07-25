@@ -4,7 +4,7 @@
 replicaCount: 1
 image:
   repository: kubesigs
-  tag: v0.4.2
+  tag: v0.5
   pullPolicy: IfNotPresent
 resources:
   limits:
