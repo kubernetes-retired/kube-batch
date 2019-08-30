@@ -22,6 +22,8 @@ import (
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api/helpers"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
+	"k8s.io/api/core/v1"
+	"k8s.io/kubernetes/pkg/scheduler/cache"
 )
 
 type proportionPlugin struct {
@@ -56,8 +58,24 @@ func (pp *proportionPlugin) Name() string {
 }
 
 func (pp *proportionPlugin) OnSessionOpen(ssn *framework.Session) {
-	// Prepare scheduling data for this session.
+	// Prepare scheduling data for this session, the nodes that cannot be scheduled will be ignored
 	for _, n := range ssn.Nodes {
+		nodeInfo := cache.NewNodeInfo(n.Pods()...)
+		nodeInfo.SetNode(n.Node)
+		taints, _ := nodeInfo.Taints()
+		ignore := false
+		for i := range taints {
+			t := taints[i]
+			if(t.Effect == v1.TaintEffectNoSchedule || t.Effect == v1.TaintEffectNoExecute) {
+				ignore = true
+				glog.V(3).Infof("Ingore host <%v>,  %v.", n.Name, t)
+				break
+			}
+		}
+		if ignore {
+			continue
+		}
+
 		pp.totalResource.Add(n.Allocatable)
 	}
 
@@ -181,7 +199,7 @@ func (pp *proportionPlugin) OnSessionOpen(ssn *framework.Session) {
 			}
 			allocated := allocations[job.Queue]
 			if allocated.Less(reclaimee.Resreq) {
-				glog.Errorf("Failed to allocate resource for Task <%s/%s> in Queue <%s>， not enough resource.",
+				glog.Errorf("Failed to allocate resource for Task <%s/%s> in Queue <%s>, not enough resource.",
 					reclaimee.Namespace, reclaimee.Name, job.Queue)
 				continue
 			}

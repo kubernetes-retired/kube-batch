@@ -76,7 +76,7 @@ func (ssn *Session) AddJobValidFn(name string, fn api.ValidateExFn) {
 	ssn.jobValidFns[name] = fn
 }
 
-// Reclaimable invoke reclaimable function of the plugins
+// Reclaimable invoke reclaimable function of the plugins, only the victims that meet all the plugins can be reclaimed.
 func (ssn *Session) Reclaimable(reclaimer *api.TaskInfo, reclaimees []*api.TaskInfo) []*api.TaskInfo {
 	var victims []*api.TaskInfo
 	var init bool
@@ -109,10 +109,7 @@ func (ssn *Session) Reclaimable(reclaimer *api.TaskInfo, reclaimees []*api.TaskI
 				victims = intersection
 			}
 		}
-		// Plugins in this tier made decision if victims is not nil
-		if victims != nil {
-			return victims
-		}
+		// Just continue the loop here to go through all plugins
 	}
 
 	return victims
