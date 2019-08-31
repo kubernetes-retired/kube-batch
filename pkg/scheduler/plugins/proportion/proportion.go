@@ -66,7 +66,7 @@ func (pp *proportionPlugin) OnSessionOpen(ssn *framework.Session) {
 		ignore := false
 		for i := range taints {
 			t := taints[i]
-			if(t.Effect == v1.TaintEffectNoSchedule || t.Effect == v1.TaintEffectNoExecute) {
+			if t.Effect == v1.TaintEffectNoSchedule || t.Effect == v1.TaintEffectNoExecute {
 				ignore = true
 				glog.V(3).Infof("Ingore host <%v>,  %v.", n.Name, t)
 				break
