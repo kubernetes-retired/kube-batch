@@ -14,7 +14,7 @@ To run `kube-batch`, a Kubernetes cluster must start up. Here is a document on [
 ```bash
 # mkdir -p $GOPATH/src/github.com/kubernetes-sigs/
 # cd $GOPATH/src/github.com/kubernetes-sigs/
-# git clone http://github.com/kubernetes-sigs/kube-batch -b v0.5
+# git clone http://github.com/kubernetes-sigs/kube-batch -b release-0.5
 ```
 
 ### Deploy kube-batch by Helm
