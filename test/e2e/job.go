@@ -165,11 +165,13 @@ var _ = Describe("Job E2E Test", func() {
 		}
 
 		job.name = "preemptee-qj"
+		job.pri = workerPriority
 		_, pg1 := createJob(context, job)
 		err := waitTasksReady(context, pg1, int(rep))
 		checkError(context, err)
 
 		job.name = "preemptor-qj"
+		job.pri = masterPriority
 		_, pg2 := createJob(context, job)
 		err = waitTasksReady(context, pg1, int(rep)/2)
 		checkError(context, err)
@@ -197,15 +199,18 @@ var _ = Describe("Job E2E Test", func() {
 		}
 
 		job.name = "preemptee-qj"
+		job.pri = workerPriority
 		_, pg1 := createJob(context, job)
 		err := waitTasksReady(context, pg1, int(rep))
 		checkError(context, err)
 
 		job.name = "preemptor-qj1"
+		job.pri = masterPriority
 		_, pg2 := createJob(context, job)
 		checkError(context, err)
 
 		job.name = "preemptor-qj2"
+		job.pri = masterPriority
 		_, pg3 := createJob(context, job)
 		checkError(context, err)
 
