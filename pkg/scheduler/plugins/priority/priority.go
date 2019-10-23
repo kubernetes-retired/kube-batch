@@ -85,7 +85,7 @@ func (pp *priorityPlugin) OnSessionOpen(ssn *framework.Session) {
 		for _, preemptee := range preemptees {
 			preempteeJob := ssn.Jobs[preemptee.Job]
 			if preempteeJob.Priority >= preemptorJob.Priority {
-				glog.V(3).Infof("Can not preempt task <%v/%v> because "+
+				glog.V(4).Infof("Can not preempt task <%v/%v> because "+
 					"preemptee has greater or equal job priority (%d) than preemptor (%d)",
 					preemptee.Namespace, preemptee.Name, preempteeJob.Priority, preemptorJob.Priority)
 			} else {
@@ -93,7 +93,7 @@ func (pp *priorityPlugin) OnSessionOpen(ssn *framework.Session) {
 			}
 		}
 
-		glog.V(3).Infof("Victims from Priority plugins are %+v", victims)
+		glog.V(4).Infof("Victims from Priority plugins are %+v", victims)
 		return victims
 	}
 
