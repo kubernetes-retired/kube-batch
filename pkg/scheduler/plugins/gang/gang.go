@@ -77,14 +77,14 @@ func (gp *gangPlugin) OnSessionOpen(ssn *framework.Session) {
 			preemptable := job.MinAvailable <= occupid-1 || job.MinAvailable == 1
 
 			if !preemptable {
-				glog.V(3).Infof("Can not preempt task <%v/%v> because of gang-scheduling",
+				glog.V(4).Infof("Can not preempt task <%v/%v> because of gang-scheduling",
 					preemptee.Namespace, preemptee.Name)
 			} else {
 				victims = append(victims, preemptee)
 			}
 		}
 
-		glog.V(3).Infof("Victims from Gang plugins are %+v", victims)
+		glog.V(4).Infof("Victims from Gang plugins are %+v", victims)
 
 		return victims
 	}
