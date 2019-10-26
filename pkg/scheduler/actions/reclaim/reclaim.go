@@ -192,5 +192,5 @@ func (alloc *reclaimAction) Execute(ssn *framework.Session) {
 
 }
 
-func (ra *reclaimAction) UnInitialize() {
+func (alloc *reclaimAction) UnInitialize() {
 }
