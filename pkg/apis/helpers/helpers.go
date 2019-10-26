@@ -99,9 +99,8 @@ func DeleteConfigmap(job *vkv1.Job, kubeClients *kubernetes.Clientset, cmName st
 			glog.V(3).Infof("Failed to get Configmap for Job <%s/%s>: %v",
 				job.Namespace, job.Name, err)
 			return err
-		} else {
-			return nil
 		}
+		return nil
 	}
 
 	if err := kubeClients.CoreV1().ConfigMaps(job.Namespace).Delete(cmName, nil); err != nil {

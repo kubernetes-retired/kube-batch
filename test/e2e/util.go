@@ -53,7 +53,7 @@ import (
 	. "github.com/onsi/ginkgo"
 )
 
-const currentApiCallMetricsVersion = "v1"
+const currentAPICallMetricsVersion = "v1"
 
 var oneMinute = 1 * time.Minute
 var tenMinute = 10 * time.Minute
