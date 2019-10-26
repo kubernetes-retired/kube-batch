@@ -91,7 +91,7 @@ func PrettyPrintJSON(metrics interface{}) string {
 
 //// PodStartupLatencyToPerfData transforms PodStartupLatency to PerfData.
 func PodStartupLatencyToPerfData(latency *PodStartupLatency) *perftype.PerfData {
-	perfData := &perftype.PerfData{Version: currentApiCallMetricsVersion}
+	perfData := &perftype.PerfData{Version: currentAPICallMetricsVersion}
 	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.CreateToScheduleLatency, "create_to_schedule"))
 	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.ScheduleToRunLatency, "schedule_to_run"))
 	perfData.DataItems = append(perfData.DataItems, latencyToPerfData(latency.RunToWatchLatency, "run_to_watch"))
