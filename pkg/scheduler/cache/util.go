@@ -53,7 +53,8 @@ func createShadowPodGroup(pod *v1.Pod) *api.PodGroup {
 			},
 		},
 		Spec: api.PodGroupSpec{
-			MinMember: 1,
+			MinMember:         1,
+			PriorityClassName: pod.Spec.PriorityClassName,
 		},
 	}
 }
