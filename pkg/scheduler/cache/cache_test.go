@@ -19,13 +19,16 @@ package cache
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	schedulingv1beta1 "k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	kbv1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
 
@@ -184,6 +187,57 @@ func TestAddPod(t *testing.T) {
 			t.Errorf("case %d: \n expected %v, \n got %v \n",
 				i, test.expected, cache)
 		}
+	}
+}
+
+func TestAddPodWithoutPodGroup(t *testing.T) {
+	// Prepare cache.
+	cache := &SchedulerCache{
+		Jobs:            make(map[api.JobID]*api.JobInfo),
+		Queues:          make(map[api.QueueID]*api.QueueInfo),
+		PriorityClasses: make(map[string]*schedulingv1beta1.PriorityClass),
+		defaultQueue:    "q1",
+	}
+	cache.AddQueuev1alpha1(&kbv1.Queue{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "q1",
+		},
+	})
+	const priority = -5
+	cache.AddPriorityClass(&schedulingv1beta1.PriorityClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pc1",
+		},
+		Value: priority,
+	})
+
+	// Add pod without pod group.
+	pod := buildPod("c1", "p1", "", v1.PodPending, buildResourceList("1000m", "1G"),
+		[]metav1.OwnerReference{}, make(map[string]string))
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	const minMember = 2
+	pod.Annotations[kbv1.GroupMinMemberAnnotationKey] = strconv.Itoa(minMember)
+	pod.Spec.PriorityClassName = "pc1"
+	cache.AddPod(pod)
+
+	// Verify job in the snapshot.
+	snapshot := cache.Snapshot()
+
+	jobID := api.JobID(pod.UID)
+	job, found := snapshot.Jobs[jobID]
+	if !found {
+		t.Errorf("job for the test pod was not found")
+	}
+
+	if job.MinAvailable != minMember {
+		t.Errorf("job min pods available %d does not match %d specified in the test pod",
+			job.MinAvailable, minMember)
+	}
+	if job.Priority != priority {
+		t.Errorf("job priority %d does not match %d specified in the test pod",
+			job.Priority, priority)
 	}
 }
 
