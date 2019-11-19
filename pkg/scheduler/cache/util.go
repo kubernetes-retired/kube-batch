@@ -17,9 +17,15 @@ limitations under the License.
 package cache
 
 import (
+	"strconv"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/golang/glog"
+
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
+	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha2"
 	"github.com/kubernetes-sigs/kube-batch/pkg/apis/utils"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
@@ -44,6 +50,29 @@ func createShadowPodGroup(pod *v1.Pod) *api.PodGroup {
 		jobID = api.JobID(pod.UID)
 	}
 
+	// Deriving min member for the shadow pod group from pod annotations.
+	//
+	// Annotation from the newer API has priority over annotation from the old API.
+	//
+	// By default, if no annotation is provided, min member is 1.
+	minMember := 1
+	if annotationValue, found := pod.Annotations[v1alpha1.GroupMinMemberAnnotationKey]; found {
+		if integerValue, err := strconv.Atoi(annotationValue); err == nil {
+			minMember = integerValue
+		} else {
+			glog.Errorf("Pod %s/%s has illegal value %q for annotation %q",
+				pod.Namespace, pod.Name, annotationValue, v1alpha1.GroupMinMemberAnnotationKey)
+		}
+	}
+	if annotationValue, found := pod.Annotations[v1alpha2.GroupMinMemberAnnotationKey]; found {
+		if integerValue, err := strconv.Atoi(annotationValue); err == nil {
+			minMember = integerValue
+		} else {
+			glog.Errorf("Pod %s/%s has illegal value %q for annotation %q",
+				pod.Namespace, pod.Name, annotationValue, v1alpha2.GroupMinMemberAnnotationKey)
+		}
+	}
+
 	return &api.PodGroup{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pod.Namespace,
@@ -53,7 +82,7 @@ func createShadowPodGroup(pod *v1.Pod) *api.PodGroup {
 			},
 		},
 		Spec: api.PodGroupSpec{
-			MinMember:         1,
+			MinMember:         int32(minMember),
 			PriorityClassName: pod.Spec.PriorityClassName,
 		},
 	}
