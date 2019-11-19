@@ -80,6 +80,7 @@ func createShadowPodGroup(pod *v1.Pod) *api.PodGroup {
 			Annotations: map[string]string{
 				shadowPodGroupKey: string(jobID),
 			},
+			CreationTimestamp: pod.CreationTimestamp,
 		},
 		Spec: api.PodGroupSpec{
 			MinMember:         int32(minMember),
