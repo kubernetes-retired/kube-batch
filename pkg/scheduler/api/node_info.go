@@ -163,15 +163,18 @@ func (ni *NodeInfo) allocateIdleResource(ti *TaskInfo) error {
 		ni.Idle.Sub(ti.Resreq)
 		return nil
 	}
-	ni.State = NodeState{
-		Phase:  NotReady,
-		Reason: "OutOfSync",
-	}
 	return fmt.Errorf("Selected node NotReady")
 }
 
 // AddTask is used to add a task in nodeInfo object
+//
+// If error occurs both task and node are guaranteed to be in the original state.
 func (ni *NodeInfo) AddTask(task *TaskInfo) error {
+	if len(task.NodeName) > 0 && len(ni.Name) > 0 && task.NodeName != ni.Name {
+		return fmt.Errorf("task <%v/%v> already on different node <%v>",
+			task.Namespace, task.Name, task.NodeName)
+	}
+
 	key := PodKey(task.Pod)
 	if _, found := ni.Tasks[key]; found {
 		return fmt.Errorf("task <%v/%v> already on node <%v>",
@@ -200,12 +203,17 @@ func (ni *NodeInfo) AddTask(task *TaskInfo) error {
 		ni.Used.Add(ti.Resreq)
 	}
 
+	// Update task node name upon successful task addition.
+	task.NodeName = ni.Name
+	ti.NodeName = ni.Name
 	ni.Tasks[key] = ti
 
 	return nil
 }
 
-// RemoveTask used to remove a task from nodeInfo object
+// RemoveTask used to remove a task from nodeInfo object.
+//
+// If error occurs both task and node are guaranteed to be in the original state.
 func (ni *NodeInfo) RemoveTask(ti *TaskInfo) error {
 	key := PodKey(ti.Pod)
 
@@ -234,13 +242,20 @@ func (ni *NodeInfo) RemoveTask(ti *TaskInfo) error {
 	return nil
 }
 
-// UpdateTask is used to update a task in nodeInfo object
+// UpdateTask is used to update a task in nodeInfo object.
+//
+// If error occurs both task and node are guaranteed to be in the original state.
 func (ni *NodeInfo) UpdateTask(ti *TaskInfo) error {
 	if err := ni.RemoveTask(ti); err != nil {
 		return err
 	}
-
-	return ni.AddTask(ti)
+	if err := ni.AddTask(ti); err != nil {
+		// This should never happen if task removal was successful,
+		// because only possible error during task addition is when task is still on a node.
+		glog.Fatalf("Failed to add Task <%s,%s> to Node <%s> during task update",
+			ti.Namespace, ti.Name, ni.Name)
+	}
+	return nil
 }
 
 // String returns nodeInfo details in string format

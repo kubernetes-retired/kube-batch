@@ -417,13 +417,14 @@ func (sc *SchedulerCache) findJobAndTask(taskInfo *kbapi.TaskInfo) (*kbapi.JobIn
 	return job, task, nil
 }
 
-// Evict will evict the pod
+// Evict will evict the pod.
+//
+// If error occurs both task and job are guaranteed to be in the original state.
 func (sc *SchedulerCache) Evict(taskInfo *kbapi.TaskInfo, reason string) error {
 	sc.Mutex.Lock()
 	defer sc.Mutex.Unlock()
 
 	job, task, err := sc.findJobAndTask(taskInfo)
-
 	if err != nil {
 		return err
 	}
@@ -434,13 +435,21 @@ func (sc *SchedulerCache) Evict(taskInfo *kbapi.TaskInfo, reason string) error {
 			task.UID, task.NodeName)
 	}
 
-	err = job.UpdateTaskStatus(task, kbapi.Releasing)
-	if err != nil {
+	originalStatus := task.Status
+	if err := job.UpdateTaskStatus(task, kbapi.Releasing); err != nil {
 		return err
 	}
 
 	// Add new task to node.
 	if err := node.UpdateTask(task); err != nil {
+		// After failing to update task to a node we need to revert task status from Releasing,
+		// otherwise task might be stuck in the Releasing state indefinitely.
+		if err := job.UpdateTaskStatus(task, originalStatus); err != nil {
+			glog.Errorf("Task <%s/%s> will be resynchronized after failing to revert status "+
+				"from %s to %s after failing to update Task on Node <%s>: %v",
+				task.Namespace, task.Name, task.Status, originalStatus, node.Name, err)
+			sc.resyncTask(task)
+		}
 		return err
 	}
 
@@ -482,7 +491,6 @@ func (sc *SchedulerCache) Bind(taskInfo *kbapi.TaskInfo, hostname string) error 
 	defer sc.Mutex.Unlock()
 
 	job, task, err := sc.findJobAndTask(taskInfo)
-
 	if err != nil {
 		return err
 	}
@@ -493,16 +501,21 @@ func (sc *SchedulerCache) Bind(taskInfo *kbapi.TaskInfo, hostname string) error 
 			task.UID, hostname)
 	}
 
-	err = job.UpdateTaskStatus(task, kbapi.Binding)
-	if err != nil {
+	originalStatus := task.Status
+	if err := job.UpdateTaskStatus(task, kbapi.Binding); err != nil {
 		return err
 	}
 
-	// Set `.nodeName` to the hostname
-	task.NodeName = hostname
-
 	// Add task to the node.
 	if err := node.AddTask(task); err != nil {
+		// After failing to add task to a node we need to revert task status from Binding,
+		// otherwise task might be stuck in the Binding state indefinitely.
+		if err := job.UpdateTaskStatus(task, originalStatus); err != nil {
+			glog.Errorf("Task <%s/%s> will be resynchronized after failing to revert status "+
+				"from %s to %s after failing to add Task to Node <%s>: %v",
+				task.Namespace, task.Name, task.Status, originalStatus, node.Name, err)
+			sc.resyncTask(task)
+		}
 		return err
 	}
 
