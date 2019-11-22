@@ -74,10 +74,10 @@ func (pp *nodeOrderPlugin) Name() string {
 }
 
 type priorityWeight struct {
-	leastReqWeight          int
-	nodeAffinityWeight      int
-	podAffinityWeight       int
-	balancedRescourceWeight int
+	leastReqWeight         int
+	nodeAffinityWeight     int
+	podAffinityWeight      int
+	balancedResourceWeight int
 }
 
 func calculateWeight(args framework.Arguments) priorityWeight {
@@ -105,10 +105,10 @@ func calculateWeight(args framework.Arguments) priorityWeight {
 
 	// Values are initialized to 1.
 	weight := priorityWeight{
-		leastReqWeight:          1,
-		nodeAffinityWeight:      1,
-		podAffinityWeight:       1,
-		balancedRescourceWeight: 1,
+		leastReqWeight:         1,
+		nodeAffinityWeight:     1,
+		podAffinityWeight:      1,
+		balancedResourceWeight: 1,
 	}
 
 	// Checks whether nodeaffinity.weight is provided or not, if given, modifies the value in weight struct.
@@ -121,7 +121,7 @@ func calculateWeight(args framework.Arguments) priorityWeight {
 	args.GetInt(&weight.leastReqWeight, LeastRequestedWeight)
 
 	// Checks whether balancedresource.weight is provided or not, if given, modifies the value in weight struct.
-	args.GetInt(&weight.balancedRescourceWeight, BalancedResourceWeight)
+	args.GetInt(&weight.balancedResourceWeight, BalancedResourceWeight)
 
 	return weight
 }
@@ -150,18 +150,18 @@ func (pp *nodeOrderPlugin) OnSessionOpen(ssn *framework.Session) {
 		{
 			Name:   "BalancedResourceAllocation",
 			Map:    priorities.BalancedResourceAllocationMap,
-			Weight: weight.balancedRescourceWeight,
+			Weight: weight.balancedResourceWeight,
 		},
 		{
 			Name:   "NodeAffinityPriority",
 			Map:    priorities.CalculateNodeAffinityPriorityMap,
 			Reduce: priorities.CalculateNodeAffinityPriorityReduce,
-			Weight: weight.balancedRescourceWeight,
+			Weight: weight.nodeAffinityWeight,
 		},
 		{
 			Name:     "InterPodAffinityPriority",
 			Function: priorities.NewInterPodAffinityPriority(cn, nl, pl, v1.DefaultHardPodAffinitySymmetricWeight),
-			Weight:   weight.balancedRescourceWeight,
+			Weight:   weight.podAffinityWeight,
 		},
 	}
 	ssn.AddNodePrioritizers(pp.Name(), priorityConfigs)
