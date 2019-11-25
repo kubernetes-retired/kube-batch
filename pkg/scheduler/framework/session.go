@@ -206,8 +206,6 @@ func (ssn *Session) Pipeline(task *api.TaskInfo, hostname string) error {
 		return fmt.Errorf("failed to find job %s when binding", task.Job)
 	}
 
-	task.NodeName = hostname
-
 	if node, found := ssn.Nodes[hostname]; found {
 		if err := node.AddTask(task); err != nil {
 			glog.Errorf("Failed to add task <%v/%v> to node <%v> in Session <%v>: %v",
@@ -252,8 +250,6 @@ func (ssn *Session) Allocate(task *api.TaskInfo, hostname string) error {
 			task.Job, ssn.UID)
 		return fmt.Errorf("failed to find job %s", task.Job)
 	}
-
-	task.NodeName = hostname
 
 	if node, found := ssn.Nodes[hostname]; found {
 		if err := node.AddTask(task); err != nil {

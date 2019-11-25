@@ -229,7 +229,7 @@ func (ji *JobInfo) addTaskIndex(ti *TaskInfo) {
 	ji.TaskStatusIndex[ti.Status][ti.UID] = ti
 }
 
-// AddTaskInfo is used to add a task to a job
+// AddTaskInfo is used to add a task to a job.
 func (ji *JobInfo) AddTaskInfo(ti *TaskInfo) {
 	ji.Tasks[ti.UID] = ti
 	ji.addTaskIndex(ti)
@@ -241,16 +241,22 @@ func (ji *JobInfo) AddTaskInfo(ti *TaskInfo) {
 	}
 }
 
-// UpdateTaskStatus is used to update task's status in a job
+// UpdateTaskStatus is used to update task's status in a job.
+//
+// If error occurs both task and job are guaranteed to be in the original state.
 func (ji *JobInfo) UpdateTaskStatus(task *TaskInfo, status TaskStatus) error {
 	if err := validateStatusUpdate(task.Status, status); err != nil {
 		return err
 	}
 
-	// Remove the task from the task list firstly
-	ji.DeleteTaskInfo(task)
+	// First remove the task (if exist) from the task list.
+	if _, found := ji.Tasks[task.UID]; found {
+		if err := ji.DeleteTaskInfo(task); err != nil {
+			return err
+		}
+	}
 
-	// Update task's status to the target status
+	// Update task's status to the target status once task addition is guaranteed to succeed.
 	task.Status = status
 	ji.AddTaskInfo(task)
 
@@ -268,6 +274,8 @@ func (ji *JobInfo) deleteTaskIndex(ti *TaskInfo) {
 }
 
 // DeleteTaskInfo is used to delete a task from a job
+//
+// If error occurs both task and job are guaranteed to be in the original state.
 func (ji *JobInfo) DeleteTaskInfo(ti *TaskInfo) error {
 	if task, found := ji.Tasks[ti.UID]; found {
 		ji.TotalRequest.Sub(task.Resreq)

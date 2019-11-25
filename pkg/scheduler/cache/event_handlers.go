@@ -77,7 +77,9 @@ func (sc *SchedulerCache) addTask(pi *kbapi.TaskInfo) error {
 
 	if len(pi.NodeName) != 0 {
 		if _, found := sc.Nodes[pi.NodeName]; !found {
-			sc.Nodes[pi.NodeName] = kbapi.NewNodeInfo(nil)
+			node := kbapi.NewNodeInfo(nil)
+			node.Name = pi.NodeName
+			sc.Nodes[pi.NodeName] = node
 		}
 
 		node := sc.Nodes[pi.NodeName]

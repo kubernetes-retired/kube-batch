@@ -123,8 +123,6 @@ func (s *Statement) Pipeline(task *api.TaskInfo, hostname string) error {
 			task.Job, s.ssn.UID)
 	}
 
-	task.NodeName = hostname
-
 	if node, found := s.ssn.Nodes[hostname]; found {
 		if err := node.AddTask(task); err != nil {
 			glog.Errorf("Failed to pipeline task <%v/%v> to node <%v> in Session <%v>: %v",
