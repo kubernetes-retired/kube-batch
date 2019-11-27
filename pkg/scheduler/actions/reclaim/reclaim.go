@@ -148,7 +148,7 @@ func (alloc *reclaimAction) Execute(ssn *framework.Session) {
 			for _, v := range victims {
 				allRes.Add(v.Resreq)
 			}
-			if allRes.Less(resreq) {
+			if !resreq.LessEqual(allRes) {
 				glog.V(3).Infof("Not enough resource from victims on Node <%s>.", n.Name)
 				continue
 			}
