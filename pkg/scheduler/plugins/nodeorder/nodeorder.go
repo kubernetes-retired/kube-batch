@@ -28,12 +28,14 @@ import (
 )
 
 const (
+	// LeastRequestedWeight is the key for providing Least Requested Priority Weight in YAML
+	LeastRequestedWeight = "leastrequested.weight"
+	// MostRequestedWeight is the key for providing Most Requested Priority Weight in YAML
+	MostRequestedWeight = "mostrequested.weight"
 	// NodeAffinityWeight is the key for providing Node Affinity Priority Weight in YAML
 	NodeAffinityWeight = "nodeaffinity.weight"
 	// PodAffinityWeight is the key for providing Pod Affinity Priority Weight in YAML
 	PodAffinityWeight = "podaffinity.weight"
-	// LeastRequestedWeight is the key for providing Least Requested Priority Weight in YAML
-	LeastRequestedWeight = "leastrequested.weight"
 	// BalancedResourceWeight is the key for providing Balanced Resource Priority Weight in YAML
 	BalancedResourceWeight = "balancedresource.weight"
 )
@@ -64,7 +66,7 @@ func (c *cachedNodeInfo) GetNodeInfo(name string) (*v1.Node, error) {
 	return node.Node, nil
 }
 
-//New function returns prioritizePlugin object
+// New function returns nodeorder Plugin object.
 func New(aruguments framework.Arguments) framework.Plugin {
 	return &nodeOrderPlugin{pluginArguments: aruguments}
 }
@@ -75,51 +77,56 @@ func (pp *nodeOrderPlugin) Name() string {
 
 type priorityWeight struct {
 	leastReqWeight         int
+	mostReqWeight          int
 	nodeAffinityWeight     int
 	podAffinityWeight      int
 	balancedResourceWeight int
 }
 
+// calculateWeight from the provided arguments.
+//
+// Currently only supported priorities are nodeaffinity, podaffinity, leastrequested,
+// mostrequested, balancedresouce.
+//
+// User should specify priority weights in the config in this format:
+//
+//  actions: "reclaim, allocate, backfill, preempt"
+//  tiers:
+//  - plugins:
+//    - name: priority
+//    - name: gang
+//    - name: conformance
+//  - plugins:
+//    - name: drf
+//    - name: predicates
+//    - name: proportion
+//    - name: nodeorder
+//      arguments:
+//        leastrequested.weight: 2
+//        mostrequested.weight: 0
+//        nodeaffinity.weight: 2
+//        podaffinity.weight: 2
+//        balancedresource.weight: 2
 func calculateWeight(args framework.Arguments) priorityWeight {
-	/*
-	   User Should give priorityWeight in this format(nodeaffinity.weight, podaffinity.weight, leastrequested.weight, balancedresource.weight).
-	   Currently supported only for nodeaffinity, podaffinity, leastrequested, balancedresouce priorities.
-
-	   actions: "reclaim, allocate, backfill, preempt"
-	   tiers:
-	   - plugins:
-	     - name: priority
-	     - name: gang
-	     - name: conformance
-	   - plugins:
-	     - name: drf
-	     - name: predicates
-	     - name: proportion
-	     - name: nodeorder
-	       arguments:
-	         nodeaffinity.weight: 2
-	         podaffinity.weight: 2
-	         leastrequested.weight: 2
-	         balancedresource.weight: 2
-	*/
-
-	// Values are initialized to 1.
+	// Initial values for weights.
+	// By default, for backward compatibility and for reasonable scores,
+	// least requested priority is enabled and most requested priority is disabled.
 	weight := priorityWeight{
 		leastReqWeight:         1,
+		mostReqWeight:          0,
 		nodeAffinityWeight:     1,
 		podAffinityWeight:      1,
 		balancedResourceWeight: 1,
 	}
 
-	// Checks whether nodeaffinity.weight is provided or not, if given, modifies the value in weight struct.
-	args.GetInt(&weight.nodeAffinityWeight, NodeAffinityWeight)
-
-	// Checks whether podaffinity.weight is provided or not, if given, modifies the value in weight struct.
-	args.GetInt(&weight.podAffinityWeight, PodAffinityWeight)
-
 	// Checks whether leastrequested.weight is provided or not, if given, modifies the value in weight struct.
 	args.GetInt(&weight.leastReqWeight, LeastRequestedWeight)
-
+	// Checks whether mostrequested.weight is provided or not, if given, modifies the value in weight struct.
+	args.GetInt(&weight.mostReqWeight, MostRequestedWeight)
+	// Checks whether nodeaffinity.weight is provided or not, if given, modifies the value in weight struct.
+	args.GetInt(&weight.nodeAffinityWeight, NodeAffinityWeight)
+	// Checks whether podaffinity.weight is provided or not, if given, modifies the value in weight struct.
+	args.GetInt(&weight.podAffinityWeight, PodAffinityWeight)
 	// Checks whether balancedresource.weight is provided or not, if given, modifies the value in weight struct.
 	args.GetInt(&weight.balancedResourceWeight, BalancedResourceWeight)
 
@@ -148,9 +155,9 @@ func (pp *nodeOrderPlugin) OnSessionOpen(ssn *framework.Session) {
 			Weight: weight.leastReqWeight,
 		},
 		{
-			Name:   "BalancedResourceAllocation",
-			Map:    priorities.BalancedResourceAllocationMap,
-			Weight: weight.balancedResourceWeight,
+			Name:   "MostRequestedPriority",
+			Map:    priorities.MostRequestedPriorityMap,
+			Weight: weight.mostReqWeight,
 		},
 		{
 			Name:   "NodeAffinityPriority",
@@ -162,6 +169,11 @@ func (pp *nodeOrderPlugin) OnSessionOpen(ssn *framework.Session) {
 			Name:     "InterPodAffinityPriority",
 			Function: priorities.NewInterPodAffinityPriority(cn, nl, pl, v1.DefaultHardPodAffinitySymmetricWeight),
 			Weight:   weight.podAffinityWeight,
+		},
+		{
+			Name:   "BalancedResourceAllocation",
+			Map:    priorities.BalancedResourceAllocationMap,
+			Weight: weight.balancedResourceWeight,
 		},
 	}
 	ssn.AddNodePrioritizers(pp.Name(), priorityConfigs)
