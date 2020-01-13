@@ -26,7 +26,7 @@ Currently **officially** using kube-batch:
 1. [Kubeflow](https://www.kubeflow.org)
 1. [Volcano](https://github.com/volcano-sh/volcano)
 1. [Baidu Inc](http://www.baidu.com)
-1. [Tusimple](https://www.tusimple.com)
+1. [TuSimple](https://www.tusimple.com)
 1. [MOGU Inc](https://www.mogujie.com)
 1. [Vivo](https://www.vivo.com)
 
