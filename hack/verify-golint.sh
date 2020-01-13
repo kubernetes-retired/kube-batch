@@ -24,7 +24,7 @@ source "${KUBE_ROOT}/hack/lib/init.sh"
 kube::golang::verify_go_version
 
 # install golint
-go get -u github.com/golang/lint/golint
+go get -u golang.org/x/lint/golint
 
 cd "${KUBE_ROOT}"
 
