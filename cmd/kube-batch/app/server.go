@@ -116,6 +116,7 @@ func Run(opt *options.ServerOption) error {
 		opt.LockObjectNamespace,
 		"kube-batch",
 		leaderElectionClient.CoreV1(),
+		leaderElectionClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: eventRecorder,

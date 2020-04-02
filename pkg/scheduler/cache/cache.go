@@ -254,12 +254,14 @@ func newSchedulerCache(config *rest.Config, schedulerName string, defaultQueue s
 
 	informerFactory := informers.NewSharedInformerFactory(sc.kubeclient, 0)
 
+	sc.nodeInformer = informerFactory.Core().V1().Nodes()
 	sc.pvcInformer = informerFactory.Core().V1().PersistentVolumeClaims()
 	sc.pvInformer = informerFactory.Core().V1().PersistentVolumes()
 	sc.scInformer = informerFactory.Storage().V1().StorageClasses()
 	sc.VolumeBinder = &defaultVolumeBinder{
 		volumeBinder: volumebinder.NewVolumeBinder(
 			sc.kubeclient,
+			sc.nodeInformer,
 			sc.pvcInformer,
 			sc.pvInformer,
 			sc.scInformer,

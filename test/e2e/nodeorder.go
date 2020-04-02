@@ -20,9 +20,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeletapi "k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 var _ = Describe("NodeOrder E2E Test", func() {
@@ -32,7 +32,7 @@ var _ = Describe("NodeOrder E2E Test", func() {
 
 		nodeNames := getAllWorkerNodes(context)
 		var preferredSchedulingTermSlice []v1.PreferredSchedulingTerm
-		nodeSelectorRequirement := v1.NodeSelectorRequirement{Key: kubeletapi.LabelHostname, Operator: v1.NodeSelectorOpIn, Values: []string{nodeNames[0]}}
+		nodeSelectorRequirement := v1.NodeSelectorRequirement{Key: corev1.LabelHostname, Operator: v1.NodeSelectorOpIn, Values: []string{nodeNames[0]}}
 		nodeSelectorTerm := v1.NodeSelectorTerm{MatchExpressions: []v1.NodeSelectorRequirement{nodeSelectorRequirement}}
 		schedulingTerm := v1.PreferredSchedulingTerm{Weight: 100, Preference: nodeSelectorTerm}
 		preferredSchedulingTermSlice = append(preferredSchedulingTermSlice, schedulingTerm)
@@ -147,7 +147,7 @@ var _ = Describe("NodeOrder E2E Test", func() {
 						{
 							MatchExpressions: []v1.NodeSelectorRequirement{
 								{
-									Key:      kubeletapi.LabelHostname,
+									Key:      corev1.LabelHostname,
 									Operator: v1.NodeSelectorOpIn,
 									Values:   []string{nodeNames[0]},
 								},
@@ -183,7 +183,7 @@ var _ = Describe("NodeOrder E2E Test", func() {
 						{
 							MatchExpressions: []v1.NodeSelectorRequirement{
 								{
-									Key:      kubeletapi.LabelHostname,
+									Key:      corev1.LabelHostname,
 									Operator: v1.NodeSelectorOpIn,
 									Values:   []string{nodeNames[1]},
 								},

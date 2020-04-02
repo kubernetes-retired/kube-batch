@@ -19,6 +19,8 @@ limitations under the License.
 package versioned
 
 import (
+	"fmt"
+
 	schedulingv1alpha1 "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned/typed/scheduling/v1alpha1"
 	schedulingv1alpha2 "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned/typed/scheduling/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
@@ -29,8 +31,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Scheduling() schedulingv1alpha1.SchedulingV1alpha1Interface
 	SchedulingV1alpha2() schedulingv1alpha2.SchedulingV1alpha2Interface
 }
 
@@ -44,12 +44,6 @@ type Clientset struct {
 
 // SchedulingV1alpha1 retrieves the SchedulingV1alpha1Client
 func (c *Clientset) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface {
-	return c.schedulingV1alpha1
-}
-
-// Deprecated: Scheduling retrieves the default version of SchedulingClient.
-// Please explicitly pick a version.
-func (c *Clientset) Scheduling() schedulingv1alpha1.SchedulingV1alpha1Interface {
 	return c.schedulingV1alpha1
 }
 
@@ -67,9 +61,14 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 // NewForConfig creates a new Clientset for the given config.
+// If config's RateLimiter is not set and QPS and Burst are acceptable,
+// NewForConfig will generate a rate-limiter in configShallowCopy.
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
+		if configShallowCopy.Burst <= 0 {
+			return nil, fmt.Errorf("Burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+		}
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 	var cs Clientset

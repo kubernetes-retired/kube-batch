@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm"
+	"k8s.io/kubernetes/pkg/scheduler/algorithm/priorities"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/cache"
@@ -57,7 +57,7 @@ type Session struct {
 	jobReadyFns      map[string]api.ValidateFn
 	jobPipelinedFns  map[string]api.ValidateFn
 	jobValidFns      map[string]api.ValidateExFn
-	nodePrioritizers map[string][]algorithm.PriorityConfig
+	nodePrioritizers map[string][]priorities.PriorityConfig
 }
 
 func openSession(cache cache.Cache) *Session {
@@ -80,7 +80,7 @@ func openSession(cache cache.Cache) *Session {
 		jobReadyFns:      map[string]api.ValidateFn{},
 		jobPipelinedFns:  map[string]api.ValidateFn{},
 		jobValidFns:      map[string]api.ValidateExFn{},
-		nodePrioritizers: map[string][]algorithm.PriorityConfig{},
+		nodePrioritizers: map[string][]priorities.PriorityConfig{},
 	}
 
 	snapshot := cache.Snapshot()

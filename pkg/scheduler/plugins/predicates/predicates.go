@@ -22,9 +22,8 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/kubernetes/pkg/scheduler/algorithm"
 	"k8s.io/kubernetes/pkg/scheduler/algorithm/predicates"
-	"k8s.io/kubernetes/pkg/scheduler/cache"
+	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
@@ -54,7 +53,7 @@ func (pp *predicatesPlugin) Name() string {
 	return "predicates"
 }
 
-func formatReason(reasons []algorithm.PredicateFailureReason) string {
+func formatReason(reasons []predicates.PredicateFailureReason) string {
 	reasonStrings := []string{}
 	for _, v := range reasons {
 		reasonStrings = append(reasonStrings, fmt.Sprintf("%v", v.GetReason()))
@@ -122,7 +121,7 @@ func (pp *predicatesPlugin) OnSessionOpen(ssn *framework.Session) {
 	predicate := enablePredicate(pp.pluginArguments)
 
 	ssn.AddPredicateFn(pp.Name(), func(task *api.TaskInfo, node *api.NodeInfo) error {
-		nodeInfo := cache.NewNodeInfo(node.Pods()...)
+		nodeInfo := schedulernodeinfo.NewNodeInfo(node.Pods()...)
 		nodeInfo.SetNode(node.Node)
 
 		if node.Allocatable.MaxTaskNum <= len(nodeInfo.Pods()) {

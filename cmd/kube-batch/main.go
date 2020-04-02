@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/apiserver/pkg/util/flag"
+	"k8s.io/klog"
 
 	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app"
 	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app/options"
@@ -41,7 +41,7 @@ func main() {
 	s.AddFlags(pflag.CommandLine)
 	s.RegisterOptions()
 
-	flag.InitFlags()
+	klog.InitFlags(nil)
 	if err := s.CheckOptionOrDie(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
