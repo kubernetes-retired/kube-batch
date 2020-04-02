@@ -26,9 +26,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm"
+	"k8s.io/kubernetes/pkg/scheduler/algorithm/priorities"
 	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
-	"k8s.io/kubernetes/pkg/scheduler/cache"
+	schedulernodeinfo "k8s.io/kubernetes/pkg/scheduler/nodeinfo"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
@@ -89,7 +89,7 @@ func PredicateNodes(task *api.TaskInfo, nodes []*api.NodeInfo, fn api.PredicateF
 func PrioritizeNodes(
 	task *api.TaskInfo,
 	filterNodes []*api.NodeInfo,
-	priorityConfigs []algorithm.PriorityConfig,
+	priorityConfigs []priorities.PriorityConfig,
 ) (HostPriorityList, error) {
 	nodeNameToInfo, nodes := generateNodeMapAndSlice(filterNodes)
 	var (
@@ -108,7 +108,7 @@ func PrioritizeNodes(
 	for i, priorityConfig := range priorityConfigs {
 		if priorityConfig.Function != nil {
 			wg.Add(1)
-			go func(index int, config algorithm.PriorityConfig) {
+			go func(index int, config priorities.PriorityConfig) {
 				defer wg.Done()
 				var err error
 				results[index], err = config.Function(task.Pod, nodeNameToInfo, nodes)
@@ -140,7 +140,7 @@ func PrioritizeNodes(
 			continue
 		}
 		wg.Add(1)
-		go func(index int, config algorithm.PriorityConfig) {
+		go func(index int, config priorities.PriorityConfig) {
 			defer wg.Done()
 			if err := config.Reduce(task.Pod, nil, nodeNameToInfo, results[index]); err != nil {
 				appendError(err)
@@ -216,12 +216,12 @@ func GetNodeList(nodes map[string]*api.NodeInfo) []*api.NodeInfo {
 	return result
 }
 
-func generateNodeMapAndSlice(nodes []*api.NodeInfo) (map[string]*cache.NodeInfo, []*v1.Node) {
-	var nodeMap map[string]*cache.NodeInfo
+func generateNodeMapAndSlice(nodes []*api.NodeInfo) (map[string]*schedulernodeinfo.NodeInfo, []*v1.Node) {
+	var nodeMap map[string]*schedulernodeinfo.NodeInfo
 	var nodeSlice []*v1.Node
-	nodeMap = make(map[string]*cache.NodeInfo)
+	nodeMap = make(map[string]*schedulernodeinfo.NodeInfo)
 	for _, node := range nodes {
-		nodeInfo := cache.NewNodeInfo(node.Pods()...)
+		nodeInfo := schedulernodeinfo.NewNodeInfo(node.Pods()...)
 		nodeInfo.SetNode(node.Node)
 		nodeMap[node.Name] = nodeInfo
 		nodeSlice = append(nodeSlice, node.Node)

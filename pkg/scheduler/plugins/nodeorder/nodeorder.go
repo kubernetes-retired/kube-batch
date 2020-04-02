@@ -20,10 +20,7 @@ import (
 	"fmt"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/framework"
-	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/plugins/util"
-
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm"
 	"k8s.io/kubernetes/pkg/scheduler/algorithm/priorities"
 )
 
@@ -136,19 +133,11 @@ func calculateWeight(args framework.Arguments) priorityWeight {
 func (pp *nodeOrderPlugin) OnSessionOpen(ssn *framework.Session) {
 	weight := calculateWeight(pp.pluginArguments)
 
-	pl := &util.PodLister{
-		Session: ssn,
-	}
-
-	nl := &util.NodeLister{
-		Session: ssn,
-	}
-
 	cn := &cachedNodeInfo{
 		session: ssn,
 	}
 
-	priorityConfigs := []algorithm.PriorityConfig{
+	priorityConfigs := []priorities.PriorityConfig{
 		{
 			Name:   "LeastRequestedPriority",
 			Map:    priorities.LeastRequestedPriorityMap,
@@ -167,7 +156,7 @@ func (pp *nodeOrderPlugin) OnSessionOpen(ssn *framework.Session) {
 		},
 		{
 			Name:     "InterPodAffinityPriority",
-			Function: priorities.NewInterPodAffinityPriority(cn, nl, pl, v1.DefaultHardPodAffinitySymmetricWeight),
+			Function: priorities.NewInterPodAffinityPriority(cn, v1.DefaultHardPodAffinitySymmetricWeight),
 			Weight:   weight.podAffinityWeight,
 		},
 		{

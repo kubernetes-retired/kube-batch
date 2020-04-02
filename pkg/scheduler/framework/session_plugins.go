@@ -18,7 +18,7 @@ package framework
 
 import (
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm"
+	"k8s.io/kubernetes/pkg/scheduler/algorithm/priorities"
 )
 
 // AddJobOrderFn add job order function
@@ -62,7 +62,7 @@ func (ssn *Session) AddPredicateFn(name string, pf api.PredicateFn) {
 }
 
 // AddNodePrioritizers add Node prioritizers
-func (ssn *Session) AddNodePrioritizers(name string, pf []algorithm.PriorityConfig) {
+func (ssn *Session) AddNodePrioritizers(name string, pf []priorities.PriorityConfig) {
 	ssn.nodePrioritizers[name] = pf
 }
 
@@ -351,8 +351,8 @@ func (ssn *Session) PredicateFn(task *api.TaskInfo, node *api.NodeInfo) error {
 }
 
 // NodePrioritizers merge all prioritizers function of the plugins
-func (ssn *Session) NodePrioritizers() []algorithm.PriorityConfig {
-	priorityConfigs := []algorithm.PriorityConfig{}
+func (ssn *Session) NodePrioritizers() []priorities.PriorityConfig {
+	priorityConfigs := []priorities.PriorityConfig{}
 	for _, tier := range ssn.Tiers {
 		for _, plugin := range tier.Plugins {
 			if !isEnabled(plugin.EnabledNodeOrder) {

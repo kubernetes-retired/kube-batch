@@ -23,10 +23,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
-
-	"k8s.io/kubernetes/pkg/util/file"
 
 	. "github.com/onsi/gomega"
 
@@ -43,12 +42,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	utilpath "k8s.io/utils/path"
 
 	kbv1 "github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	kbver "github.com/kubernetes-sigs/kube-batch/pkg/client/clientset/versioned"
 	kbapi "github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
-
-	"sync"
 
 	. "github.com/onsi/ginkgo"
 )
@@ -363,7 +361,7 @@ func createJob(context *context, job *jobSpec) ([]*batchv1.Job, *kbv1.PodGroup) 
 
 func taskPhase(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum int) wait.ConditionFunc {
 	return func() (bool, error) {
-		pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
+		pg, err := ctx.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
 		checkError(ctx, err)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
@@ -389,7 +387,7 @@ func taskPhase(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum int
 
 func taskPhaseEx(ctx *context, pg *kbv1.PodGroup, phase []v1.PodPhase, taskNum map[string]int) wait.ConditionFunc {
 	return func() (bool, error) {
-		pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
+		pg, err := ctx.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
 		checkError(ctx, err)
 
 		pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
@@ -713,7 +711,7 @@ func computeNode(ctx *context, req v1.ResourceList) (string, int32) {
 }
 
 func getPodOfPodGroup(ctx *context, pg *kbv1.PodGroup) []*v1.Pod {
-	pg, err := ctx.kbclient.Scheduling().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
+	pg, err := ctx.kbclient.SchedulingV1alpha1().PodGroups(pg.Namespace).Get(pg.Name, metav1.GetOptions{})
 	checkError(ctx, err)
 
 	pods, err := ctx.kubeclient.CoreV1().Pods(pg.Namespace).List(metav1.ListOptions{})
@@ -844,7 +842,7 @@ func getkubemarkConfigPath() string {
 	}
 	//TODO: Please update this path as well once the whole tests are being moved into root test folder.
 	configPath := filepath.Join(wd, "../../kubemark/kubeconfig.kubemark")
-	exist, err := file.FileExists(configPath)
+	exist, err := utilpath.Exists(utilpath.CheckFollowSymlink, configPath)
 	if err != nil || !exist {
 		return ""
 	}
