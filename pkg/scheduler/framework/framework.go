@@ -17,6 +17,9 @@ limitations under the License.
 package framework
 
 import (
+	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	"github.com/golang/glog"
@@ -47,6 +50,28 @@ func OpenSession(cache cache.Cache, tiers []conf.Tier) *Session {
 		plugin.OnSessionOpen(ssn)
 		metrics.UpdatePluginDuration(plugin.Name(), metrics.OnSessionOpen, metrics.Duration(onSessionOpenStart))
 	}
+
+	for _, job := range ssn.Jobs {
+		if vjr := ssn.JobValid(job); vjr != nil {
+			if !vjr.Pass {
+				jc := &api.PodGroupCondition{
+					Type:               api.PodGroupUnschedulableType,
+					Status:             v1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+					TransitionID:       string(ssn.UID),
+					Reason:             vjr.Reason,
+					Message:            vjr.Message,
+				}
+
+				if err := ssn.UpdateJobCondition(job, jc); err != nil {
+					glog.Errorf("Failed to update job condition: %v", err)
+				}
+			}
+
+			delete(ssn.Jobs, job.UID)
+		}
+	}
+
 
 	return ssn
 }

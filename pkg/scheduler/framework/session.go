@@ -22,7 +22,6 @@ import (
 	"github.com/golang/glog"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/kubernetes/pkg/scheduler/algorithm/priorities"
@@ -86,27 +85,6 @@ func openSession(cache cache.Cache) *Session {
 	snapshot := cache.Snapshot()
 
 	ssn.Jobs = snapshot.Jobs
-	for _, job := range ssn.Jobs {
-		if vjr := ssn.JobValid(job); vjr != nil {
-			if !vjr.Pass {
-				jc := &api.PodGroupCondition{
-					Type:               api.PodGroupUnschedulableType,
-					Status:             v1.ConditionTrue,
-					LastTransitionTime: metav1.Now(),
-					TransitionID:       string(ssn.UID),
-					Reason:             vjr.Reason,
-					Message:            vjr.Message,
-				}
-
-				if err := ssn.UpdateJobCondition(job, jc); err != nil {
-					glog.Errorf("Failed to update job condition: %v", err)
-				}
-			}
-
-			delete(ssn.Jobs, job.UID)
-		}
-	}
-
 	ssn.Nodes = snapshot.Nodes
 	ssn.Queues = snapshot.Queues
 
