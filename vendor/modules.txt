@@ -54,8 +54,6 @@ github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys
-# github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-github.com/golang/glog
 # github.com/golang/groupcache v0.0.0-20160516000752-02826c3e7903
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.3.1
@@ -641,7 +639,6 @@ k8s.io/kubernetes/pkg/apis/scheduling
 k8s.io/kubernetes/pkg/controller/volume/persistentvolume/util
 k8s.io/kubernetes/pkg/controller/volume/scheduling
 k8s.io/kubernetes/pkg/features
-k8s.io/kubernetes/pkg/kubelet/apis
 k8s.io/kubernetes/pkg/scheduler/algorithm
 k8s.io/kubernetes/pkg/scheduler/algorithm/predicates
 k8s.io/kubernetes/pkg/scheduler/algorithm/priorities

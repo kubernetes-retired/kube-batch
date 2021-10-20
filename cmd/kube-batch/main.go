@@ -20,11 +20,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
 
 	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app"
 	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app/options"
@@ -47,9 +46,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// The default glog flush interval is 30 seconds, which is frighteningly long.
-	go wait.Until(glog.Flush, *logFlushFreq, wait.NeverStop)
-	defer glog.Flush()
+	go wait.Until(klog.Flush, *logFlushFreq, wait.NeverStop)
+	defer klog.Flush()
 
 	if err := app.Run(s); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

@@ -19,7 +19,7 @@ package api
 import (
 	"fmt"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	v1 "k8s.io/api/core/v1"
 )
@@ -135,7 +135,7 @@ func (ni *NodeInfo) SetNode(node *v1.Node) {
 	ni.setNodeState(node)
 
 	if !ni.Ready() {
-		glog.Warningf("Failed to set node info, phase: %s, reason: %s",
+		klog.Warningf("Failed to set node info, phase: %s, reason: %s",
 			ni.State.Phase, ni.State.Reason)
 		return
 	}
@@ -252,7 +252,7 @@ func (ni *NodeInfo) UpdateTask(ti *TaskInfo) error {
 	if err := ni.AddTask(ti); err != nil {
 		// This should never happen if task removal was successful,
 		// because only possible error during task addition is when task is still on a node.
-		glog.Fatalf("Failed to add Task <%s,%s> to Node <%s> during task update",
+		klog.Fatalf("Failed to add Task <%s,%s> to Node <%s> during task update",
 			ti.Namespace, ti.Name, ni.Name)
 	}
 	return nil

@@ -19,7 +19,7 @@ package drf
 import (
 	"math"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api/helpers"
@@ -104,7 +104,7 @@ func (drf *drfPlugin) OnSessionOpen(ssn *framework.Session) {
 			}
 		}
 
-		glog.V(4).Infof("Victims from DRF plugins are %+v", victims)
+		klog.V(4).Infof("Victims from DRF plugins are %+v", victims)
 
 		return victims
 	}
@@ -115,7 +115,7 @@ func (drf *drfPlugin) OnSessionOpen(ssn *framework.Session) {
 		lv := l.(*api.JobInfo)
 		rv := r.(*api.JobInfo)
 
-		glog.V(4).Infof("DRF JobOrderFn: <%v/%v> share state: %v, <%v/%v> share state: %v",
+		klog.V(4).Infof("DRF JobOrderFn: <%v/%v> share state: %v, <%v/%v> share state: %v",
 			lv.Namespace, lv.Name, drf.jobOpts[lv.UID].share, rv.Namespace, rv.Name, drf.jobOpts[rv.UID].share)
 
 		if drf.jobOpts[lv.UID].share == drf.jobOpts[rv.UID].share {
@@ -139,7 +139,7 @@ func (drf *drfPlugin) OnSessionOpen(ssn *framework.Session) {
 
 			drf.updateShare(attr)
 
-			glog.V(4).Infof("DRF AllocateFunc: task <%v/%v>, resreq <%v>,  share <%v>",
+			klog.V(4).Infof("DRF AllocateFunc: task <%v/%v>, resreq <%v>,  share <%v>",
 				event.Task.Namespace, event.Task.Name, event.Task.Resreq, attr.share)
 		},
 		DeallocateFunc: func(event *framework.Event) {
@@ -148,7 +148,7 @@ func (drf *drfPlugin) OnSessionOpen(ssn *framework.Session) {
 
 			drf.updateShare(attr)
 
-			glog.V(4).Infof("DRF EvictFunc: task <%v/%v>, resreq <%v>,  share <%v>",
+			klog.V(4).Infof("DRF EvictFunc: task <%v/%v>, resreq <%v>,  share <%v>",
 				event.Task.Namespace, event.Task.Name, event.Task.Resreq, attr.share)
 		},
 	})

@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha2"
@@ -60,7 +60,7 @@ func createShadowPodGroup(pod *v1.Pod) *api.PodGroup {
 		if integerValue, err := strconv.Atoi(annotationValue); err == nil {
 			minMember = integerValue
 		} else {
-			glog.Errorf("Pod %s/%s has illegal value %q for annotation %q",
+			klog.Errorf("Pod %s/%s has illegal value %q for annotation %q",
 				pod.Namespace, pod.Name, annotationValue, v1alpha1.GroupMinMemberAnnotationKey)
 		}
 	}
@@ -68,7 +68,7 @@ func createShadowPodGroup(pod *v1.Pod) *api.PodGroup {
 		if integerValue, err := strconv.Atoi(annotationValue); err == nil {
 			minMember = integerValue
 		} else {
-			glog.Errorf("Pod %s/%s has illegal value %q for annotation %q",
+			klog.Errorf("Pod %s/%s has illegal value %q for annotation %q",
 				pod.Namespace, pod.Name, annotationValue, v1alpha2.GroupMinMemberAnnotationKey)
 		}
 	}

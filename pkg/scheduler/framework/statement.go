@@ -17,7 +17,7 @@ limitations under the License.
 package framework
 
 import (
-	"github.com/golang/glog"
+	"k8s.io/klog"
 
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler/api"
 )
@@ -39,11 +39,11 @@ func (s *Statement) Evict(reclaimee *api.TaskInfo, reason string) error {
 	job, found := s.ssn.Jobs[reclaimee.Job]
 	if found {
 		if err := job.UpdateTaskStatus(reclaimee, api.Releasing); err != nil {
-			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
+			klog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
 				reclaimee.Namespace, reclaimee.Name, api.Releasing, s.ssn.UID, err)
 		}
 	} else {
-		glog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
+		klog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
 			reclaimee.Job, s.ssn.UID)
 	}
 
@@ -71,7 +71,7 @@ func (s *Statement) Evict(reclaimee *api.TaskInfo, reason string) error {
 func (s *Statement) evict(reclaimee *api.TaskInfo, reason string) error {
 	if err := s.ssn.cache.Evict(reclaimee, reason); err != nil {
 		if e := s.unevict(reclaimee, reason); err != nil {
-			glog.Errorf("Faled to unevict task <%v/%v>: %v.",
+			klog.Errorf("Faled to unevict task <%v/%v>: %v.",
 				reclaimee.Namespace, reclaimee.Name, e)
 		}
 		return err
@@ -85,11 +85,11 @@ func (s *Statement) unevict(reclaimee *api.TaskInfo, reason string) error {
 	job, found := s.ssn.Jobs[reclaimee.Job]
 	if found {
 		if err := job.UpdateTaskStatus(reclaimee, api.Running); err != nil {
-			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
+			klog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
 				reclaimee.Namespace, reclaimee.Name, api.Releasing, s.ssn.UID, err)
 		}
 	} else {
-		glog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
+		klog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
 			reclaimee.Job, s.ssn.UID)
 	}
 
@@ -115,23 +115,23 @@ func (s *Statement) Pipeline(task *api.TaskInfo, hostname string) error {
 	job, found := s.ssn.Jobs[task.Job]
 	if found {
 		if err := job.UpdateTaskStatus(task, api.Pipelined); err != nil {
-			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
+			klog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
 				task.Namespace, task.Name, api.Pipelined, s.ssn.UID, err)
 		}
 	} else {
-		glog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
+		klog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
 			task.Job, s.ssn.UID)
 	}
 
 	if node, found := s.ssn.Nodes[hostname]; found {
 		if err := node.AddTask(task); err != nil {
-			glog.Errorf("Failed to pipeline task <%v/%v> to node <%v> in Session <%v>: %v",
+			klog.Errorf("Failed to pipeline task <%v/%v> to node <%v> in Session <%v>: %v",
 				task.Namespace, task.Name, hostname, s.ssn.UID, err)
 		}
-		glog.V(3).Infof("After pipelined Task <%v/%v> to Node <%v>: idle <%v>, used <%v>, releasing <%v>",
+		klog.V(3).Infof("After pipelined Task <%v/%v> to Node <%v>: idle <%v>, used <%v>, releasing <%v>",
 			task.Namespace, task.Name, node.Name, node.Idle, node.Used, node.Releasing)
 	} else {
-		glog.Errorf("Failed to found Node <%s> in Session <%s> index when binding.",
+		klog.Errorf("Failed to found Node <%s> in Session <%s> index when binding.",
 			hostname, s.ssn.UID)
 	}
 
@@ -159,11 +159,11 @@ func (s *Statement) unpipeline(task *api.TaskInfo) error {
 	job, found := s.ssn.Jobs[task.Job]
 	if found {
 		if err := job.UpdateTaskStatus(task, api.Pending); err != nil {
-			glog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
+			klog.Errorf("Failed to update task <%v/%v> status to %v in Session <%v>: %v",
 				task.Namespace, task.Name, api.Pipelined, s.ssn.UID, err)
 		}
 	} else {
-		glog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
+		klog.Errorf("Failed to found Job <%s> in Session <%s> index when binding.",
 			task.Job, s.ssn.UID)
 	}
 
@@ -171,13 +171,13 @@ func (s *Statement) unpipeline(task *api.TaskInfo) error {
 
 	if node, found := s.ssn.Nodes[hostname]; found {
 		if err := node.RemoveTask(task); err != nil {
-			glog.Errorf("Failed to pipeline task <%v/%v> to node <%v> in Session <%v>: %v",
+			klog.Errorf("Failed to pipeline task <%v/%v> to node <%v> in Session <%v>: %v",
 				task.Namespace, task.Name, hostname, s.ssn.UID, err)
 		}
-		glog.V(3).Infof("After pipelined Task <%v/%v> to Node <%v>: idle <%v>, used <%v>, releasing <%v>",
+		klog.V(3).Infof("After pipelined Task <%v/%v> to Node <%v>: idle <%v>, used <%v>, releasing <%v>",
 			task.Namespace, task.Name, node.Name, node.Idle, node.Used, node.Releasing)
 	} else {
-		glog.Errorf("Failed to found Node <%s> in Session <%s> index when binding.",
+		klog.Errorf("Failed to found Node <%s> in Session <%s> index when binding.",
 			hostname, s.ssn.UID)
 	}
 
@@ -194,7 +194,7 @@ func (s *Statement) unpipeline(task *api.TaskInfo) error {
 
 // Discard operation for evict and pipeline
 func (s *Statement) Discard() {
-	glog.V(3).Info("Discarding operations ...")
+	klog.V(3).Info("Discarding operations ...")
 	for i := len(s.operations) - 1; i >= 0; i-- {
 		op := s.operations[i]
 		switch op.name {
@@ -208,7 +208,7 @@ func (s *Statement) Discard() {
 
 // Commit operation for evict and pipeline
 func (s *Statement) Commit() {
-	glog.V(3).Info("Committing operations ...")
+	klog.V(3).Info("Committing operations ...")
 	for _, op := range s.operations {
 		switch op.name {
 		case "evict":

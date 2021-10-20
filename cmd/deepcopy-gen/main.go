@@ -53,7 +53,7 @@ import (
 	"k8s.io/gengo/args"
 	"k8s.io/gengo/examples/deepcopy-gen/generators"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"github.com/spf13/pflag"
 )
 
@@ -76,7 +76,7 @@ func main() {
 		generators.DefaultNameSystem(),
 		generators.Packages,
 	); err != nil {
-		glog.Fatalf("Error: %v", err)
+		klog.Fatalf("Error: %v", err)
 	}
-	glog.V(2).Info("Completed successfully.")
+	klog.V(2).Info("Completed successfully.")
 }

@@ -22,7 +22,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/util/workqueue"
@@ -66,12 +66,12 @@ func PredicateNodes(task *api.TaskInfo, nodes []*api.NodeInfo, fn api.PredicateF
 	var workerLock sync.Mutex
 	checkNode := func(index int) {
 		node := nodes[index]
-		glog.V(3).Infof("Considering Task <%v/%v> on node <%v>: <%v> vs. <%v>",
+		klog.V(3).Infof("Considering Task <%v/%v> on node <%v>: <%v> vs. <%v>",
 			task.Namespace, task.Name, node.Name, task.Resreq, node.Idle)
 
 		// TODO (k82cn): Enable eCache for performance improvement.
 		if err := fn(task, node); err != nil {
-			glog.Errorf("Predicates failed for task <%s/%s> on node <%s>: %v",
+			klog.Errorf("Predicates failed for task <%s/%s> on node <%s>: %v",
 				task.Namespace, task.Name, node.Name, err)
 			return
 		}
@@ -145,9 +145,9 @@ func PrioritizeNodes(
 			if err := config.Reduce(task.Pod, nil, nodeNameToInfo, results[index]); err != nil {
 				appendError(err)
 			}
-			if glog.V(10) {
+			if klog.V(10) {
 				for _, hostPriority := range results[index] {
-					glog.Infof("%v/%v -> %v: %v, Score: (%d)", task.Pod.Namespace, task.Pod.Name, hostPriority.Host, config.Name, hostPriority.Score)
+					klog.Infof("%v/%v -> %v: %v, Score: (%d)", task.Pod.Namespace, task.Pod.Name, hostPriority.Host, config.Name, hostPriority.Score)
 				}
 			}
 		}(i, priorityConfig)

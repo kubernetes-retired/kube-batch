@@ -19,7 +19,7 @@ package api
 import (
 	"encoding/json"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha1"
 	"github.com/kubernetes-sigs/kube-batch/pkg/apis/scheduling/v1alpha2"
 	v1 "k8s.io/api/core/v1"
@@ -149,13 +149,13 @@ type PodGroupStatus struct {
 func ConvertPodGroupInfoToV1Alpha(pg *PodGroup) (*v1alpha1.PodGroup, error) {
 	marshalled, err := json.Marshal(*pg)
 	if err != nil {
-		glog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
+		klog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
 	}
 
 	convertedPg := &v1alpha1.PodGroup{}
 	err = json.Unmarshal(marshalled, convertedPg)
 	if err != nil {
-		glog.Errorf("Failed to Unmarshal Data into v1alpha1.PodGroup type with error: %v", err)
+		klog.Errorf("Failed to Unmarshal Data into v1alpha1.PodGroup type with error: %v", err)
 	}
 
 	return convertedPg, nil
@@ -165,13 +165,13 @@ func ConvertPodGroupInfoToV1Alpha(pg *PodGroup) (*v1alpha1.PodGroup, error) {
 func ConvertV1Alpha1ToPodGroupInfo(pg *v1alpha1.PodGroup) (*PodGroup, error) {
 	marshalled, err := json.Marshal(*pg)
 	if err != nil {
-		glog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
+		klog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
 	}
 
 	convertedPg := &PodGroup{}
 	err = json.Unmarshal(marshalled, convertedPg)
 	if err != nil {
-		glog.Errorf("Failed to Unmarshal Data into api.PodGroup type with error: %v", err)
+		klog.Errorf("Failed to Unmarshal Data into api.PodGroup type with error: %v", err)
 	}
 	convertedPg.Version = PodGroupVersionV1Alpha1
 
@@ -182,13 +182,13 @@ func ConvertV1Alpha1ToPodGroupInfo(pg *v1alpha1.PodGroup) (*PodGroup, error) {
 func ConvertPodGroupInfoToV2Alpha(pg *PodGroup) (*v1alpha2.PodGroup, error) {
 	marshalled, err := json.Marshal(*pg)
 	if err != nil {
-		glog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
+		klog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
 	}
 
 	convertedPg := &v1alpha2.PodGroup{}
 	err = json.Unmarshal(marshalled, convertedPg)
 	if err != nil {
-		glog.Errorf("Failed to Unmarshal Data into v1alpha2.PodGroup type with error: %v", err)
+		klog.Errorf("Failed to Unmarshal Data into v1alpha2.PodGroup type with error: %v", err)
 	}
 
 	return convertedPg, nil
@@ -198,13 +198,13 @@ func ConvertPodGroupInfoToV2Alpha(pg *PodGroup) (*v1alpha2.PodGroup, error) {
 func ConvertV1Alpha2ToPodGroupInfo(pg *v1alpha2.PodGroup) (*PodGroup, error) {
 	marshalled, err := json.Marshal(*pg)
 	if err != nil {
-		glog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
+		klog.Errorf("Failed to Marshal podgroup %s with error: %v", pg.Name, err)
 	}
 
 	convertedPg := &PodGroup{}
 	err = json.Unmarshal(marshalled, convertedPg)
 	if err != nil {
-		glog.Errorf("Failed to Unmarshal Data into api.PodGroup type with error: %v", err)
+		klog.Errorf("Failed to Unmarshal Data into api.PodGroup type with error: %v", err)
 	}
 	convertedPg.Version = PodGroupVersionV1Alpha2
 

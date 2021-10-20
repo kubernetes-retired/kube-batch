@@ -23,7 +23,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"github.com/kubernetes-sigs/kube-batch/cmd/kube-batch/app/options"
 	"github.com/kubernetes-sigs/kube-batch/pkg/scheduler"
 	"github.com/kubernetes-sigs/kube-batch/pkg/version"
@@ -82,7 +82,7 @@ func Run(opt *options.ServerOption) error {
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
-		glog.Fatalf("Prometheus Http Server failed %s", http.ListenAndServe(opt.ListenAddress, nil))
+		klog.Fatalf("Prometheus Http Server failed %s", http.ListenAndServe(opt.ListenAddress, nil))
 	}()
 
 	run := func(ctx context.Context) {
@@ -133,7 +133,7 @@ func Run(opt *options.ServerOption) error {
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: run,
 			OnStoppedLeading: func() {
-				glog.Fatalf("leaderelection lost")
+				klog.Fatalf("leaderelection lost")
 			},
 		},
 	})
