@@ -48,7 +48,7 @@ func NewScheduler(
 	conf string,
 	period time.Duration,
 	defaultQueue string,
-) (*Scheduler, error) {
+) *Scheduler {
 	scheduler := &Scheduler{
 		config:         config,
 		schedulerConf:  conf,
@@ -56,7 +56,7 @@ func NewScheduler(
 		schedulePeriod: period,
 	}
 
-	return scheduler, nil
+	return scheduler
 }
 
 // Run runs the Scheduler

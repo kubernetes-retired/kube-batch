@@ -71,14 +71,11 @@ func Run(opt *options.ServerOption) error {
 	}
 
 	// Start policy controller to allocate resources.
-	sched, err := scheduler.NewScheduler(config,
+	sched := scheduler.NewScheduler(config,
 		opt.SchedulerName,
 		opt.SchedulerConf,
 		opt.SchedulePeriod,
 		opt.DefaultQueue)
-	if err != nil {
-		panic(err)
-	}
 
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
