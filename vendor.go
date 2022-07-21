@@ -1,4 +1,4 @@
-// +build vendor
+// go:build vendor
 
 package main
 
