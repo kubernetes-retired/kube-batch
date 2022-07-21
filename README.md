@@ -13,7 +13,7 @@ Refer to [tutorial](doc/usage/tutorial.md) on how to use `kube-batch` to run bat
 
 ## Overall Architecture
 
-The following figure describes the overall architecture and scope of `kube-batch`; the out-of-scope part is going to be handled by other projects, e.g. [Volcano](http://github.com/volcano-sh/volcano)
+The following figure describes the overall architecture and scope of `kube-batch`; the out-of-scope part is going to be handled by other projects.
 
 ![kube-batch](doc/images/kube-batch.png)
 
@@ -23,6 +23,7 @@ As the kube-batch Community grows, we'd like to keep track of our users. Please 
 
 Currently **officially** using kube-batch:
 
+1. [openBCE](https://github.com/openbce)
 1. [Kubeflow](https://www.kubeflow.org)
 1. [Volcano](https://github.com/volcano-sh/volcano)
 1. [Baidu Inc](http://www.baidu.com)
