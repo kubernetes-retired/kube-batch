@@ -9,7 +9,7 @@ spec:
   template:
     metadata:
       annotations:
-        scheduling.k8s.io/group-name: qj-1
+        scheduling.x-k8s.io/group-name: qj-1
     spec:
       containers:
       - image: busybox

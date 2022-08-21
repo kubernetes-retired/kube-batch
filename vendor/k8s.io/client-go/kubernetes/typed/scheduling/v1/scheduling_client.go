@@ -29,7 +29,7 @@ type SchedulingV1Interface interface {
 	PriorityClassesGetter
 }
 
-// SchedulingV1Client is used to interact with features provided by the scheduling.k8s.io group.
+// SchedulingV1Client is used to interact with features provided by the scheduling.x-k8s.io group.
 type SchedulingV1Client struct {
 	restClient rest.Interface
 }

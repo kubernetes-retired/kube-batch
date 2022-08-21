@@ -1001,7 +1001,7 @@ func createRunningPodFromRC(wg *sync.WaitGroup, context *context, name, image, p
 			Template: &v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labels,
-					Annotations: map[string]string{"scheduling.k8s.io/group-name": "qj-1"},
+					Annotations: map[string]string{"scheduling.x-k8s.io/group-name": "qj-1"},
 				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{

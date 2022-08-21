@@ -277,15 +277,15 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	case rbacv1beta1.SchemeGroupVersion.WithResource("rolebindings"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Rbac().V1beta1().RoleBindings().Informer()}, nil
 
-		// Group=scheduling.k8s.io, Version=v1
+		// Group=scheduling.x-k8s.io, Version=v1
 	case schedulingv1.SchemeGroupVersion.WithResource("priorityclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1().PriorityClasses().Informer()}, nil
 
-		// Group=scheduling.k8s.io, Version=v1alpha1
+		// Group=scheduling.x-k8s.io, Version=v1alpha1
 	case schedulingv1alpha1.SchemeGroupVersion.WithResource("priorityclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1alpha1().PriorityClasses().Informer()}, nil
 
-		// Group=scheduling.k8s.io, Version=v1beta1
+		// Group=scheduling.x-k8s.io, Version=v1beta1
 	case schedulingv1beta1.SchemeGroupVersion.WithResource("priorityclasses"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1beta1().PriorityClasses().Informer()}, nil
 

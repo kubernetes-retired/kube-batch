@@ -110,7 +110,7 @@ spec:
   template:
     metadata:
       annotations:
-        scheduling.k8s.io/group-name: qj-1
+        scheduling.x-k8s.io/group-name: qj-1
     spec:
       containers:
       - image: busybox
@@ -130,7 +130,7 @@ spec:
   minMember: 6
 ```
 
-The yaml file means a Job named `qj-01` to create 6 pods(it is specified by `parallelism`), these pods will be scheduled by scheduler `kube-batch` (it is specified by `schedulerName`). `kube-batch` will watch `PodGroup`, and the annotation `scheduling.k8s.io/group-name` identify which group the pod belongs to. `kube-batch` will start `.spec.minMember` pods for a Job at the same time; otherwise, such as resources are not sufficient, `kube-batch` will not start any pods for the Job.
+The yaml file means a Job named `qj-01` to create 6 pods(it is specified by `parallelism`), these pods will be scheduled by scheduler `kube-batch` (it is specified by `schedulerName`). `kube-batch` will watch `PodGroup`, and the annotation `scheduling.x-k8s.io/group-name` identify which group the pod belongs to. `kube-batch` will start `.spec.minMember` pods for a Job at the same time; otherwise, such as resources are not sufficient, `kube-batch` will not start any pods for the Job.
 
 Create the Job
 
@@ -160,7 +160,7 @@ Check the pods status
 Create a `priority_1000.yaml` with the following contents:
 
 ```yaml
-apiVersion: scheduling.k8s.io/v1beta1
+apiVersion: scheduling.x-k8s.io/v1beta1
 kind: PriorityClass
 metadata:
   name: high-priority
@@ -267,7 +267,7 @@ spec:
 ```
 
 3. Try to submit following training jobs. If you have less than 2 gpus available in your cluster, none of workers will be scheduled.
-In order to guide `tf-operator` to use `PodGroup`, you need to annotate `scheduling.k8s.io/group-name: ${PodGroupName}` to your job. In this case, `tf-operator` will create a `PodGroup` named `gang-scheduling-podgroup`.
+In order to guide `tf-operator` to use `PodGroup`, you need to annotate `scheduling.x-k8s.io/group-name: ${PodGroupName}` to your job. In this case, `tf-operator` will create a `PodGroup` named `gang-scheduling-podgroup`.
 
 ```yaml
 apiVersion: "kubeflow.org/v1beta1"
@@ -283,7 +283,7 @@ spec:
       template:
         metadata:
           annotations:
-            scheduling.k8s.io/group-name: "gang-scheduling-podgroup"
+            scheduling.x-k8s.io/group-name: "gang-scheduling-podgroup"
         spec:
           schedulerName: kube-batch
           containers:
